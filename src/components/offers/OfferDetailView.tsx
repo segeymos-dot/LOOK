@@ -87,6 +87,7 @@ export function OfferDetailView({
 
       if (result.conversationId) {
         setConversationId(result.conversationId);
+        router.refresh();
         router.push(`/chat/${result.conversationId}`);
         return;
       }

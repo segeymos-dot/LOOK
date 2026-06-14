@@ -262,7 +262,9 @@ export function getMockMessages(conversationId: string): Message[] {
 }
 
 export function searchMockRequests(query: string, categorySlug?: string | null): Request[] {
-  let results = mockRequests.filter((r) => r.status === "open");
+  let results = mockRequests.filter(
+    (r) => r.status === "open" || r.status === "in_progress"
+  );
 
   if (categorySlug) {
     const cat = mockCategories.find((c) => c.slug === categorySlug);

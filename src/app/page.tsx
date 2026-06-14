@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   let categories = mockCategories;
   let requests = mockRequests;
@@ -19,7 +21,7 @@ export default async function HomePage() {
       supabase
         .from("requests")
         .select("*, customer:profiles(*), category:categories(*)")
-        .eq("status", "open")
+        .in("status", ["open", "in_progress"])
         .order("created_at", { ascending: false })
         .limit(10),
     ]);
@@ -58,7 +60,7 @@ export default async function HomePage() {
         {/* Recent requests */}
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Новые запросы</h2>
+            <h2 className="text-lg font-semibold">Актуальные запросы</h2>
             <Link href="/search" className="text-sm text-indigo-600">
               Все →
             </Link>

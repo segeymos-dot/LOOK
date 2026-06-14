@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RequestOffersList } from "@/components/offers/RequestOffersList";
+import { RequestLifecycleActions } from "@/components/requests/RequestLifecycleActions";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { getRequestOffersForPage } from "@/lib/data/request-offers-server";
@@ -78,6 +79,13 @@ export default async function RequestDetailPage({ params }: PageProps) {
             )}
           </div>
 
+          <RequestLifecycleActions
+            requestId={id}
+            customerId={request.customer_id}
+            initialStatus={request.status}
+            isDemo
+          />
+
           <RequestOffersList
             requestId={id}
             initialOffers={offers}
@@ -148,6 +156,12 @@ export default async function RequestDetailPage({ params }: PageProps) {
             </div>
           )}
         </div>
+
+        <RequestLifecycleActions
+          requestId={id}
+          customerId={request.customer_id}
+          initialStatus={request.status}
+        />
 
         <RequestOffersList
           requestId={id}

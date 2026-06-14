@@ -30,7 +30,7 @@ export function RequestOffersList({
 }: RequestOffersListProps) {
   const { user, loading: authLoading } = useAuth();
   const [offers, setOffers] = useState(initialOffers);
-  const [requestStatus] = useState(initialRequestStatus);
+  const [requestStatus, setRequestStatus] = useState(initialRequestStatus);
   const [conversations, setConversations] = useState(conversationByOfferId);
   const [offersLoading, setOffersLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +38,7 @@ export function RequestOffersList({
   const isCustomer = isDemo
     ? mockCurrentUser.id === customerId
     : user?.id === customerId;
+  const isProvider = !isDemo && user?.id && user.id !== customerId;
 
   const loadOffers = useCallback(async () => {
     if (isDemoMode() || isDemo) return;
@@ -82,6 +83,10 @@ export function RequestOffersList({
   }, [requestId, isDemo, initialOffers.length]);
 
   useEffect(() => {
+    setRequestStatus(initialRequestStatus);
+  }, [initialRequestStatus]);
+
+  useEffect(() => {
     if (isDemoMode() || isDemo) return;
     if (authLoading) return;
     if (!user) return;
@@ -93,6 +98,12 @@ export function RequestOffersList({
     acceptedOffer && conversations[acceptedOffer.id]
       ? conversations[acceptedOffer.id]
       : null;
+  const isAcceptedProvider =
+    !!acceptedOffer && !!user?.id && user.id === acceptedOffer.provider_id;
+  const showChatLink =
+    requestStatus === "in_progress" &&
+    !!activeConversationId &&
+    (isCustomer || isAcceptedProvider);
 
   return (
     <section>
@@ -101,20 +112,24 @@ export function RequestOffersList({
         Предложения ({offersLoading ? "…" : offers.length})
       </h2>
 
-      {requestStatus === "in_progress" && isCustomer && activeConversationId && (
+      {showChatLink && (
         <div className="mb-4 rounded-2xl border border-green-200 bg-green-50 p-4">
           <p className="mb-2 text-sm text-green-800">
-            Исполнитель выбран. Запрос в работе.
+            {isCustomer
+              ? "Исполнитель выбран. Запрос в работе."
+              : "Ваше предложение принято. Запрос в работе."}
           </p>
           <Link href={`/chat/${activeConversationId}`}>
-            <Button size="sm">Открыть чат с исполнителем</Button>
+            <Button size="sm">Открыть чат</Button>
           </Link>
         </div>
       )}
 
-      <Link href={`/requests/${requestId}/offer`}>
-        <Button className="mb-4 w-full">Откликнуться на заказ</Button>
-      </Link>
+      {requestStatus === "open" && (isProvider || (!isCustomer && !user)) && (
+        <Link href={`/requests/${requestId}/offer`}>
+          <Button className="mb-4 w-full">Откликнуться на заказ</Button>
+        </Link>
+      )}
 
       {isCustomer && requestStatus === "open" && offers.length === 0 && !offersLoading && (
         <p className="mb-4 text-center text-sm text-gray-500">

@@ -33,7 +33,7 @@ function SearchContent() {
       let q = supabase
         .from("requests")
         .select("*, customer:profiles(*), category:categories(*)")
-        .eq("status", "open")
+        .in("status", ["open", "in_progress"])
         .order("created_at", { ascending: false });
 
       if (categorySlug) {

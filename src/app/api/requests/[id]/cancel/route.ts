@@ -1,13 +1,13 @@
-import { acceptOffer } from "@/lib/data/offer-actions";
+import { cancelRequest } from "@/lib/data/request-actions";
 import { createAuthenticatedClient } from "@/lib/supabase/authenticated-client";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ offerId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { offerId } = await params;
+  const { id } = await params;
   const accessToken = request.headers
     .get("Authorization")
     ?.replace(/^Bearer\s+/i, "");
@@ -31,7 +31,7 @@ export async function POST(
     );
   }
 
-  const result = await acceptOffer(supabase, offerId);
+  const result = await cancelRequest(supabase, id);
 
   if (!result.success) {
     return NextResponse.json(result, { status: 400 });
@@ -40,7 +40,7 @@ export async function POST(
   revalidatePath("/");
   revalidatePath("/search");
   revalidatePath("/my/requests");
-  revalidatePath(`/requests/${result.requestId}`);
+  revalidatePath(`/requests/${id}`);
 
   return NextResponse.json(result);
 }
