@@ -1,5 +1,8 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationItem } from "@/components/chat/ConversationItem";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { isDemoMode } from "@/lib/config";
 import { mockConversations, mockCurrentUser } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/server";
@@ -11,12 +14,11 @@ export default async function ChatListPage() {
     const user = mockCurrentUser;
 
     return (
-      <AppLayout activePath="/chat">
+      <AppLayout activePath="/chat" title="Чаты">
         <div className="p-4">
-          <h1 className="mb-4 text-xl font-bold">Чаты</h1>
+          <PageHeader title="Сообщения" subtitle="Переписка с заказчиками и исполнителями" />
         </div>
-
-        <div>
+        <div className="bg-surface">
           {mockConversations.map((conversation) => (
             <ConversationItem
               key={conversation.id}
@@ -37,13 +39,18 @@ export default async function ChatListPage() {
 
   if (!user) {
     return (
-      <AppLayout activePath="/chat">
-        <div className="flex flex-col items-center justify-center px-4 py-20">
-          <MessageCircle className="mb-4 h-12 w-12 text-gray-300" />
-          <p className="mb-4 text-gray-500">Войдите, чтобы видеть чаты</p>
-          <Link href="/login" className="text-indigo-600">
-            Войти
-          </Link>
+      <AppLayout activePath="/chat" title="Чаты">
+        <div className="p-4">
+          <EmptyState
+            icon={MessageCircle}
+            title="Войдите, чтобы видеть чаты"
+            description="После принятия предложения откроется переписка"
+            action={
+              <Link href="/login?redirect=/chat">
+                <Button>Войти</Button>
+              </Link>
+            }
+          />
         </div>
       </AppLayout>
     );
@@ -58,13 +65,13 @@ export default async function ChatListPage() {
     .order("last_message_at", { ascending: false });
 
   return (
-    <AppLayout activePath="/chat">
+    <AppLayout activePath="/chat" title="Чаты">
       <div className="p-4">
-        <h1 className="mb-4 text-xl font-bold">Чаты</h1>
+        <PageHeader title="Сообщения" subtitle="Переписка с заказчиками и исполнителями" />
       </div>
 
       {conversations && conversations.length > 0 ? (
-        <div>
+        <div className="bg-surface">
           {conversations.map((conversation) => (
             <ConversationItem
               key={conversation.id}
@@ -74,9 +81,12 @@ export default async function ChatListPage() {
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center px-4 py-20">
-          <MessageCircle className="mb-4 h-12 w-12 text-gray-300" />
-          <p className="text-gray-500">Нет активных чатов</p>
+        <div className="p-4">
+          <EmptyState
+            icon={MessageCircle}
+            title="Нет активных чатов"
+            description="Чат появится после принятия предложения"
+          />
         </div>
       )}
     </AppLayout>

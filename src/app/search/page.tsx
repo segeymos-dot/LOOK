@@ -3,6 +3,9 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Input } from "@/components/ui/Input";
 import { RequestCard } from "@/components/requests/RequestCard";
+import { RequestCardSkeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { isDemoMode } from "@/lib/config";
 import { searchMockRequests } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/client";
@@ -28,33 +31,46 @@ function SearchContent() {
         return;
       }
 
-      const supabase = createClient();
+      const load = async () => {
+        const supabase = createClient();
 
-      let q = supabase
-        .from("requests")
-        .select("*, customer:profiles(*), category:categories(*)")
-        .in("status", ["open", "in_progress"])
-        .order("created_at", { ascending: false });
+        let q = supabase
+          .from("requests")
+          .select("*, customer:profiles(*), category:categories(*)")
+          .in("status", ["open", "in_progress"])
+          .order("created_at", { ascending: false });
 
-      if (categorySlug) {
-        const { data: category } = await supabase
-          .from("categories")
-          .select("id")
-          .eq("slug", categorySlug)
-          .single();
+        if (categorySlug) {
+          const { data: category } = await supabase
+            .from("categories")
+            .select("id")
+            .eq("slug", categorySlug)
+            .single();
 
-        if (category) {
-          q = q.eq("category_id", category.id);
+          if (category) {
+            q = q.eq("category_id", category.id);
+          }
         }
-      }
 
-      if (query.trim()) {
-        q = q.or(`title.ilike.%${query}%,description.ilike.%${query}%`);
-      }
+        if (query.trim()) {
+          q = q.or(`title.ilike.%${query}%,description.ilike.%${query}%`);
+        }
 
-      const { data } = await q.limit(20);
-      setRequests(data ?? []);
-      setLoading(false);
+        const { data } = await q.limit(20);
+        return data ?? [];
+      };
+
+      try {
+        const timeout = new Promise<Request[]>((resolve) =>
+          window.setTimeout(() => resolve([]), 8000)
+        );
+        const data = await Promise.race([load(), timeout]);
+        setRequests(data);
+      } catch {
+        setRequests([]);
+      } finally {
+        setLoading(false);
+      }
     };
 
     const debounce = setTimeout(fetchRequests, 300);
@@ -62,34 +78,42 @@ function SearchContent() {
   }, [query, categorySlug]);
 
   return (
-    <AppLayout activePath="/search">
-      <div className="space-y-4 p-4">
+    <AppLayout activePath="/search" title="Поиск">
+      <div className="space-y-5 p-4">
+        <PageHeader
+          title="Поиск заказов"
+          subtitle={categorySlug ? `Категория: ${categorySlug}` : "Найдите подходящий заказ"}
+        />
+
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-text-muted" />
           <Input
-            placeholder="Поиск запросов..."
+            placeholder="Поиск по названию или описанию..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="pl-10"
+            className="pl-11 shadow-card"
           />
         </div>
 
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-32 animate-pulse rounded-2xl bg-gray-200" />
+              <RequestCardSkeleton key={i} />
             ))}
           </div>
         ) : requests.length > 0 ? (
           <div className="space-y-3">
+            <p className="text-sm text-text-secondary">Найдено: {requests.length}</p>
             {requests.map((request) => (
               <RequestCard key={request.id} request={request} />
             ))}
           </div>
         ) : (
-          <div className="py-12 text-center text-gray-500">
-            Ничего не найдено
-          </div>
+          <EmptyState
+            icon={Search}
+            title="Ничего не найдено"
+            description="Попробуйте изменить запрос или выбрать другую категорию"
+          />
         )}
       </div>
     </AppLayout>

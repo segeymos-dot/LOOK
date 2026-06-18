@@ -12,12 +12,14 @@ import { getMockConversation } from "@/lib/mock/data";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ChevronLeft } from "lucide-react";
 
 export default function ChatDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { messages, loading, sendMessage } = useMessages(id);
   const [otherUserName, setOtherUserName] = useState("");
+  const [otherUserAvatar, setOtherUserAvatar] = useState<string | null>(null);
   const [requestTitle, setRequestTitle] = useState("");
 
   useEffect(() => {
@@ -27,6 +29,7 @@ export default function ChatDetailPage() {
         const other =
           data.customer_id === user.id ? data.provider : data.customer;
         setOtherUserName(other?.full_name ?? "");
+        setOtherUserAvatar(other?.avatar_url ?? null);
         setRequestTitle(data.request?.title ?? "");
       }
       return;
@@ -39,8 +42,8 @@ export default function ChatDetailPage() {
       const { conversation: data } = (await response.json()) as {
         conversation?: {
           customer_id: string;
-          provider?: { full_name: string };
-          customer?: { full_name: string };
+          provider?: { full_name: string; avatar_url?: string | null };
+          customer?: { full_name: string; avatar_url?: string | null };
           request?: { title: string };
         };
       };
@@ -49,6 +52,7 @@ export default function ChatDetailPage() {
         const other =
           data.customer_id === user.id ? data.provider : data.customer;
         setOtherUserName(other?.full_name ?? "");
+        setOtherUserAvatar(other?.avatar_url ?? null);
         setRequestTitle(data.request?.title ?? "");
       }
     };
@@ -62,17 +66,20 @@ export default function ChatDetailPage() {
   };
 
   return (
-    <div className="mx-auto flex h-dvh max-w-lg flex-col bg-gray-50">
-      <header className="border-b border-gray-200 bg-white">
+    <div className="mx-auto flex h-dvh max-w-lg flex-col bg-surface-muted">
+      <header className="glass-header border-b border-border-subtle pt-safe">
         <div className="flex items-center gap-3 px-4 py-3">
-          <Link href="/chat" className="text-indigo-600">
-            ←
+          <Link
+            href="/chat"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface text-text-secondary shadow-card hover:bg-brand-50 hover:text-brand-600"
+          >
+            <ChevronLeft className="h-5 w-5" />
           </Link>
-          <Avatar name={otherUserName || "?"} size="sm" />
-          <div className="min-w-0">
-            <p className="truncate font-medium">{otherUserName}</p>
+          <Avatar src={otherUserAvatar} name={otherUserName || "?"} size="md" ring />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold text-text-primary">{otherUserName}</p>
             {requestTitle && (
-              <p className="truncate text-xs text-gray-500">{requestTitle}</p>
+              <p className="truncate text-xs text-brand-600">{requestTitle}</p>
             )}
           </div>
         </div>
@@ -81,7 +88,7 @@ export default function ChatDetailPage() {
 
       {loading ? (
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-gray-400">Загрузка...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" />
         </div>
       ) : (
         <MessageList messages={messages} currentUserId={user?.id ?? ""} />

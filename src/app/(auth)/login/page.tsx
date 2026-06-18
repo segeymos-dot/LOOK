@@ -1,6 +1,8 @@
 "use client";
 
+import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { isDemoMode } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
@@ -83,9 +85,7 @@ function LoginForm() {
     setErrors({});
     setTestLoading(account.id);
 
-    await fetch("/api/dev/ensure-test-users", { method: "POST" }).catch(
-      () => {}
-    );
+    await fetch("/api/dev/ensure-test-users", { method: "POST" }).catch(() => {});
 
     const { error } = await signIn(account.email, account.password);
     setTestLoading(null);
@@ -110,19 +110,25 @@ function LoginForm() {
   };
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-4">
-      <div className="mb-8 text-center">
-        <Link href="/" className="text-3xl font-bold text-indigo-600">
-          LOOK
-        </Link>
-        <p className="mt-2 text-gray-500">Войдите в аккаунт</p>
-        {demo && (
-          <p className="mt-2 text-sm text-amber-600">
+    <AuthLayout
+      title="Вход"
+      subtitle="Добро пожаловать обратно"
+      banner={
+        demo ? (
+          <p className="mt-3 rounded-xl bg-warning-bg px-3 py-2 text-sm text-amber-800">
             Демо-режим: авторизация отключена
           </p>
-        )}
-      </div>
-
+        ) : undefined
+      }
+      footer={
+        <p className="text-center text-sm text-text-secondary">
+          Нет аккаунта?{" "}
+          <Link href="/register" className="font-semibold text-brand-600">
+            Зарегистрироваться
+          </Link>
+        </p>
+      }
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           id="email"
@@ -143,7 +149,7 @@ function LoginForm() {
           error={errors.password}
         />
 
-        {errors.form && <p className="text-sm text-red-600">{errors.form}</p>}
+        {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
 
         <Button type="submit" loading={loading} className="w-full">
           Войти
@@ -151,14 +157,10 @@ function LoginForm() {
       </form>
 
       {testLoginEnabled && (
-        <div className="mt-6 space-y-3 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 p-4">
-          <p className="text-sm font-medium text-indigo-900">
-            Быстрый тестовый вход
-          </p>
-          <p className="text-xs text-indigo-700">
-            Без отправки email. Пароль по умолчанию: Test1234!
-          </p>
-          <div className="grid grid-cols-2 gap-2">
+        <Card variant="outline" padding="sm" className="mt-6 bg-brand-50/30">
+          <p className="text-sm font-semibold text-text-primary">Быстрый тестовый вход</p>
+          <p className="mt-1 text-xs text-text-secondary">Пароль: Test1234!</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
             {testAccounts.map((account) => (
               <Button
                 key={account.id}
@@ -172,16 +174,9 @@ function LoginForm() {
               </Button>
             ))}
           </div>
-        </div>
+        </Card>
       )}
-
-      <p className="mt-6 text-center text-sm text-gray-500">
-        Нет аккаунта?{" "}
-        <Link href="/register" className="text-indigo-600">
-          Зарегистрироваться
-        </Link>
-      </p>
-    </div>
+    </AuthLayout>
   );
 }
 

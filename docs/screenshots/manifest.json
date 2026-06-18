@@ -1,0 +1,52 @@
+[
+  {
+    "name": "01-home",
+    "path": "/",
+    "file": "docs/screenshots/01-home.png"
+  },
+  {
+    "name": "02-search",
+    "path": "/search",
+    "file": "docs/screenshots/02-search.png"
+  },
+  {
+    "name": "03-login",
+    "path": "/login",
+    "file": "docs/screenshots/03-login.png"
+  },
+  {
+    "name": "04-register",
+    "path": "/register",
+    "file": "docs/screenshots/04-register.png"
+  },
+  {
+    "name": "05-profile",
+    "path": "/profile",
+    "file": "docs/screenshots/05-profile.png"
+  },
+  {
+    "name": "06-new-request",
+    "path": "/requests/new",
+    "file": "docs/screenshots/06-new-request.png"
+  },
+  {
+    "name": "07-chat",
+    "path": "/chat",
+    "file": "docs/screenshots/07-chat.png"
+  },
+  {
+    "name": "08-my-requests",
+    "path": "/my/requests",
+    "file": "docs/screenshots/08-my-requests.png"
+  },
+  {
+    "name": "09-my-offers",
+    "path": "/my/offers",
+    "file": "docs/screenshots/09-my-offers.png"
+  },
+  {
+    "name": "10-provider",
+    "path": "/providers/cdda9bfe-2668-42a9-90e8-d8e4569d6beb",
+    "file": "docs/screenshots/10-provider.png"
+  }
+]

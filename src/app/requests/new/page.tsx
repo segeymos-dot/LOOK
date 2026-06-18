@@ -1,21 +1,43 @@
 "use client";
 
 import { AppLayout } from "@/components/layout/AppLayout";
+import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
+import { useAuth } from "@/hooks/useAuth";
+import { canActAsCustomer } from "@/lib/auth/roles";
 import { isDemoMode } from "@/lib/config";
-import { mockCategories } from "@/lib/mock/data";
+import { getMockCategoriesForProvider, getMockProfile, mockCategories } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/client";
 import { requestSchema } from "@/lib/validations";
 import type { Category } from "@/types";
-import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { AlertCircle } from "lucide-react";
 
 export default function NewRequestPage() {
+  return (
+    <Suspense>
+      <NewRequestPageContent />
+    </Suspense>
+  );
+}
+
+function NewRequestPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const providerId = searchParams.get("provider");
+  const contactIntent = searchParams.get("intent") === "contact";
+  const { displayProfile, loading: authLoading } = useAuth();
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [providerName, setProviderName] = useState<string | null>(null);
+  const [providerAvatar, setProviderAvatar] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -32,6 +54,17 @@ export default function NewRequestPage() {
   useEffect(() => {
     if (isDemoMode()) {
       setCategories(mockCategories);
+      if (providerId) {
+        const provider = getMockProfile(providerId);
+        if (provider) {
+          setProviderName(provider.full_name);
+          setProviderAvatar(provider.avatar_url);
+          const providerCategories = getMockCategoriesForProvider(provider.provider_category_slugs);
+          if (providerCategories[0]) {
+            setForm((prev) => ({ ...prev, category_id: providerCategories[0].id }));
+          }
+        }
+      }
       return;
     }
 
@@ -41,7 +74,42 @@ export default function NewRequestPage() {
       .select("*")
       .order("sort_order")
       .then(({ data }) => setCategories(data ?? []));
-  }, []);
+
+    if (!providerId) return;
+
+    supabase
+      .from("profiles")
+      .select("full_name, avatar_url, provider_category_slugs")
+      .eq("id", providerId)
+      .single()
+      .then(({ data }) => {
+        if (!data) return;
+        setProviderName(data.full_name);
+        setProviderAvatar(data.avatar_url);
+        supabase
+          .from("categories")
+          .select("*")
+          .order("sort_order")
+          .then(({ data: allCategories }) => {
+            const slugs = Array.isArray(data.provider_category_slugs)
+              ? data.provider_category_slugs
+              : [];
+            const match = allCategories?.find((cat) => slugs.includes(cat.slug));
+            if (match) {
+              setForm((prev) => ({ ...prev, category_id: match.id }));
+            }
+          });
+      });
+  }, [providerId]);
+
+  const pageSubtitle = useMemo(() => {
+    if (providerName) {
+      return contactIntent
+        ? `Создайте заказ для ${providerName} — чат откроется после принятия отклика`
+        : `Заказ для исполнителя ${providerName}`;
+    }
+    return "Опишите задачу — исполнители отправят предложения";
+  }, [contactIntent, providerName]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -108,38 +176,83 @@ export default function NewRequestPage() {
     router.push(`/requests/${data.id}`);
   };
 
+  if (!isDemoMode() && !authLoading && displayProfile && !canActAsCustomer(displayProfile.role)) {
+    return (
+      <AppLayout activePath="/requests/new" title="Новый запрос">
+        <div className="space-y-4 p-4">
+          <PageHeader title="Новый запрос" backHref="/" />
+          <Card padding="md" className="border-amber-200 bg-warning-bg">
+            <div className="flex gap-3">
+              <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+              <div>
+                <p className="text-sm text-amber-900">
+                  Создавать заказы могут только заказчики. Измените роль в профиле на «Заказчик»
+                  или «Оба».
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Link href="/profile">
+                    <Button size="sm">Профиль</Button>
+                  </Link>
+                  <Link href="/search">
+                    <Button size="sm" variant="secondary">
+                      Найти заказы
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
-    <AppLayout activePath="/requests/new">
-      <form onSubmit={handleSubmit} className="space-y-4 p-4">
-        <h1 className="text-xl font-bold">Новый запрос</h1>
-
-        <Input
-          id="title"
-          label="Заголовок"
-          placeholder="Например: Нужен ремонт кухни"
-          value={form.title}
-          onChange={(e) => setForm({ ...form, title: e.target.value })}
-          error={errors.title}
+    <AppLayout activePath="/requests/new" title="Новый запрос">
+      <form onSubmit={handleSubmit} className="space-y-5 p-4">
+        <PageHeader
+          title="Создать заказ"
+          subtitle={pageSubtitle}
+          backHref={providerId ? `/providers/${providerId}` : "/"}
         />
 
-        <Textarea
-          id="description"
-          label="Описание"
-          placeholder="Опишите задачу подробно..."
-          rows={5}
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          error={errors.description}
-        />
+        {providerName && (
+          <Card padding="md" className="flex items-center gap-3 border-brand-100 bg-brand-50">
+            <Avatar src={providerAvatar} name={providerName} size="md" ring />
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+                Исполнитель
+              </p>
+              <p className="font-semibold text-text-primary">{providerName}</p>
+            </div>
+          </Card>
+        )}
 
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">
-            Категория
-          </label>
-          <select
+        <Card padding="md" className="space-y-4">
+          <Input
+            id="title"
+            label="Заголовок"
+            placeholder="Например: Нужен ремонт кухни"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            error={errors.title}
+          />
+
+          <Textarea
+            id="description"
+            label="Описание"
+            placeholder="Опишите задачу подробно..."
+            rows={5}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            error={errors.description}
+          />
+
+          <Select
+            id="category_id"
+            label="Категория"
             value={form.category_id}
             onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-base focus:border-indigo-500 focus:outline-none"
           >
             <option value="">Выберите категорию</option>
             {categories.map((cat) => (
@@ -147,47 +260,47 @@ export default function NewRequestPage() {
                 {cat.name}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
 
-        <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              id="budget_min"
+              label="Бюджет от"
+              type="number"
+              placeholder="0"
+              value={form.budget_min}
+              onChange={(e) => setForm({ ...form, budget_min: e.target.value })}
+            />
+            <Input
+              id="budget_max"
+              label="Бюджет до"
+              type="number"
+              placeholder="0"
+              value={form.budget_max}
+              onChange={(e) => setForm({ ...form, budget_max: e.target.value })}
+            />
+          </div>
+
           <Input
-            id="budget_min"
-            label="Бюджет от"
-            type="number"
-            placeholder="0"
-            value={form.budget_min}
-            onChange={(e) => setForm({ ...form, budget_min: e.target.value })}
+            id="location"
+            label="Локация"
+            placeholder="Город или удалённо"
+            value={form.location}
+            onChange={(e) => setForm({ ...form, location: e.target.value })}
           />
+
           <Input
-            id="budget_max"
-            label="Бюджет до"
-            type="number"
-            placeholder="0"
-            value={form.budget_max}
-            onChange={(e) => setForm({ ...form, budget_max: e.target.value })}
+            id="deadline"
+            label="Срок (необязательно)"
+            type="date"
+            value={form.deadline}
+            onChange={(e) => setForm({ ...form, deadline: e.target.value })}
           />
-        </div>
+        </Card>
 
-        <Input
-          id="location"
-          label="Локация"
-          placeholder="Город или удалённо"
-          value={form.location}
-          onChange={(e) => setForm({ ...form, location: e.target.value })}
-        />
+        {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
 
-        <Input
-          id="deadline"
-          label="Срок (необязательно)"
-          type="date"
-          value={form.deadline}
-          onChange={(e) => setForm({ ...form, deadline: e.target.value })}
-        />
-
-        {errors.form && <p className="text-sm text-red-600">{errors.form}</p>}
-
-        <Button type="submit" loading={loading} className="w-full">
+        <Button type="submit" loading={loading} className="w-full" size="lg">
           Опубликовать запрос
         </Button>
       </form>

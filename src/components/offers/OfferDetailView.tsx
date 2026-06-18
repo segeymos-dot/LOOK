@@ -5,23 +5,15 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
-import { authFetch } from "@/lib/auth/client-fetch";
+import { authFetch, getAuthenticatedUser } from "@/lib/auth/client-fetch";
+import { canDecideOnOffer } from "@/lib/auth/viewer-role";
 import { getMockConversationForOffer, mockCurrentUser } from "@/lib/mock/data";
+import { mapOfferActionError } from "@/lib/offers/offer-action-errors";
 import { formatPrice, formatRelativeTime } from "@/lib/utils";
 import type { Offer, RequestStatus } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-
-function mapOfferActionError(message: string): string {
-  if (message.includes("accept_offer") && message.includes("schema cache")) {
-    return "Функция accept_offer не найдена в Supabase. Выполните supabase/migrations/008_deploy_offer_rpc.sql в SQL Editor.";
-  }
-  if (message.includes("Offer not found, not pending, or not authorized")) {
-    return "Предложение недоступно: уже обработано или нет прав.";
-  }
-  return message;
-}
+import { useEffect, useState } from "react";
 
 interface OfferDetailViewProps {
   initialOffer: Offer;
@@ -29,6 +21,8 @@ interface OfferDetailViewProps {
   customerId: string;
   initialRequestStatus: RequestStatus;
   initialConversationId?: string | null;
+  viewerUserId?: string | null;
+  viewerIsCustomer?: boolean;
   isDemo?: boolean;
 }
 
@@ -38,6 +32,8 @@ export function OfferDetailView({
   customerId,
   initialRequestStatus,
   initialConversationId = null,
+  viewerUserId = null,
+  viewerIsCustomer,
   isDemo = false,
 }: OfferDetailViewProps) {
   const router = useRouter();
@@ -45,15 +41,31 @@ export function OfferDetailView({
   const [offer, setOffer] = useState(initialOffer);
   const [requestStatus, setRequestStatus] = useState(initialRequestStatus);
   const [conversationId, setConversationId] = useState(initialConversationId);
+  const [clientUserId, setClientUserId] = useState<string | null>(viewerUserId);
   const [acceptLoading, setAcceptLoading] = useState(false);
   const [rejectLoading, setRejectLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isCustomer = isDemo
-    ? mockCurrentUser.id === customerId
-    : user?.id === customerId;
-  const canDecide =
-    isCustomer && requestStatus === "open" && offer.status === "pending";
+  useEffect(() => {
+    if (isDemo) return;
+
+    void getAuthenticatedUser().then((authenticatedUser) => {
+      if (authenticatedUser?.id) {
+        setClientUserId(authenticatedUser.id);
+      }
+    });
+  }, [isDemo]);
+
+  const activeUserId = user?.id ?? clientUserId ?? viewerUserId;
+  const canDecide = canDecideOnOffer({
+    customerId,
+    userId: activeUserId,
+    viewerIsCustomer,
+    requestStatus,
+    offerStatus: offer.status,
+    isDemo,
+    demoUserId: mockCurrentUser.id,
+  });
 
   const handleAccept = async () => {
     setError(null);
@@ -146,31 +158,33 @@ export function OfferDetailView({
           </div>
 
           {offer.provider && (
-            <div className="mb-4 flex items-center gap-3 border-b border-gray-100 pb-4">
+            <Link
+              href={`/providers/${offer.provider_id}`}
+              className="mb-4 flex items-center gap-3 border-b border-border-subtle pb-4"
+            >
               <Avatar
                 src={offer.provider.avatar_url}
                 name={offer.provider.full_name}
                 size="lg"
+                ring
               />
               <div>
-                <p className="font-medium text-gray-900">
+                <p className="font-semibold text-text-primary hover:text-brand-600">
                   {offer.provider.full_name}
                 </p>
                 {offer.provider.rating > 0 && (
-                  <p className="text-sm text-gray-500">
-                    ★ {offer.provider.rating.toFixed(1)} ·{" "}
-                    {offer.provider.reviews_count} отзывов
+                  <p className="text-sm text-text-secondary">
+                    ★ {offer.provider.rating.toFixed(1)} · {offer.provider.reviews_count} отзывов
+                    · {offer.provider.completed_orders_count} заказов
                   </p>
                 )}
                 {(offer.provider.city || offer.provider.country) && (
-                  <p className="text-sm text-gray-500">
-                    {[offer.provider.city, offer.provider.country]
-                      .filter(Boolean)
-                      .join(", ")}
+                  <p className="text-sm text-text-muted">
+                    {[offer.provider.city, offer.provider.country].filter(Boolean).join(", ")}
                   </p>
                 )}
               </div>
-            </div>
+            </Link>
           )}
 
           <div className="mb-4">
@@ -203,7 +217,7 @@ export function OfferDetailView({
           </p>
         )}
 
-        {canDecide && (
+        {canDecide ? (
           <div className="flex gap-2">
             <Button
               className="flex-1"
@@ -221,7 +235,7 @@ export function OfferDetailView({
               Отклонить
             </Button>
           </div>
-        )}
+        ) : null}
 
         {offer.status === "accepted" && conversationId && (
           <Link href={`/chat/${conversationId}`}>

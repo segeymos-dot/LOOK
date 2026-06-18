@@ -4,13 +4,20 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
+    "dev:clean": "lsof -ti:3000 | xargs kill -9 2>/dev/null; rm -rf .next && next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "supabase:gen-types": "supabase gen types typescript --local > src/types/database.types.ts",
     "supabase:apply-migration": "node scripts/apply-migration.mjs",
-    "supabase:seed-test-users": "node scripts/seed-test-users.mjs"
+    "supabase:seed-test-users": "node scripts/seed-test-users.mjs",
+    "test:roles": "node scripts/test-roles.mjs",
+    "test:both-role-offer": "node scripts/test-both-role-offer.mjs",
+    "test:migration-010": "node scripts/verify-migration-010.mjs",
+    "test:migration-010:seed": "node scripts/verify-migration-010.mjs --seed-provider",
+    "test:finance": "node scripts/verify-financial-cycle.mjs",
+    "test:migration-012": "node scripts/verify-migration-012.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",

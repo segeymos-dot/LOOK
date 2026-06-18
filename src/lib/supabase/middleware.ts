@@ -41,6 +41,7 @@ export async function updateSession(request: NextRequest) {
   const isProtectedRoute =
     request.nextUrl.pathname.startsWith("/profile") ||
     request.nextUrl.pathname.startsWith("/requests/new") ||
+    request.nextUrl.pathname.match(/^\/requests\/[^/]+\/offer\/?$/) ||
     request.nextUrl.pathname.startsWith("/chat") ||
     request.nextUrl.pathname.startsWith("/my");
 

@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
 import { authFetch } from "@/lib/auth/client-fetch";
 import { mockCurrentUser } from "@/lib/mock/data";
+import { getDemoPaymentForRequest } from "@/lib/mock/finance";
+import { isRequestOwner as checkRequestOwner } from "@/lib/auth/viewer-role";
 import type { RequestStatus } from "@/types";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -22,8 +24,14 @@ function mapLifecycleError(message: string): string {
   if (message.includes("cannot be cancelled")) {
     return "Этот запрос нельзя отменить в текущем статусе.";
   }
+  if (message.includes("must be paid")) {
+    return "Сначала проведите тестовую оплату заказа.";
+  }
   if (message.includes("not found or not authorized")) {
     return "Нет прав для изменения статуса запроса.";
+  }
+  if (message.includes("simulate_test_payment") && message.includes("schema cache")) {
+    return "Функция simulate_test_payment не найдена. Выполните supabase/migrations/012_financial_core.sql в SQL Editor.";
   }
   return message;
 }
@@ -32,6 +40,8 @@ interface RequestLifecycleActionsProps {
   requestId: string;
   customerId: string;
   initialStatus: RequestStatus;
+  viewerUserId?: string | null;
+  viewerIsCustomer?: boolean;
   isDemo?: boolean;
 }
 
@@ -39,6 +49,8 @@ export function RequestLifecycleActions({
   requestId,
   customerId,
   initialStatus,
+  viewerUserId = null,
+  viewerIsCustomer,
   isDemo = false,
 }: RequestLifecycleActionsProps) {
   const router = useRouter();
@@ -48,20 +60,24 @@ export function RequestLifecycleActions({
   const [cancelLoading, setCancelLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isCustomer = isDemo
-    ? mockCurrentUser.id === customerId
-    : user?.id === customerId;
+  const isRequestOwner = checkRequestOwner({
+    customerId,
+    userId: user?.id ?? viewerUserId,
+    viewerIsOwner: viewerIsCustomer,
+    isDemo,
+    demoUserId: mockCurrentUser.id,
+  });
 
-  if (!isCustomer) return null;
+  if (!isRequestOwner) return null;
 
   const canComplete = status === "in_progress";
   const canCancel = status === "open" || status === "in_progress";
 
   if (!canComplete && !canCancel) {
     return (
-      <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-border-subtle bg-surface p-4 shadow-card">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-gray-600">Статус запроса</p>
+          <p className="text-sm text-text-secondary">Статус запроса</p>
           <Badge status={status} />
         </div>
       </div>
@@ -74,6 +90,10 @@ export function RequestLifecycleActions({
 
     try {
       if (isDemo) {
+        if (!getDemoPaymentForRequest(requestId)) {
+          setError("Сначала проведите тестовую оплату заказа.");
+          return;
+        }
         setStatus("completed");
         router.refresh();
         return;
@@ -133,20 +153,20 @@ export function RequestLifecycleActions({
   };
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-border-subtle bg-surface p-4 shadow-card">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-gray-900">Управление запросом</p>
+        <p className="text-sm font-semibold text-text-primary">Управление запросом</p>
         <Badge status={status} />
       </div>
 
       {status === "in_progress" && (
-        <p className="mb-3 text-sm text-gray-600">
+        <p className="mb-3 text-sm text-text-secondary">
           Исполнитель назначен. Когда работа выполнена, отметьте запрос как завершённый.
         </p>
       )}
 
       {error && (
-        <p className="mb-3 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-600">
+        <p className="mb-3 rounded-xl bg-danger-bg px-4 py-2 text-sm text-danger">
           {error}
         </p>
       )}

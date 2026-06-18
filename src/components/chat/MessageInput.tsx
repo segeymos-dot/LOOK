@@ -26,7 +26,7 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex items-end gap-2 border-t border-gray-200 bg-white p-3"
+      className="flex items-end gap-2 border-t border-border-subtle bg-surface p-3 pb-safe"
     >
       <textarea
         value={content}
@@ -34,7 +34,7 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
         placeholder="Написать сообщение..."
         rows={1}
         disabled={disabled || sending}
-        className="max-h-32 flex-1 resize-none rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none"
+        className="max-h-32 flex-1 resize-none rounded-2xl border border-border bg-surface-muted px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -46,7 +46,7 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
         type="submit"
         size="sm"
         disabled={!content.trim() || disabled || sending}
-        className="shrink-0"
+        className="h-11 w-11 shrink-0 rounded-2xl p-0"
       >
         <Send className="h-4 w-4" />
       </Button>

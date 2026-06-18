@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
+import { Card } from "@/components/ui/Card";
+import { Chip } from "@/components/ui/Chip";
 import { formatPrice, formatRelativeTime } from "@/lib/utils";
 import type { Request } from "@/types";
-import { MessageCircle } from "lucide-react";
+import { ChevronRight, MapPin, MessageCircle } from "lucide-react";
 
 interface RequestCardProps {
   request: Request;
@@ -11,57 +13,62 @@ interface RequestCardProps {
 
 export function RequestCard({ request }: RequestCardProps) {
   return (
-    <Link
-      href={`/requests/${request.id}`}
-      className="block rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
-    >
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <h3 className="line-clamp-2 font-semibold text-gray-900">{request.title}</h3>
-        <Badge status={request.status} />
-      </div>
-
-      <p className="mb-3 line-clamp-2 text-sm text-gray-600">{request.description}</p>
-
-      <div className="mb-3 flex flex-wrap gap-2 text-sm">
-        {request.category && (
-          <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-indigo-700">
-            {request.category.name}
-          </span>
-        )}
-        {request.budget_max && (
-          <span className="font-medium text-gray-900">
-            до {formatPrice(request.budget_max, request.currency)}
-          </span>
-        )}
-        {request.location && (
-          <span className="text-gray-500">{request.location}</span>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {request.customer && (
-            <>
-              <Avatar
-                src={request.customer.avatar_url}
-                name={request.customer.full_name}
-                size="sm"
-              />
-              <span className="text-sm text-gray-600">{request.customer.full_name}</span>
-            </>
-          )}
+    <Link href={`/requests/${request.id}`} className="group block">
+      <Card className="transition-all duration-200 group-hover:border-brand-200 group-hover:shadow-elevated">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <h3 className="line-clamp-2 flex-1 text-base font-bold tracking-tight text-text-primary group-hover:text-brand-700">
+            {request.title}
+          </h3>
+          <Badge status={request.status} />
         </div>
 
-        <div className="flex items-center gap-3 text-sm text-gray-500">
-          {request.offers_count !== undefined && request.offers_count > 0 && (
-            <span className="flex items-center gap-1">
-              <MessageCircle className="h-4 w-4" />
-              {request.offers_count}
+        <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-text-secondary">
+          {request.description}
+        </p>
+
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {request.category && <Chip>{request.category.name}</Chip>}
+          {request.budget_max && (
+            <span className="text-sm font-bold text-text-primary">
+              до {formatPrice(request.budget_max, request.currency)}
             </span>
           )}
-          <span>{formatRelativeTime(request.created_at)}</span>
+          {request.location && (
+            <span className="flex items-center gap-1 text-xs text-text-muted">
+              <MapPin className="h-3.5 w-3.5" />
+              {request.location}
+            </span>
+          )}
         </div>
-      </div>
+
+        <div className="flex items-center justify-between border-t border-border-subtle pt-3">
+          <div className="flex items-center gap-2">
+            {request.customer && (
+              <>
+                <Avatar
+                  src={request.customer.avatar_url}
+                  name={request.customer.full_name}
+                  size="sm"
+                />
+                <span className="text-sm font-medium text-text-secondary">
+                  {request.customer.full_name}
+                </span>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-text-muted">
+            {request.offers_count !== undefined && request.offers_count > 0 && (
+              <span className="flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 font-medium text-brand-700">
+                <MessageCircle className="h-3.5 w-3.5" />
+                {request.offers_count}
+              </span>
+            )}
+            <span>{formatRelativeTime(request.created_at)}</span>
+            <ChevronRight className="h-4 w-4 text-text-muted transition-transform group-hover:translate-x-0.5" />
+          </div>
+        </div>
+      </Card>
     </Link>
   );
 }

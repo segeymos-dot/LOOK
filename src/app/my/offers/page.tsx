@@ -1,16 +1,25 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { OfferCard } from "@/components/offers/OfferCard";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button } from "@/components/ui/Button";
 import { isDemoMode } from "@/lib/config";
 import { mockOffers } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Briefcase } from "lucide-react";
 
 export default async function MyOffersPage() {
   if (isDemoMode()) {
     return (
-      <AppLayout activePath="/profile">
-        <div className="space-y-4 p-4">
-          <h1 className="text-xl font-bold">Мои предложения</h1>
+      <AppLayout activePath="/profile" title="Мои предложения">
+        <div className="space-y-5 p-4">
+          <PageHeader
+            title="Мои предложения"
+            subtitle="Отклики на заказы других пользователей"
+            backHref="/profile"
+          />
           <div className="space-y-3">
             {mockOffers.map((offer) => (
               <OfferCard key={offer.id} offer={offer} />
@@ -36,9 +45,13 @@ export default async function MyOffersPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <AppLayout activePath="/profile">
-      <div className="space-y-4 p-4">
-        <h1 className="text-xl font-bold">Мои предложения</h1>
+    <AppLayout activePath="/profile" title="Мои предложения">
+      <div className="space-y-5 p-4">
+        <PageHeader
+          title="Мои предложения"
+          subtitle="Отклики на заказы других пользователей"
+          backHref="/profile"
+        />
 
         {offers && offers.length > 0 ? (
           <div className="space-y-3">
@@ -47,9 +60,16 @@ export default async function MyOffersPage() {
             ))}
           </div>
         ) : (
-          <p className="py-12 text-center text-gray-500">
-            Вы ещё не отправляли предложений
-          </p>
+          <EmptyState
+            icon={Briefcase}
+            title="Вы ещё не отправляли предложений"
+            description="Найдите подходящий заказ и отправьте отклик"
+            action={
+              <Link href="/search">
+                <Button>Найти заказы</Button>
+              </Link>
+            }
+          />
         )}
       </div>
     </AppLayout>

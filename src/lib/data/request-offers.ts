@@ -16,6 +16,9 @@ export type RequestOffersData = {
   offers: Offer[];
   conversations: Record<string, string>;
   userId: string | null;
+  isCustomer?: boolean;
+  ownOfferId?: string | null;
+  ownOfferStatus?: string | null;
   error?: string;
 };
 
@@ -28,7 +31,7 @@ export async function fetchRequestOffers(
     return { offers: [], conversations: {}, userId: null };
   }
 
-  const [{ data: offers, error: offersError }, { data: conversations, error: convError }] =
+  const [{ data: offers, error: offersError }, { data: conversations, error: convError }, { data: request }] =
     await Promise.all([
       supabase
         .from("offers")
@@ -39,6 +42,11 @@ export async function fetchRequestOffers(
         .from("conversations")
         .select("id, offer_id")
         .eq("request_id", requestId),
+      supabase
+        .from("requests")
+        .select("customer_id")
+        .eq("id", requestId)
+        .single(),
     ]);
 
   if (offersError) {
@@ -58,9 +66,14 @@ export async function fetchRequestOffers(
     };
   }
 
+  const ownOffer = (offers ?? []).find((offer) => offer.provider_id === userId);
+
   return {
     offers: offers ?? [],
     conversations: buildConversationMap(conversations ?? []),
     userId,
+    isCustomer: request?.customer_id === userId,
+    ownOfferId: ownOffer?.id ?? null,
+    ownOfferStatus: ownOffer?.status ?? null,
   };
 }

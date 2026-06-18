@@ -5,6 +5,7 @@ import {
   getMockConversationForOffer,
   getMockOffer,
   getMockRequest,
+  mockCurrentUser,
 } from "@/lib/mock/data";
 import { notFound, redirect } from "next/navigation";
 
@@ -34,6 +35,8 @@ export default async function OfferDetailPage({ params }: PageProps) {
         customerId={request.customer_id}
         initialRequestStatus={request.status}
         initialConversationId={conversation?.id ?? null}
+        viewerUserId={mockCurrentUser.id}
+        viewerIsCustomer={mockCurrentUser.id === request.customer_id}
         isDemo
       />
     );
@@ -61,6 +64,8 @@ export default async function OfferDetailPage({ params }: PageProps) {
       customerId={offer.request.customer_id}
       initialRequestStatus={offer.request.status}
       initialConversationId={conversationId}
+      viewerUserId={userId}
+      viewerIsCustomer={userId === offer.request.customer_id}
     />
   );
 }

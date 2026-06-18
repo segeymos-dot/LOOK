@@ -1,4 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
+import { HomeHero } from "@/components/home/HomeHero";
 import { CategoryGrid } from "@/components/categories/CategoryGrid";
 import { RequestCard } from "@/components/requests/RequestCard";
 import { Button } from "@/components/ui/Button";
@@ -6,7 +7,7 @@ import { isDemoMode } from "@/lib/config";
 import { mockCategories, mockRequests } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { PlusCircle } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -31,38 +32,40 @@ export default async function HomePage() {
 
   return (
     <AppLayout activePath="/">
-      <div className="space-y-6 p-4">
-        {/* Hero CTA */}
-        <section className="rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 text-white">
-          <h1 className="mb-2 text-2xl font-bold">Найди исполнителя</h1>
-          <p className="mb-4 text-indigo-100">
-            Опубликуй запрос и получи предложения от профессионалов
-          </p>
-          <Link href="/requests/new">
-            <Button variant="secondary" className="gap-2">
-              <PlusCircle className="h-5 w-5" />
-              Создать запрос
-            </Button>
-          </Link>
-        </section>
+      <div className="space-y-8 p-4">
+        <HomeHero />
 
-        {/* Categories */}
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Категории</h2>
-            <Link href="/search" className="text-sm text-indigo-600">
-              Все →
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-text-primary">Категории</h2>
+              <p className="text-sm text-text-secondary">Выберите направление</p>
+            </div>
+            <Link
+              href="/search"
+              className="flex items-center gap-1 text-sm font-semibold text-brand-600"
+            >
+              Все
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
           <CategoryGrid categories={categories ?? []} />
         </section>
 
-        {/* Recent requests */}
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Актуальные запросы</h2>
-            <Link href="/search" className="text-sm text-indigo-600">
-              Все →
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-text-primary">
+                Актуальные запросы
+              </h2>
+              <p className="text-sm text-text-secondary">Свежие заказы от заказчиков</p>
+            </div>
+            <Link
+              href="/search"
+              className="flex items-center gap-1 text-sm font-semibold text-brand-600"
+            >
+              Все
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
@@ -72,10 +75,10 @@ export default async function HomePage() {
                 <RequestCard key={request.id} request={request} />
               ))
             ) : (
-              <div className="rounded-2xl border border-dashed border-gray-200 p-8 text-center">
-                <p className="text-gray-500">Пока нет запросов</p>
-                <Link href="/requests/new" className="mt-2 inline-block text-indigo-600">
-                  Создать первый запрос
+              <div className="rounded-2xl border border-dashed border-border bg-surface px-6 py-12 text-center">
+                <p className="font-medium text-text-secondary">Пока нет запросов</p>
+                <Link href="/requests/new" className="mt-4 inline-block">
+                  <Button size="sm">Создать первый запрос</Button>
                 </Link>
               </div>
             )}
