@@ -5,6 +5,7 @@ import { RequestCard } from "@/components/requests/RequestCard";
 import { Button } from "@/components/ui/Button";
 import { isDemoMode } from "@/lib/config";
 import { mockCategories, mockRequests } from "@/lib/mock/data";
+import { attachOffersCounts } from "@/lib/data/conversations-server";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -27,7 +28,7 @@ export default async function HomePage() {
         .limit(10),
     ]);
     categories = categoriesRes.data ?? [];
-    requests = requestsRes.data ?? [];
+    requests = await attachOffersCounts(supabase, requestsRes.data ?? []);
   }
 
   return (

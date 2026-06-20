@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { isDemoMode } from "@/lib/config";
 import { mockConversations, mockCurrentUser } from "@/lib/mock/data";
+import type { Conversation } from "@/types";
+import { enrichConversations } from "@/lib/data/conversations-server";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
@@ -56,13 +58,19 @@ export default async function ChatListPage() {
     );
   }
 
-  const { data: conversations } = await supabase
+  const { data: rawConversations } = await supabase
     .from("conversations")
     .select(
       "*, customer:profiles!conversations_customer_id_fkey(*), provider:profiles!conversations_provider_id_fkey(*), request:requests(*)"
     )
     .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
     .order("last_message_at", { ascending: false });
+
+  const conversations = await enrichConversations(
+    supabase,
+    (rawConversations ?? []) as Conversation[],
+    user.id
+  );
 
   return (
     <AppLayout activePath="/chat" title="Чаты">

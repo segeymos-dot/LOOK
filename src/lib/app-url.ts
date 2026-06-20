@@ -26,3 +26,10 @@ export function safeRedirectPath(value: string | null | undefined): string {
   }
   return value;
 }
+
+export function getClientAppOrigin(): string {
+  if (typeof window !== "undefined") {
+    return getAppOrigin(window.location.origin);
+  }
+  return getAppOrigin();
+}

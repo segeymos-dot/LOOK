@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/Card";
 import { isDemoMode } from "@/lib/config";
 import { mockCategories } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/client";
-import { mapAuthError } from "@/lib/test-auth";
 import { registerSchema } from "@/lib/validations";
 import type { Category, UserRole } from "@/types";
 import Link from "next/link";
@@ -65,6 +64,7 @@ export default function RegisterPage() {
     skills: "",
     portfolio: "",
     provider_category_slugs: [] as string[],
+    acceptedTerms: false,
   });
 
   useEffect(() => {
@@ -87,7 +87,10 @@ export default function RegisterPage() {
     e.preventDefault();
     setErrors({});
 
-    const parsed = registerSchema.safeParse(form);
+    const parsed = registerSchema.safeParse({
+      ...form,
+      acceptedTerms: form.acceptedTerms ? true : undefined,
+    });
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
       parsed.error.errors.forEach((err) => {
@@ -105,57 +108,26 @@ export default function RegisterPage() {
       return;
     }
 
-    const supabase = createClient();
-
-    const { data, error } = await supabase.auth.signUp({
-      email: parsed.data.email,
-      password: parsed.data.password,
-      options: {
-        data: {
-          full_name: parsed.data.full_name,
-          role: parsed.data.role,
-        },
-      },
+    const response = await fetch("/api/auth/sign-up", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...form,
+        acceptedTerms: form.acceptedTerms ? true : undefined,
+      }),
     });
+    const result = await response.json();
 
-    if (error) {
+    if (!response.ok || !result.success) {
       setLoading(false);
-      setErrors({ form: mapAuthError(error.message) });
+      setErrors({ form: result.error ?? "Не удалось зарегистрироваться" });
       return;
     }
 
-    if (!data.session) {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: parsed.data.email,
-        password: parsed.data.password,
-      });
-
-      if (signInError) {
-        setLoading(false);
-        setErrors({
-          form: "Аккаунт создан. Войдите вручную или используйте тестовый вход на странице логина.",
-        });
-        return;
-      }
-    }
-
-    const userId = data.user?.id ?? (await supabase.auth.getUser()).data.user?.id;
-    if (userId) {
-      await supabase
-        .from("profiles")
-        .update({
-          full_name: parsed.data.full_name,
-          role: parsed.data.role,
-          phone: parsed.data.phone || null,
-          country: parsed.data.country || null,
-          city: parsed.data.city || null,
-          avatar_url: parsed.data.avatar_url || null,
-          bio: parsed.data.bio || null,
-          skills: parsed.data.skills || null,
-          portfolio: parsed.data.portfolio || null,
-          provider_category_slugs: parsed.data.provider_category_slugs ?? [],
-        })
-        .eq("id", userId);
+    if (!result.session) {
+      setLoading(false);
+      router.push(`/check-email?email=${encodeURIComponent(result.email ?? form.email)}`);
+      return;
     }
 
     setLoading(false);
@@ -198,12 +170,23 @@ export default function RegisterPage() {
         ) : undefined
       }
       footer={
-        <p className="text-center text-sm text-text-secondary">
-          Уже есть аккаунт?{" "}
-          <Link href="/login" className="font-semibold text-brand-600">
-            Войти
-          </Link>
-        </p>
+        <div className="space-y-2 text-center text-sm text-text-secondary">
+          <p>
+            Уже есть аккаунт?{" "}
+            <Link href="/login" className="font-semibold text-brand-600">
+              Войти
+            </Link>
+          </p>
+          <p className="text-xs">
+            <Link href="/terms" className="text-brand-600">
+              Terms of Service
+            </Link>
+            {" · "}
+            <Link href="/privacy" className="text-brand-600">
+              Privacy Policy
+            </Link>
+          </p>
+        </div>
       }
     >
       <div className="mb-6 flex gap-2">
@@ -353,6 +336,30 @@ export default function RegisterPage() {
         )}
 
         {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
+
+        {step === totalSteps - 1 && (
+          <label className="flex items-start gap-3 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              checked={form.acceptedTerms}
+              onChange={(e) => setForm({ ...form, acceptedTerms: e.target.checked })}
+              className="mt-1 h-4 w-4 rounded border-border text-brand-600 focus:ring-brand-500"
+            />
+            <span>
+              Я принимаю{" "}
+              <Link href="/terms" className="font-semibold text-brand-600">
+                Terms of Service
+              </Link>{" "}
+              и{" "}
+              <Link href="/privacy" className="font-semibold text-brand-600">
+                Privacy Policy
+              </Link>
+            </span>
+          </label>
+        )}
+        {errors.acceptedTerms && (
+          <p className="text-sm text-danger">{errors.acceptedTerms}</p>
+        )}
 
         <div className="flex gap-2 pt-2">
           {step > 0 && (

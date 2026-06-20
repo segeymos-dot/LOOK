@@ -58,12 +58,10 @@ export function RequestCard({ request }: RequestCardProps) {
           </div>
 
           <div className="flex items-center gap-2 text-xs text-text-muted">
-            {request.offers_count !== undefined && request.offers_count > 0 && (
-              <span className="flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 font-medium text-brand-700">
-                <MessageCircle className="h-3.5 w-3.5" />
-                {request.offers_count}
-              </span>
-            )}
+            <span className="flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 font-medium text-brand-700">
+              <MessageCircle className="h-3.5 w-3.5" />
+              {request.offers_count ?? 0}
+            </span>
             <span>{formatRelativeTime(request.created_at)}</span>
             <ChevronRight className="h-4 w-4 text-text-muted transition-transform group-hover:translate-x-0.5" />
           </div>

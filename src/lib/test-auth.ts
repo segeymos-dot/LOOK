@@ -11,6 +11,7 @@ export interface TestAccount {
 }
 
 export function isTestLoginEnabled(): boolean {
+  if (process.env.NODE_ENV === "production") return false;
   if (process.env.NEXT_PUBLIC_ENABLE_TEST_LOGIN === "true") return true;
   if (process.env.NEXT_PUBLIC_ENABLE_TEST_LOGIN === "false") return false;
   return process.env.NODE_ENV === "development";
@@ -66,6 +67,9 @@ export function mapAuthError(message: string): string {
   }
   if (lower.includes("invalid") && lower.includes("email")) {
     return "Некорректный email. Используйте реальный адрес или тестовый вход.";
+  }
+  if (lower.includes("email not confirmed")) {
+    return "Email не подтверждён. Проверьте почту или запросите письмо повторно.";
   }
   return message;
 }

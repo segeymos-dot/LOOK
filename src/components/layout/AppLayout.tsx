@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BetaBanner } from "./BetaBanner";
 import { DemoBanner } from "./DemoBanner";
 import { BottomNav } from "./BottomNav";
 import { Avatar } from "@/components/ui/Avatar";
@@ -59,6 +60,7 @@ export function AppLayout({
             </Link>
           )}
         </div>
+        <BetaBanner />
         <DemoBanner />
       </header>
 

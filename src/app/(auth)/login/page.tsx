@@ -69,11 +69,22 @@ function LoginForm() {
       return;
     }
 
-    const { error } = await signIn(parsed.data.email, parsed.data.password);
+    const response = await fetch("/api/auth/sign-in", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed.data),
+    });
+    const result = await response.json();
     setLoading(false);
 
-    if (error) {
-      setErrors({ form: "Неверный email или пароль" });
+    if (!response.ok || !result.success) {
+      const mapped = result.error ?? "Неверный email или пароль";
+      setErrors({
+        form: mapped,
+        ...(mapped.toLowerCase().includes("email не подтверждён")
+          ? { emailConfirm: parsed.data.email }
+          : {}),
+      });
       return;
     }
 
@@ -121,12 +132,23 @@ function LoginForm() {
         ) : undefined
       }
       footer={
-        <p className="text-center text-sm text-text-secondary">
-          Нет аккаунта?{" "}
-          <Link href="/register" className="font-semibold text-brand-600">
-            Зарегистрироваться
-          </Link>
-        </p>
+        <div className="space-y-2 text-center text-sm text-text-secondary">
+          <p>
+            Нет аккаунта?{" "}
+            <Link href="/register" className="font-semibold text-brand-600">
+              Зарегистрироваться
+            </Link>
+          </p>
+          <p className="text-xs">
+            <Link href="/terms" className="text-brand-600">
+              Terms of Service
+            </Link>
+            {" · "}
+            <Link href="/privacy" className="text-brand-600">
+              Privacy Policy
+            </Link>
+          </p>
+        </div>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -150,6 +172,20 @@ function LoginForm() {
         />
 
         {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
+        {"emailConfirm" in errors && errors.emailConfirm && (
+          <Link
+            href={`/check-email?email=${encodeURIComponent(errors.emailConfirm as string)}`}
+            className="block text-center text-sm font-semibold text-brand-600"
+          >
+            Проверьте вашу почту
+          </Link>
+        )}
+
+        <div className="flex items-center justify-end">
+          <Link href="/forgot-password" className="text-sm font-semibold text-brand-600">
+            Забыли пароль?
+          </Link>
+        </div>
 
         <Button type="submit" loading={loading} className="w-full">
           Войти

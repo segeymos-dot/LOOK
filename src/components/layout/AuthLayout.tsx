@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import { BetaBanner } from "./BetaBanner";
+import { DemoBanner } from "./DemoBanner";
 
 interface AuthLayoutProps {
   title: string;
@@ -12,6 +14,8 @@ interface AuthLayoutProps {
 export function AuthLayout({ title, subtitle, children, footer, banner }: AuthLayoutProps) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col bg-surface-muted">
+      <BetaBanner />
+      <DemoBanner />
       <div className="gradient-brand px-6 pb-16 pt-safe pt-10">
         <Link href="/" className="inline-block">
           <span className="text-2xl font-extrabold tracking-tight text-white">LOOK</span>

@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { isDemoMode } from "@/lib/config";
 import { searchMockRequests } from "@/lib/mock/data";
+import { attachOffersCounts } from "@/lib/data/conversations-server";
 import { createClient } from "@/lib/supabase/client";
 import type { Request } from "@/types";
 import { Search } from "lucide-react";
@@ -57,7 +58,7 @@ function SearchContent() {
         }
 
         const { data } = await q.limit(20);
-        return data ?? [];
+        return attachOffersCounts(supabase, data ?? []);
       };
 
       try {

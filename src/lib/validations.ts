@@ -21,7 +21,24 @@ export const registerSchema = z.object({
   skills: optionalString,
   portfolio: optionalString,
   provider_category_slugs: z.array(z.string()).optional(),
+  acceptedTerms: z.literal(true, {
+    errorMap: () => ({ message: "Необходимо принять условия использования" }),
+  }),
 });
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Введите корректный email"),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    password: z.string().min(6, "Минимум 6 символов"),
+    confirmPassword: z.string().min(6, "Минимум 6 символов"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Пароли не совпадают",
+    path: ["confirmPassword"],
+  });
 
 export const requestSchema = z.object({
   title: z.string().min(5, "Минимум 5 символов").max(100),

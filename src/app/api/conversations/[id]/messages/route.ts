@@ -1,4 +1,7 @@
+import { markConversationMessagesRead } from "@/lib/data/conversations-server";
+import { getClientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { createAuthenticatedClient } from "@/lib/supabase/authenticated-client";
+import { messageSchema } from "@/lib/validations";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -15,6 +18,14 @@ export async function GET(
   }
 
   const supabase = createAuthenticatedClient(accessToken);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ messages: [] }, { status: 401 });
+  }
+
   const { data, error } = await supabase
     .from("messages")
     .select("*, sender:profiles(*)")
@@ -24,6 +35,8 @@ export async function GET(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  await markConversationMessagesRead(supabase, id, user.id);
 
   return NextResponse.json({ messages: data ?? [] });
 }
@@ -41,7 +54,6 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json()) as { content: string };
   const supabase = createAuthenticatedClient(accessToken);
   const {
     data: { user },
@@ -51,10 +63,29 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const limited = rateLimit(`messages:${user.id}`, 30, 60_000);
+  if (!limited.ok) {
+    return rateLimitResponse(limited.retryAfterSec);
+  }
+
+  const body = (await request.json()) as { content?: string };
+  const parsed = messageSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.errors[0]?.message ?? "Invalid message" },
+      { status: 400 }
+    );
+  }
+
+  const ipLimited = rateLimit(`messages-ip:${getClientIp(request)}`, 60, 60_000);
+  if (!ipLimited.ok) {
+    return rateLimitResponse(ipLimited.retryAfterSec);
+  }
+
   const { error } = await supabase.from("messages").insert({
     conversation_id: id,
     sender_id: user.id,
-    content: body.content,
+    content: parsed.data.content,
   });
 
   if (error) {

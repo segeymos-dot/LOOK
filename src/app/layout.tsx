@@ -14,6 +14,10 @@ export const metadata: Metadata = {
   description:
     "Глобальный маркетплейс услуг. Публикуйте запросы, получайте предложения от исполнителей.",
   manifest: "/manifest.json",
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

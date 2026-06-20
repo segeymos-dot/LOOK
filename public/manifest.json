@@ -1,7 +1,7 @@
 {
   "name": "LOOK — Маркетплейс услуг",
   "short_name": "LOOK",
-  "description": "Глобальный маркетплейс услуг",
+  "description": "Глобальный маркетплейс услуг. Beta — тестовые платежи.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F9FAFB",
@@ -11,12 +11,20 @@
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

@@ -58,5 +58,26 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("redirect", request.nextUrl.pathname);
+      return NextResponse.redirect(url);
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_platform_admin")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!profile?.is_platform_admin) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/profile";
+      return NextResponse.redirect(url);
+    }
+  }
+
   return supabaseResponse;
 }

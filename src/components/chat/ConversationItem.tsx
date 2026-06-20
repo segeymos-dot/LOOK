@@ -42,10 +42,12 @@ export function ConversationItem({ conversation, currentUserId }: ConversationIt
           </p>
         )}
 
-        {conversation.last_message && (
+        {conversation.last_message ? (
           <p className="truncate text-sm text-text-secondary">
             {conversation.last_message.content}
           </p>
+        ) : (
+          <p className="truncate text-sm text-text-muted">Нет сообщений</p>
         )}
       </div>
 
