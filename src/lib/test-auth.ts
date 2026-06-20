@@ -1,4 +1,4 @@
-export type TestAccountRole = "customer" | "provider";
+export type TestAccountRole = "customer" | "provider" | "both";
 
 export interface TestAccount {
   id: string;
@@ -7,6 +7,7 @@ export interface TestAccount {
   password: string;
   fullName: string;
   role: TestAccountRole;
+  isPlatformAdmin?: boolean;
 }
 
 export function isTestLoginEnabled(): boolean {
@@ -36,6 +37,15 @@ export function getTestAccounts(): TestAccount[] {
         process.env.NEXT_PUBLIC_TEST_PROVIDER_PASSWORD ?? "Test1234!",
       fullName: "Test Provider",
       role: "provider",
+    },
+    {
+      id: "admin",
+      label: "Админ",
+      email: process.env.NEXT_PUBLIC_TEST_ADMIN_EMAIL ?? "admin@test.look",
+      password: process.env.NEXT_PUBLIC_TEST_ADMIN_PASSWORD ?? "Test1234!",
+      fullName: "Test Admin",
+      role: "both",
+      isPlatformAdmin: true,
     },
   ];
 }

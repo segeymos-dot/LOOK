@@ -12,17 +12,17 @@ import { useEffect } from "react";
 
 export default function PlatformBalancePage() {
   const router = useRouter();
-  const { isPlatformAdmin, ready } = useAuth();
+  const { isPlatformAdmin, ready, profileReady } = useAuth();
   const demo = isDemoMode();
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !profileReady) return;
     if (!isPlatformAdmin && !demo) {
       router.replace("/profile");
     }
-  }, [ready, isPlatformAdmin, demo, router]);
+  }, [ready, profileReady, isPlatformAdmin, demo, router]);
 
-  if (!ready) return null;
+  if (!ready || !profileReady) return null;
   if (!isPlatformAdmin && !demo) return null;
 
   return (

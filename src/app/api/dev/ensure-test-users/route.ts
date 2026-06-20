@@ -32,7 +32,11 @@ export async function POST() {
       });
       await admin
         .from("profiles")
-        .update({ full_name: account.fullName, role: account.role })
+        .update({
+          full_name: account.fullName,
+          role: account.role,
+          is_platform_admin: Boolean(account.isPlatformAdmin),
+        })
         .eq("id", existing.id);
       results.push({ email: account.email, status: "updated" });
       continue;

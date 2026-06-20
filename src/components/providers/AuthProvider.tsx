@@ -21,6 +21,8 @@ interface AuthState {
   user: User | null;
   profile: Profile | null;
   ready: boolean;
+  /** False while profile is being fetched for the current user */
+  profileReady: boolean;
 }
 
 export interface AuthContextValue extends AuthState {
@@ -69,13 +71,13 @@ async function fetchProfile(
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(() =>
     isDemoMode()
-      ? { user: demoUser, profile: mockCurrentUser, ready: true }
-      : { user: null, profile: null, ready: false }
+      ? { user: demoUser, profile: mockCurrentUser, ready: true, profileReady: true }
+      : { user: null, profile: null, ready: false, profileReady: true }
   );
 
   useEffect(() => {
     if (isDemoMode()) {
-      setState({ user: demoUser, profile: mockCurrentUser, ready: true });
+      setState({ user: demoUser, profile: mockCurrentUser, ready: true, profileReady: true });
       return;
     }
 
@@ -85,26 +87,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       supabase = createClient();
     } catch {
-      setState({ user: null, profile: null, ready: true });
+      setState({ user: null, profile: null, ready: true, profileReady: true });
       return;
     }
 
     const applySession = (user: User | null) => {
       if (!active) return;
 
+      if (!user) {
+        setState({ user: null, profile: null, ready: true, profileReady: true });
+        return;
+      }
+
       setState((current) => ({
         user,
-        profile:
-          user && current.user?.id === user.id ? current.profile : null,
+        profile: current.user?.id === user.id ? current.profile : null,
         ready: true,
+        profileReady: current.user?.id === user.id ? current.profileReady : false,
       }));
-
-      if (!user) return;
 
       void fetchProfile(supabase, user.id).then((profile) => {
         if (!active) return;
         setState((current) =>
-          current.user?.id === user.id ? { ...current, profile } : current
+          current.user?.id === user.id
+            ? { ...current, profile, profileReady: true }
+            : current
         );
       });
     };
@@ -123,12 +130,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (isDemoMode()) {
-      setState({ user: null, profile: null, ready: true });
+      setState({ user: null, profile: null, ready: true, profileReady: true });
       return;
     }
     const supabase = createClient();
     await supabase.auth.signOut();
-    setState({ user: null, profile: null, ready: true });
+    setState({ user: null, profile: null, ready: true, profileReady: true });
   }, []);
 
   const setProfile = useCallback((profile: Profile | null) => {
@@ -137,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     if (isDemoMode()) {
-      setState({ user: demoUser, profile: mockCurrentUser, ready: true });
+      setState({ user: demoUser, profile: mockCurrentUser, ready: true, profileReady: true });
       return;
     }
 
@@ -151,9 +158,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!userId) return;
 
+    setState((current) =>
+      current.user?.id === userId ? { ...current, profileReady: false } : current
+    );
+
     const profile = await fetchProfile(supabase, userId);
     setState((current) =>
-      current.user?.id === userId ? { ...current, profile, ready: true } : current
+      current.user?.id === userId
+        ? { ...current, profile, ready: true, profileReady: true }
+        : current
     );
   }, []);
 

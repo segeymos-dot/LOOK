@@ -160,7 +160,7 @@ function LoginForm() {
         <Card variant="outline" padding="sm" className="mt-6 bg-brand-50/30">
           <p className="text-sm font-semibold text-text-primary">Быстрый тестовый вход</p>
           <p className="mt-1 text-xs text-text-secondary">Пароль: Test1234!</p>
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-3 gap-2">
             {testAccounts.map((account) => (
               <Button
                 key={account.id}
