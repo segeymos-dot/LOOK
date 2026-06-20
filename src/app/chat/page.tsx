@@ -1,12 +1,12 @@
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ChatConversationList } from "@/components/chat/ChatConversationList";
 import { ConversationItem } from "@/components/chat/ConversationItem";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { isDemoMode } from "@/lib/config";
 import { mockConversations, mockCurrentUser } from "@/lib/mock/data";
-import type { Conversation } from "@/types";
-import { enrichConversations } from "@/lib/data/conversations-server";
+import { fetchUserConversations } from "@/lib/data/conversations-server";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
@@ -58,19 +58,7 @@ export default async function ChatListPage() {
     );
   }
 
-  const { data: rawConversations } = await supabase
-    .from("conversations")
-    .select(
-      "*, customer:profiles!conversations_customer_id_fkey(*), provider:profiles!conversations_provider_id_fkey(*), request:requests(*)"
-    )
-    .or(`customer_id.eq.${user.id},provider_id.eq.${user.id}`)
-    .order("last_message_at", { ascending: false });
-
-  const conversations = await enrichConversations(
-    supabase,
-    (rawConversations ?? []) as Conversation[],
-    user.id
-  );
+  const conversations = await fetchUserConversations(supabase, user.id);
 
   return (
     <AppLayout activePath="/chat" title="Чаты">
@@ -78,25 +66,7 @@ export default async function ChatListPage() {
         <PageHeader title="Сообщения" subtitle="Переписка с заказчиками и исполнителями" />
       </div>
 
-      {conversations && conversations.length > 0 ? (
-        <div className="bg-surface">
-          {conversations.map((conversation) => (
-            <ConversationItem
-              key={conversation.id}
-              conversation={conversation}
-              currentUserId={user.id}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="p-4">
-          <EmptyState
-            icon={MessageCircle}
-            title="Нет активных чатов"
-            description="Чат появится после принятия предложения"
-          />
-        </div>
-      )}
+      <ChatConversationList initialConversations={conversations} userId={user.id} />
     </AppLayout>
   );
 }

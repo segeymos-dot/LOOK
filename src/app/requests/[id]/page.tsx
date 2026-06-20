@@ -92,7 +92,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
         <Suspense>
           <RequestCreatedBanner />
         </Suspense>
-        <RequestDetailCard request={request} />
+        <RequestDetailCard request={{ ...request, offers_count: offers.length }} />
         <RequestDetailSections
           requestId={id}
           customerId={request.customer_id}

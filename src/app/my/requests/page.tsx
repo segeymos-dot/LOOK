@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { isDemoMode } from "@/lib/config";
 import { mockCurrentUser, mockRequests } from "@/lib/mock/data";
+import { attachOffersCounts } from "@/lib/data/conversations-server";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -36,11 +37,13 @@ export default async function MyRequestsPage() {
 
   if (!user) redirect("/login?redirect=/my/requests");
 
-  const { data: requests } = await supabase
+  const { data: rawRequests } = await supabase
     .from("requests")
     .select("*, customer:profiles(*), category:categories(*)")
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false });
+
+  const requests = await attachOffersCounts(supabase, rawRequests ?? []);
 
   return (
     <AppLayout activePath="/profile" title="Мои запросы">

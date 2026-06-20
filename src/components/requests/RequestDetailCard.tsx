@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { formatPrice } from "@/lib/utils";
 import type { Request } from "@/types";
-import { Calendar, MapPin } from "lucide-react";
+import { MessageCircle, Calendar, MapPin } from "lucide-react";
 
 interface RequestDetailCardProps {
   request: Request;
@@ -27,6 +27,14 @@ export function RequestDetailCard({ request }: RequestDetailCardProps) {
       <p className="mb-5 leading-relaxed text-text-secondary">{request.description}</p>
 
       <div className="mb-5 flex flex-wrap gap-4 text-sm">
+        {request.status === "open" && (
+          <div className="flex items-center gap-1.5">
+            <MessageCircle className="h-4 w-4 text-brand-600" />
+            <span className="font-medium text-brand-700">
+              {request.offers_count ?? 0} откл.
+            </span>
+          </div>
+        )}
         {request.budget_max && (
           <div>
             <p className="text-xs text-text-muted">Бюджет</p>

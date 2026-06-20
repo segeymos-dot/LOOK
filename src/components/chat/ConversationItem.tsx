@@ -44,6 +44,7 @@ export function ConversationItem({ conversation, currentUserId }: ConversationIt
 
         {conversation.last_message ? (
           <p className="truncate text-sm text-text-secondary">
+            {conversation.last_message.sender_id === currentUserId ? "Вы: " : ""}
             {conversation.last_message.content}
           </p>
         ) : (
