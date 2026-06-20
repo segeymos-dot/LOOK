@@ -45,8 +45,7 @@ function NewRequestPageContent() {
     title: "",
     description: "",
     category_id: "",
-    budget_min: "",
-    budget_max: "",
+    budget: "",
     location: "",
     deadline: "",
   });
@@ -117,10 +116,9 @@ function NewRequestPageContent() {
 
     const parsed = requestSchema.safeParse({
       ...form,
-      budget_min: form.budget_min ? Number(form.budget_min) : undefined,
-      budget_max: form.budget_max ? Number(form.budget_max) : undefined,
-      category_id: form.category_id || undefined,
+      budget: form.budget ? Number(form.budget) : undefined,
       deadline: form.deadline || undefined,
+      location: form.location || undefined,
     });
 
     if (!parsed.success) {
@@ -158,8 +156,9 @@ function NewRequestPageContent() {
         title: parsed.data.title,
         description: parsed.data.description,
         category_id: parsed.data.category_id,
-        budget_min: parsed.data.budget_min,
-        budget_max: parsed.data.budget_max,
+        budget_min: parsed.data.budget,
+        budget_max: parsed.data.budget,
+        currency: "USD",
         location: parsed.data.location,
         deadline: parsed.data.deadline,
       })
@@ -169,11 +168,16 @@ function NewRequestPageContent() {
     setLoading(false);
 
     if (error) {
-      setErrors({ form: "Не удалось создать запрос. Попробуйте снова." });
+      setErrors({
+        form:
+          error.message.includes("row-level security")
+            ? "Нет прав на создание заказа. Войдите как заказчик."
+            : `Не удалось создать запрос: ${error.message}`,
+      });
       return;
     }
 
-    router.push(`/requests/${data.id}`);
+    router.push(`/requests/${data.id}?created=1`);
   };
 
   if (!isDemoMode() && !authLoading && displayProfile && !canActAsCustomer(displayProfile.role)) {
@@ -253,6 +257,7 @@ function NewRequestPageContent() {
             label="Категория"
             value={form.category_id}
             onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+            error={errors.category_id}
           >
             <option value="">Выберите категорию</option>
             {categories.map((cat) => (
@@ -262,24 +267,17 @@ function NewRequestPageContent() {
             ))}
           </Select>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              id="budget_min"
-              label="Бюджет от"
-              type="number"
-              placeholder="0"
-              value={form.budget_min}
-              onChange={(e) => setForm({ ...form, budget_min: e.target.value })}
-            />
-            <Input
-              id="budget_max"
-              label="Бюджет до"
-              type="number"
-              placeholder="0"
-              value={form.budget_max}
-              onChange={(e) => setForm({ ...form, budget_max: e.target.value })}
-            />
-          </div>
+          <Input
+            id="budget"
+            label="Бюджет (USD)"
+            type="number"
+            min={1}
+            step={1}
+            placeholder="1000"
+            value={form.budget}
+            onChange={(e) => setForm({ ...form, budget: e.target.value })}
+            error={errors.budget}
+          />
 
           <Input
             id="location"
@@ -301,7 +299,7 @@ function NewRequestPageContent() {
         {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
 
         <Button type="submit" loading={loading} className="w-full" size="lg">
-          Опубликовать запрос
+          Опубликовать заказ
         </Button>
       </form>
     </AppLayout>

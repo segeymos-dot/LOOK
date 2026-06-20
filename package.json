@@ -17,7 +17,8 @@
     "test:migration-010": "node scripts/verify-migration-010.mjs",
     "test:migration-010:seed": "node scripts/verify-migration-010.mjs --seed-provider",
     "test:finance": "node scripts/verify-financial-cycle.mjs",
-    "test:migration-012": "node scripts/verify-migration-012.mjs"
+    "test:migration-012": "node scripts/verify-migration-012.mjs",
+    "test:order-flow": "node scripts/verify-order-flow.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",

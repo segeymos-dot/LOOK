@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { RequestCreatedBanner } from "@/components/requests/RequestCreatedBanner";
 import { RequestDetailCard } from "@/components/requests/RequestDetailCard";
 import { getRequestOffersForPage } from "@/lib/data/request-offers-server";
 import { RequestDetailSections } from "@/components/requests/RequestDetailSections";
@@ -13,6 +14,7 @@ import {
 } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -87,6 +89,9 @@ export default async function RequestDetailPage({ params }: PageProps) {
     <AppLayout activePath="/search" hideNav>
       <div className="space-y-5 p-4">
         <PageHeader title="Заказ" backHref="/search" />
+        <Suspense>
+          <RequestCreatedBanner />
+        </Suspense>
         <RequestDetailCard request={request} />
         <RequestDetailSections
           requestId={id}

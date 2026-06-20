@@ -7,8 +7,10 @@ import Link from "next/link";
 import { PlusCircle, Search, Sparkles } from "lucide-react";
 
 export function HomeHero() {
-  const { isProvider, isCustomer, displayProfile, profile } = useAuth();
+  const { user, isProvider, isCustomer, displayProfile, profile } = useAuth();
   const name = (displayProfile ?? profile)?.full_name?.split(" ")[0];
+  const createHref = user ? "/requests/new" : "/login?redirect=/requests/new";
+  const showCreateOrder = !user || isCustomer || (!isProvider && !displayProfile?.role);
 
   if (isProvider && !isCustomer) {
     return (
@@ -56,19 +58,26 @@ export function HomeHero() {
             : "Опубликуй запрос и получи предложения от профессионалов"}
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
-          {isCustomer && (
-            <Link href="/requests/new" className="flex-1">
+          {showCreateOrder && (
+            <Link href={createHref} className="flex-1">
               <Button variant="secondary" className="w-full gap-2 bg-white text-brand-700 hover:bg-white/90">
                 <PlusCircle className="h-5 w-5" />
-                Создать запрос
+                Создать заказ
+              </Button>
+            </Link>
+          )}
+          {isCustomer && user && (
+            <Link href="/my/requests" className="flex-1">
+              <Button variant="ghost" className="w-full text-white hover:bg-white/15">
+                Мои заказы
               </Button>
             </Link>
           )}
           {isProvider && (
             <Link href="/search" className="flex-1">
               <Button
-                variant={isCustomer ? "ghost" : "secondary"}
-                className={`w-full gap-2 ${isCustomer ? "text-white hover:bg-white/15" : "bg-white text-brand-700 hover:bg-white/90"}`}
+                variant={showCreateOrder ? "ghost" : "secondary"}
+                className={`w-full gap-2 ${showCreateOrder ? "text-white hover:bg-white/15" : "bg-white text-brand-700 hover:bg-white/90"}`}
               >
                 <Search className="h-5 w-5" />
                 Найти заказы

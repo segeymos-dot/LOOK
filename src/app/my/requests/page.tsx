@@ -47,6 +47,12 @@ export default async function MyRequestsPage() {
       <div className="space-y-5 p-4">
         <PageHeader title="Мои запросы" subtitle="Заказы, которые вы опубликовали" backHref="/profile" />
 
+        <Link href="/requests/new">
+          <Button className="w-full gap-2" size="sm">
+            Создать заказ
+          </Button>
+        </Link>
+
         {requests && requests.length > 0 ? (
           <div className="space-y-3">
             {requests.map((request) => (

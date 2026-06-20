@@ -10,16 +10,16 @@ interface BottomNavProps {
 }
 
 export function BottomNav({ activePath }: BottomNavProps) {
-  const { isProvider, isCustomer } = useAuth();
+  const { user, isProvider, isCustomer } = useAuth();
 
   const navItems = [
     { href: "/", icon: Home, label: "Главная" },
     { href: "/search", icon: Search, label: "Поиск" },
-    isCustomer
-      ? { href: "/requests/new", icon: PlusCircle, label: "Создать", accent: true }
+    isCustomer || !user
+      ? { href: user ? "/requests/new" : "/login?redirect=/requests/new", icon: PlusCircle, label: "Создать", accent: true }
       : isProvider
         ? { href: "/my/offers", icon: Briefcase, label: "Отклики" }
-        : { href: "/requests/new", icon: PlusCircle, label: "Создать", accent: true },
+        : { href: "/login?redirect=/requests/new", icon: PlusCircle, label: "Создать", accent: true },
     { href: "/chat", icon: MessageCircle, label: "Чаты" },
     { href: "/profile", icon: User, label: "Профиль" },
   ];
