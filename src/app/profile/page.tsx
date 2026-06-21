@@ -175,7 +175,17 @@ export default function ProfilePage() {
     ? getProviderVerification(resolvedProfile, Boolean(user?.email_confirmed_at))
     : null;
 
-  if (ready && !user) {
+  if (!ready) {
+    return (
+      <AppLayout activePath="/profile" title="Профиль">
+        <div className="flex flex-col items-center justify-center px-4 py-20">
+          <p className="text-text-secondary">Загрузка профиля…</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!user) {
     return (
       <AppLayout activePath="/profile" title="Профиль">
         <div className="flex flex-col items-center justify-center px-4 py-20">

@@ -27,12 +27,21 @@ const accounts = [
     password: "Test1234!",
     fullName: "Test Customer",
     role: "customer",
+    isPlatformAdmin: false,
   },
   {
     email: "provider@test.look",
     password: "Test1234!",
-    fullName: "Test Provider",
+    fullName: "Extended Test Provider",
     role: "provider",
+    isPlatformAdmin: false,
+  },
+  {
+    email: "admin@test.look",
+    password: "Test1234!",
+    fullName: "LOOK Admin",
+    role: "both",
+    isPlatformAdmin: true,
   },
 ];
 
@@ -65,6 +74,7 @@ async function seedWithServiceRole() {
           id: existing.id,
           full_name: account.fullName,
           role: account.role,
+          is_platform_admin: Boolean(account.isPlatformAdmin),
         });
       console.log(`updated ${account.email}`);
       continue;

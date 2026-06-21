@@ -4,6 +4,8 @@ import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { useAuth } from "@/hooks/useAuth";
+import { syncClientSession } from "@/lib/auth/sync-client-session";
 import { isDemoMode } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -21,6 +23,7 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { syncSession } = useAuth();
   const redirect = safeRedirectPath(searchParams.get("redirect"));
   const demo = isDemoMode();
   const testLoginEnabled = isTestLoginEnabled() && !demo;
@@ -88,6 +91,17 @@ function LoginForm() {
       return;
     }
 
+    const synced = await syncClientSession(result.session);
+    if (!synced) {
+      const { error } = await signIn(parsed.data.email, parsed.data.password);
+      if (error) {
+        setErrors({ form: mapAuthError(error.message) });
+        return;
+      }
+    } else {
+      await syncSession();
+    }
+
     router.push(redirect);
     router.refresh();
   };
@@ -115,6 +129,8 @@ function LoginForm() {
       });
       return;
     }
+
+    await syncSession();
 
     router.push(redirect);
     router.refresh();

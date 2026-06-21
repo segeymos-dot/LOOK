@@ -30,6 +30,8 @@ export interface AuthContextValue extends AuthState {
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /** Re-read session from storage after server-side sign-in */
+  syncSession: () => Promise<void>;
   setProfile: (profile: Profile | null) => void;
   isProvider: boolean;
   isCustomer: boolean;
@@ -82,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let active = true;
+    let initialLoadDone = false;
     let supabase: SupabaseClient;
 
     try {
@@ -116,9 +119,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     };
 
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active) return;
+      initialLoadDone = true;
+      applySession(session?.user ?? null);
+    });
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!initialLoadDone) return;
       applySession(session?.user ?? null);
     });
 
@@ -140,6 +150,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setProfile = useCallback((profile: Profile | null) => {
     setState((current) => ({ ...current, profile }));
+  }, []);
+
+  const syncSession = useCallback(async () => {
+    if (isDemoMode()) {
+      setState({ user: demoUser, profile: mockCurrentUser, ready: true, profileReady: true });
+      return;
+    }
+
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
+
+    if (!user) {
+      setState({ user: null, profile: null, ready: true, profileReady: true });
+      return;
+    }
+
+    setState((current) => ({
+      user,
+      profile: current.user?.id === user.id ? current.profile : null,
+      ready: true,
+      profileReady: current.user?.id === user.id ? current.profileReady : false,
+    }));
+
+    const profile = await fetchProfile(supabase, user.id);
+    setState((current) =>
+      current.user?.id === user.id
+        ? { ...current, profile, profileReady: true }
+        : current
+    );
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -181,13 +223,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading: !state.ready,
       signOut,
       refreshProfile,
+      syncSession,
       setProfile,
       displayProfile,
       isProvider: canActAsProvider(displayProfile?.role),
       isCustomer: canActAsCustomer(displayProfile?.role),
       isPlatformAdmin: Boolean(displayProfile?.is_platform_admin),
     }),
-    [state, signOut, refreshProfile, setProfile, displayProfile]
+    [state, signOut, refreshProfile, syncSession, setProfile, displayProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

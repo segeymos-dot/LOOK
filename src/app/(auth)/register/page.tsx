@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Card } from "@/components/ui/Card";
+import { useAuth } from "@/hooks/useAuth";
+import { syncClientSession } from "@/lib/auth/sync-client-session";
 import { isDemoMode } from "@/lib/config";
 import { mockCategories } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/client";
@@ -45,6 +47,7 @@ const roleOptions: {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { syncSession } = useAuth();
   const demo = isDemoMode();
 
   const [step, setStep] = useState(0);
@@ -129,6 +132,9 @@ export default function RegisterPage() {
       router.push(`/check-email?email=${encodeURIComponent(result.email ?? form.email)}`);
       return;
     }
+
+    await syncClientSession(result.session);
+    await syncSession();
 
     setLoading(false);
     router.push("/");

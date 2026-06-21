@@ -44,7 +44,7 @@ export function getTestAccounts(): TestAccount[] {
       label: "Админ",
       email: process.env.NEXT_PUBLIC_TEST_ADMIN_EMAIL ?? "admin@test.look",
       password: process.env.NEXT_PUBLIC_TEST_ADMIN_PASSWORD ?? "Test1234!",
-      fullName: "Test Admin",
+      fullName: "LOOK Admin",
       role: "both",
       isPlatformAdmin: true,
     },
