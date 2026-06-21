@@ -1,14 +1,17 @@
 "use client";
 
+import { ProviderOfferRespond } from "@/components/offers/ProviderOfferRespond";
 import { RequestOffersList } from "@/components/offers/RequestOffersList";
 import { RequestTestPayment } from "@/components/finance/RequestTestPayment";
 import { RequestLifecycleActions } from "@/components/requests/RequestLifecycleActions";
 import type { Offer, RequestStatus } from "@/types";
+import { useState } from "react";
 
 export type RequestDetailSectionsProps = {
   requestId: string;
   customerId: string;
   requestStatus: RequestStatus;
+  requestCurrency: string;
   initialOffers: Offer[];
   conversationByOfferId: Record<string, string>;
   viewerUserId?: string | null;
@@ -21,6 +24,7 @@ export function RequestDetailSections({
   requestId,
   customerId,
   requestStatus,
+  requestCurrency,
   initialOffers,
   conversationByOfferId,
   viewerUserId = null,
@@ -28,7 +32,15 @@ export function RequestDetailSections({
   viewerCanActAsProvider = false,
   isDemo = false,
 }: RequestDetailSectionsProps) {
-  const acceptedOffer = initialOffers.find((o) => o.status === "accepted");
+  const [offers, setOffers] = useState(initialOffers);
+  const acceptedOffer = offers.find((o) => o.status === "accepted");
+
+  const handleOfferSubmitted = (offer: Offer) => {
+    setOffers((prev) => {
+      const withoutDuplicate = prev.filter((item) => item.id !== offer.id);
+      return [offer, ...withoutDuplicate];
+    });
+  };
 
   return (
     <>
@@ -39,6 +51,18 @@ export function RequestDetailSections({
         viewerUserId={viewerUserId}
         viewerIsCustomer={viewerIsCustomer}
         isDemo={isDemo}
+      />
+      <ProviderOfferRespond
+        requestId={requestId}
+        customerId={customerId}
+        requestStatus={requestStatus}
+        requestCurrency={requestCurrency}
+        offers={offers}
+        viewerUserId={viewerUserId}
+        viewerIsCustomer={viewerIsCustomer}
+        viewerCanActAsProvider={viewerCanActAsProvider}
+        isDemo={isDemo}
+        onOfferSubmitted={handleOfferSubmitted}
       />
       {acceptedOffer && (
         <RequestTestPayment
@@ -54,7 +78,7 @@ export function RequestDetailSections({
       )}
       <RequestOffersList
         requestId={requestId}
-        initialOffers={initialOffers}
+        initialOffers={offers}
         initialRequestStatus={requestStatus}
         customerId={customerId}
         viewerUserId={viewerUserId}
@@ -62,6 +86,8 @@ export function RequestDetailSections({
         viewerCanActAsProvider={viewerCanActAsProvider}
         isDemo={isDemo}
         conversationByOfferId={conversationByOfferId}
+        hideProviderRespond
+        onOffersChange={setOffers}
       />
     </>
   );

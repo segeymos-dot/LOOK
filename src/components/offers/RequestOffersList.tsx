@@ -29,6 +29,8 @@ interface RequestOffersListProps {
   viewerCanActAsProvider?: boolean;
   isDemo?: boolean;
   conversationByOfferId?: Record<string, string>;
+  hideProviderRespond?: boolean;
+  onOffersChange?: (offers: Offer[]) => void;
 }
 
 export function RequestOffersList({
@@ -41,6 +43,8 @@ export function RequestOffersList({
   viewerCanActAsProvider = false,
   isDemo = false,
   conversationByOfferId = {},
+  hideProviderRespond = false,
+  onOffersChange,
 }: RequestOffersListProps) {
   const router = useRouter();
   const { user, loading: authLoading, isProvider, displayProfile } = useAuth();
@@ -121,6 +125,7 @@ export function RequestOffersList({
 
       if (Array.isArray(result.offers)) {
         setOffers(result.offers);
+        onOffersChange?.(result.offers);
       }
       if (result.conversations) {
         setConversations(result.conversations);
@@ -141,7 +146,11 @@ export function RequestOffersList({
     } finally {
       setOffersLoading(false);
     }
-  }, [requestId, isDemo, initialOffers.length]);
+  }, [requestId, isDemo, initialOffers.length, onOffersChange]);
+
+  useEffect(() => {
+    setOffers(initialOffers);
+  }, [initialOffers]);
 
   useEffect(() => {
     setRequestStatus(initialRequestStatus);
@@ -308,13 +317,16 @@ export function RequestOffersList({
           </p>
         )}
 
-      {canRespond && (
+      {canRespond && !hideProviderRespond && (
         <Link href={`/requests/${requestId}/offer`}>
           <Button className="mb-4 w-full">Откликнуться на заказ</Button>
         </Link>
       )}
 
-      {!isRequestOwner && activeUserId && resolvedOwnOfferStatus === "pending" && (
+      {!hideProviderRespond &&
+        !isRequestOwner &&
+        activeUserId &&
+        resolvedOwnOfferStatus === "pending" && (
         <div className="mb-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
           <p className="mb-2">Вы уже отправили отклик. Ожидайте решения заказчика.</p>
           {resolvedOwnOfferId && (
@@ -327,7 +339,10 @@ export function RequestOffersList({
         </div>
       )}
 
-      {!isRequestOwner && activeUserId && resolvedOwnOfferStatus === "rejected" && (
+      {!hideProviderRespond &&
+        !isRequestOwner &&
+        activeUserId &&
+        resolvedOwnOfferStatus === "rejected" && (
         <p className="mb-4 rounded-xl bg-gray-100 px-4 py-2 text-sm text-gray-600">
           Ваш предыдущий отклик отклонён. Вы можете отправить новый.
         </p>

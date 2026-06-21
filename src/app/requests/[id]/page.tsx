@@ -48,10 +48,12 @@ export default async function RequestDetailPage({ params }: PageProps) {
             requestId={id}
             customerId={request.customer_id}
             requestStatus={request.status}
+            requestCurrency={request.currency}
             initialOffers={offers}
             conversationByOfferId={conversationByOfferId}
             viewerUserId={mockCurrentUser.id}
             viewerIsCustomer={mockCurrentUser.id === request.customer_id}
+            viewerCanActAsProvider={mockCurrentUser.role !== "customer"}
             isDemo
           />
         </div>
@@ -97,6 +99,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
           requestId={id}
           customerId={request.customer_id}
           requestStatus={request.status}
+          requestCurrency={request.currency}
           initialOffers={offers}
           conversationByOfferId={conversations}
           viewerUserId={user?.id ?? null}

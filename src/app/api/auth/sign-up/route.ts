@@ -74,7 +74,12 @@ export async function POST(request: Request) {
   return NextResponse.json({
     success: true,
     user: data.user,
-    session: Boolean(data.session),
+    session: data.session
+      ? {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        }
+      : null,
     email: parsed.data.email,
   });
 }
