@@ -20,7 +20,8 @@
     "test:migration-012": "node scripts/verify-migration-012.mjs",
     "test:order-flow": "node scripts/verify-order-flow.mjs",
     "test:registration": "node scripts/verify-registration.mjs",
-    "test:audit-migrations": "node scripts/audit-migrations.mjs"
+    "test:audit-migrations": "node scripts/audit-migrations.mjs",
+    "test:cancel-request": "node scripts/verify-cancel-request.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
