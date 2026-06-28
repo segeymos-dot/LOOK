@@ -3,6 +3,7 @@
 import { OfferCard } from "@/components/offers/OfferCard";
 import { ReviewForm } from "@/components/profile/ReviewForm";
 import { Button } from "@/components/ui/Button";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { authFetch } from "@/lib/auth/client-fetch";
 import { canDecideOnOffer, isRequestOwner as checkRequestOwner } from "@/lib/auth/viewer-role";
@@ -48,6 +49,7 @@ export function RequestOffersList({
 }: RequestOffersListProps) {
   const router = useRouter();
   const { user, loading: authLoading, isProvider, displayProfile } = useAuth();
+  const { t } = useTranslation();
   const [offers, setOffers] = useState(initialOffers);
   const [requestStatus, setRequestStatus] = useState(initialRequestStatus);
   const [conversations, setConversations] = useState(conversationByOfferId);
@@ -111,7 +113,7 @@ export function RequestOffersList({
 
       if (!response.ok) {
         if (initialOffers.length === 0) {
-          setError("Не удалось загрузить предложения");
+          setError(t("offer.loadError"));
         }
         return;
       }
@@ -119,7 +121,7 @@ export function RequestOffersList({
       const result = await response.json();
 
       if (result.error && (!result.offers || result.offers.length === 0)) {
-        setError(`Не удалось загрузить предложения: ${result.error}`);
+        setError(`${t("offer.loadError")}: ${result.error}`);
         return;
       }
 
@@ -141,12 +143,12 @@ export function RequestOffersList({
       }
     } catch {
       if (initialOffers.length === 0) {
-        setError("Не удалось загрузить предложения");
+        setError(t("offer.loadError"));
       }
     } finally {
       setOffersLoading(false);
     }
-  }, [requestId, isDemo, initialOffers.length, onOffersChange]);
+  }, [requestId, isDemo, initialOffers.length, onOffersChange, t]);
 
   useEffect(() => {
     setOffers(initialOffers);
@@ -193,9 +195,7 @@ export function RequestOffersList({
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        setError(
-          mapOfferActionError(result.error ?? "Не удалось принять предложение")
-        );
+        setError(mapOfferActionError(result.error ?? t("offer.acceptError")));
         return;
       }
 
@@ -219,7 +219,7 @@ export function RequestOffersList({
 
       router.refresh();
     } catch {
-      setError("Не удалось принять предложение");
+      setError(t("offer.acceptError"));
     } finally {
       setLoadingOfferId(null);
       setLoadingAction(null);
@@ -247,9 +247,7 @@ export function RequestOffersList({
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        setError(
-          mapOfferActionError(result.error ?? "Не удалось отклонить предложение")
-        );
+        setError(mapOfferActionError(result.error ?? t("offer.rejectError")));
         return;
       }
 
@@ -260,7 +258,7 @@ export function RequestOffersList({
       );
       router.refresh();
     } catch {
-      setError("Не удалось отклонить предложение");
+      setError(t("offer.rejectError"));
     } finally {
       setLoadingOfferId(null);
       setLoadingAction(null);
@@ -275,26 +273,37 @@ export function RequestOffersList({
   const isAcceptedProvider =
     !!acceptedOffer && !!user?.id && user.id === acceptedOffer.provider_id;
   const showChatLink =
-    requestStatus === "in_progress" &&
+    (requestStatus === "in_progress" ||
+      requestStatus === "pending_review" ||
+      requestStatus === "completed") &&
     !!activeConversationId &&
     (isRequestOwner || isAcceptedProvider);
+
+  const chatStatusMessage = (() => {
+    if (requestStatus === "pending_review" && isRequestOwner) {
+      return t("request.pendingReviewCustomer");
+    }
+    if (isRequestOwner) {
+      return t("request.inProgressCustomer");
+    }
+    if (requestStatus === "pending_review") {
+      return t("request.pendingReviewProvider");
+    }
+    return t("request.inProgressProvider");
+  })();
 
   return (
     <section>
       <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
         <MessageCircle className="h-5 w-5" />
-        Предложения ({offersLoading ? "…" : offers.length})
+        {t("offer.sectionTitle")} ({offersLoading ? "…" : offers.length})
       </h2>
 
       {showChatLink && (
         <div className="mb-4 rounded-2xl border border-green-200 bg-green-50 p-4">
-          <p className="mb-2 text-sm text-green-800">
-            {isRequestOwner
-              ? "Исполнитель выбран. Запрос в работе."
-              : "Ваше предложение принято. Запрос в работе."}
-          </p>
+          <p className="mb-2 text-sm text-green-800">{chatStatusMessage}</p>
           <Link href={`/chat/${activeConversationId}`}>
-            <Button size="sm">Открыть чат</Button>
+            <Button size="sm">{t("request.openChat")}</Button>
           </Link>
         </div>
       )}
@@ -302,8 +311,21 @@ export function RequestOffersList({
       {isRequestOwner && requestStatus === "completed" && acceptedOffer && (
         <div className="mb-4">
           <ReviewForm
-            providerId={acceptedOffer.provider_id}
+            revieweeId={acceptedOffer.provider_id}
             requestId={requestId}
+            title={t("review.rateProvider")}
+            placeholder={t("offer.providerPlaceholder")}
+          />
+        </div>
+      )}
+
+      {isAcceptedProvider && requestStatus === "completed" && (
+        <div className="mb-4">
+          <ReviewForm
+            revieweeId={customerId}
+            requestId={requestId}
+            title={t("review.rateCustomer")}
+            placeholder={t("offer.customerPlaceholder")}
           />
         </div>
       )}
@@ -313,13 +335,13 @@ export function RequestOffersList({
         requestStatus === "open" &&
         activeUserId === customerId && (
           <p className="mb-4 rounded-xl bg-indigo-50 px-4 py-2 text-sm text-indigo-800">
-            Это ваш заказ. Управляйте им как заказчик. Откликнуться на свой заказ нельзя.
+            {t("request.manageTitle")}
           </p>
         )}
 
       {canRespond && !hideProviderRespond && (
         <Link href={`/requests/${requestId}/offer`}>
-          <Button className="mb-4 w-full">Откликнуться на заказ</Button>
+          <Button className="mb-4 w-full">{t("offer.respond")}</Button>
         </Link>
       )}
 
@@ -328,11 +350,11 @@ export function RequestOffersList({
         activeUserId &&
         resolvedOwnOfferStatus === "pending" && (
         <div className="mb-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-          <p className="mb-2">Вы уже отправили отклик. Ожидайте решения заказчика.</p>
+          <p className="mb-2">{t("offer.alreadyResponded")}</p>
           {resolvedOwnOfferId && (
             <Link href={`/requests/${requestId}/offers/${resolvedOwnOfferId}`}>
               <Button size="sm" variant="secondary">
-                Посмотреть мой отклик
+                {t("offer.detailTitle")}
               </Button>
             </Link>
           )}
@@ -344,14 +366,12 @@ export function RequestOffersList({
         activeUserId &&
         resolvedOwnOfferStatus === "rejected" && (
         <p className="mb-4 rounded-xl bg-gray-100 px-4 py-2 text-sm text-gray-600">
-          Ваш предыдущий отклик отклонён. Вы можете отправить новый.
+          {t("status.rejected")}
         </p>
       )}
 
       {isRequestOwner && requestStatus === "open" && offers.length === 0 && !offersLoading && (
-        <p className="mb-4 text-center text-sm text-gray-500">
-          Исполнители ещё не откликнулись на заказ
-        </p>
+        <p className="mb-4 text-center text-sm text-gray-500">{t("offer.noOffersDesc")}</p>
       )}
 
       {error && (
@@ -362,7 +382,7 @@ export function RequestOffersList({
 
       <div className="space-y-3">
         {offersLoading && offers.length === 0 ? (
-          <p className="py-6 text-center text-gray-500">Загрузка предложений…</p>
+          <p className="py-6 text-center text-gray-500">{t("common.loading")}</p>
         ) : offers.length > 0 ? (
           offers.map((offer) => (
             <OfferCard
@@ -392,7 +412,7 @@ export function RequestOffersList({
             />
           ))
         ) : (
-          <p className="py-6 text-center text-gray-500">Пока нет предложений</p>
+          <p className="py-6 text-center text-gray-500">{t("offer.noOffers")}</p>
         )}
       </div>
     </section>

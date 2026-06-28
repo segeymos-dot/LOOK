@@ -5,7 +5,9 @@ import { BetaBanner } from "./BetaBanner";
 import { DemoBanner } from "./DemoBanner";
 import { BottomNav } from "./BottomNav";
 import { Avatar } from "@/components/ui/Avatar";
+import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -21,9 +23,10 @@ export function AppLayout({
   title,
 }: AppLayoutProps) {
   const { user, displayProfile, profile } = useAuth();
+  const { t } = useTranslation();
   const resolvedProfile = displayProfile ?? profile;
   const displayName =
-    resolvedProfile?.full_name ?? user?.email?.split("@")[0] ?? "Профиль";
+    resolvedProfile?.full_name ?? user?.email?.split("@")[0] ?? t("nav.profile");
 
   return (
     <div className="mx-auto min-h-dvh max-w-lg bg-surface-muted">
@@ -43,7 +46,9 @@ export function AppLayout({
             )}
           </div>
 
-          {user && (
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher compact />
+            {user && (
             <Link
               href="/profile"
               className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 transition-colors hover:bg-slate-100"
@@ -59,6 +64,7 @@ export function AppLayout({
               </span>
             </Link>
           )}
+          </div>
         </div>
         <BetaBanner />
         <DemoBanner />

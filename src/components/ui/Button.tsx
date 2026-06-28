@@ -1,6 +1,9 @@
+"use client";
+
 import { ButtonHTMLAttributes, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "ghost" | "danger" | "outline";
@@ -27,6 +30,7 @@ const sizes = {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", loading, disabled, children, ...props }, ref) => {
+    const { t } = useTranslation();
     return (
       <button
         ref={ref}
@@ -44,7 +48,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {loading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Загрузка...</span>
+            <span>{t("common.loading")}</span>
           </>
         ) : (
           children

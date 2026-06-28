@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "supabase:gen-types": "supabase gen types typescript --local > src/types/database.types.ts",
     "supabase:apply-migration": "node scripts/apply-migration.mjs",
+    "setup:analytics": "node scripts/setup-analytics-production.mjs",
+    "test:production": "node scripts/verify-production-features.mjs",
     "supabase:seed-test-users": "node scripts/seed-test-users.mjs",
     "test:roles": "node scripts/test-roles.mjs",
     "test:both-role-offer": "node scripts/test-both-role-offer.mjs",
@@ -19,9 +21,17 @@
     "test:finance": "node scripts/verify-financial-cycle.mjs",
     "test:migration-012": "node scripts/verify-migration-012.mjs",
     "test:order-flow": "node scripts/verify-order-flow.mjs",
+    "test:work-lifecycle": "node scripts/verify-work-lifecycle.mjs",
     "test:registration": "node scripts/verify-registration.mjs",
     "test:audit-migrations": "node scripts/audit-migrations.mjs",
-    "test:cancel-request": "node scripts/verify-cancel-request.mjs"
+    "test:cancel-request": "node scripts/verify-cancel-request.mjs",
+    "desktop:build": "bash desktop/scripts/build-mac-app.sh",
+    "desktop:install": "bash desktop/scripts/install-to-desktop.sh",
+    "desktop:dev": "cd desktop && env -u ELECTRON_RUN_AS_NODE LOOK_PROJECT_ROOT=\"$(cd .. && pwd)\" npm run dev",
+    "deploy": "node scripts/deploy-production.mjs",
+    "deploy:domain": "node scripts/deploy-production.mjs -- --domain lookcruise.com",
+    "deploy:supabase-auth": "node scripts/configure-supabase-production.mjs --domain lookcruise.com",
+    "deploy:dns": "node scripts/print-namecheap-dns.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
@@ -45,6 +55,7 @@
     "eslint-config-next": "^15.3.3",
     "pg": "^8.21.0",
     "tailwindcss": "^4.1.8",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vercel": "^54.17.0"
   }
 }

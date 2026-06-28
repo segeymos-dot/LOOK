@@ -6,6 +6,9 @@ import { RequestCard } from "@/components/requests/RequestCard";
 import { RequestCardSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { useTranslation } from "@/components/providers/LocaleProvider";
+import { expandSearchTerms } from "@/lib/i18n/demo-data-translations";
+import { getCategoryLabel } from "@/lib/i18n/localize-data";
 import { isDemoMode } from "@/lib/config";
 import { searchMockRequests } from "@/lib/mock/data";
 import { attachOffersCounts } from "@/lib/data/conversations-server";
@@ -17,6 +20,7 @@ import { Suspense, useEffect, useState } from "react";
 
 function SearchContent() {
   const searchParams = useSearchParams();
+  const { t, locale } = useTranslation();
   const categorySlug = searchParams.get("category");
   const [query, setQuery] = useState("");
   const [requests, setRequests] = useState<Request[]>([]);
@@ -27,7 +31,7 @@ function SearchContent() {
       setLoading(true);
 
       if (isDemoMode()) {
-        setRequests(searchMockRequests(query, categorySlug));
+        setRequests(searchMockRequests(query, categorySlug, locale));
         setLoading(false);
         return;
       }
@@ -54,7 +58,12 @@ function SearchContent() {
         }
 
         if (query.trim()) {
-          q = q.or(`title.ilike.%${query}%,description.ilike.%${query}%`);
+          const terms = expandSearchTerms(query, locale);
+          const clauses = terms.flatMap((term) => [
+            `title.ilike.%${term}%`,
+            `description.ilike.%${term}%`,
+          ]);
+          q = q.or(clauses.join(","));
         }
 
         const { data } = await q.limit(20);
@@ -76,20 +85,24 @@ function SearchContent() {
 
     const debounce = setTimeout(fetchRequests, 300);
     return () => clearTimeout(debounce);
-  }, [query, categorySlug]);
+  }, [query, categorySlug, locale]);
 
   return (
-    <AppLayout activePath="/search" title="Поиск">
+    <AppLayout activePath="/search" title={t("search.pageTitle")}>
       <div className="space-y-5 p-4">
         <PageHeader
-          title="Поиск заказов"
-          subtitle={categorySlug ? `Категория: ${categorySlug}` : "Найдите подходящий заказ"}
+          title={t("search.title")}
+          subtitle={
+            categorySlug
+              ? t("search.subtitleCategory", { name: getCategoryLabel(categorySlug, locale) })
+              : t("search.subtitle")
+          }
         />
 
         <div className="relative">
           <Search className="absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-text-muted" />
           <Input
-            placeholder="Поиск по названию или описанию..."
+            placeholder={t("search.placeholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-11 shadow-card"
@@ -104,7 +117,9 @@ function SearchContent() {
           </div>
         ) : requests.length > 0 ? (
           <div className="space-y-3">
-            <p className="text-sm text-text-secondary">Найдено: {requests.length}</p>
+            <p className="text-sm text-text-secondary">
+              {t("search.found", { count: requests.length })}
+            </p>
             {requests.map((request) => (
               <RequestCard key={request.id} request={request} />
             ))}
@@ -112,8 +127,8 @@ function SearchContent() {
         ) : (
           <EmptyState
             icon={Search}
-            title="Ничего не найдено"
-            description="Попробуйте изменить запрос или выбрать другую категорию"
+            title={t("search.empty")}
+            description={t("search.emptyDesc")}
           />
         )}
       </div>

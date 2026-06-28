@@ -1,5 +1,8 @@
+"use client";
+
 import { Card } from "@/components/ui/Card";
 import { StarRating } from "@/components/profile/StarRating";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { formatRating } from "@/lib/profile/provider-utils";
 import { Briefcase, MessageSquare, Star } from "lucide-react";
 
@@ -16,6 +19,8 @@ export function ProviderStats({
   reviewsCount,
   variant = "full",
 }: ProviderStatsProps) {
+  const { t } = useTranslation();
+
   if (variant === "compact") {
     return (
       <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary">
@@ -25,8 +30,12 @@ export function ProviderStats({
             {formatRating(rating)}
           </span>
         )}
-        <span>{completedOrders} заказов</span>
-        <span>{reviewsCount} отзывов</span>
+        <span>
+          {completedOrders} {t("profile.stats.orders")}
+        </span>
+        <span>
+          {reviewsCount} {t("profile.stats.reviews")}
+        </span>
       </div>
     );
   }
@@ -36,7 +45,7 @@ export function ProviderStats({
       <Card padding="sm" className="text-center">
         <Star className="mx-auto mb-1 h-5 w-5 text-amber-400" />
         <p className="text-lg font-bold text-text-primary">{formatRating(rating)}</p>
-        <p className="text-xs text-text-muted">Рейтинг</p>
+        <p className="text-xs text-text-muted">{t("profile.stats.rating")}</p>
         {rating > 0 && (
           <div className="mt-1 flex justify-center">
             <StarRating rating={rating} size="sm" />
@@ -46,12 +55,12 @@ export function ProviderStats({
       <Card padding="sm" className="text-center">
         <Briefcase className="mx-auto mb-1 h-5 w-5 text-brand-600" />
         <p className="text-lg font-bold text-text-primary">{completedOrders}</p>
-        <p className="text-xs text-text-muted">Выполнено заказов</p>
+        <p className="text-xs text-text-muted">{t("profile.stats.completed")}</p>
       </Card>
       <Card padding="sm" className="text-center">
         <MessageSquare className="mx-auto mb-1 h-5 w-5 text-brand-600" />
         <p className="text-lg font-bold text-text-primary">{reviewsCount}</p>
-        <p className="text-xs text-text-muted">Отзывы</p>
+        <p className="text-xs text-text-muted">{t("profile.stats.reviews")}</p>
       </Card>
     </div>
   );

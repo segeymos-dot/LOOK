@@ -3,6 +3,7 @@
 import { FinanceStatCard } from "@/components/finance/FinanceStatCard";
 import { FinanceTransactionList } from "@/components/finance/FinanceTransactionList";
 import { Button } from "@/components/ui/Button";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { authFetch } from "@/lib/auth/client-fetch";
 import { formatCommissionPercent } from "@/lib/config/finance";
 import { formatPrice } from "@/lib/utils";
@@ -11,6 +12,7 @@ import { Banknote, Clock, TrendingUp, Wallet } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 export function ProviderBalancePanel() {
+  const { t } = useTranslation();
   const [balance, setBalance] = useState<ProviderBalance | null>(null);
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,19 +50,19 @@ export function ProviderBalancePanel() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setError(data.error ?? "Не удалось создать выплату");
+        setError(data.error ?? t("finance.provider.createPayoutError"));
         return;
       }
       await load();
     } catch {
-      setError("Не удалось создать выплату");
+      setError(t("finance.provider.createPayoutError"));
     } finally {
       setPayoutLoading(false);
     }
   };
 
   if (loading && !balance) {
-    return <p className="text-sm text-text-muted">Загрузка баланса…</p>;
+    return <p className="text-sm text-text-muted">{t("finance.provider.loadingBalance")}</p>;
   }
 
   const currency = balance?.currency ?? "USD";
@@ -70,20 +72,20 @@ export function ProviderBalancePanel() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <FinanceStatCard
           icon={Wallet}
-          label="Доступный баланс"
+          label={t("finance.provider.availableBalance")}
           value={formatPrice(balance?.available_balance ?? 0, currency)}
-          hint="Можно вывести (тест)"
+          hint={t("finance.provider.availableHint")}
           accent="success"
         />
         <FinanceStatCard
           icon={Clock}
-          label="Ожидают выплаты"
+          label={t("finance.provider.pendingPayout")}
           value={formatPrice(balance?.pending_payout ?? 0, currency)}
           accent="warning"
         />
         <FinanceStatCard
           icon={TrendingUp}
-          label="Всего заработано"
+          label={t("finance.provider.totalEarned")}
           value={formatPrice(balance?.total_earned ?? 0, currency)}
           accent="brand"
         />
@@ -101,18 +103,20 @@ export function ProviderBalancePanel() {
             onClick={handlePayout}
           >
             <Banknote className="h-4 w-4" />
-            Запросить тестовую выплату
+            {t("finance.provider.requestTestPayout")}
           </Button>
         </div>
       )}
 
       <section>
-        <h2 className="mb-3 text-lg font-bold text-text-primary">Последние операции</h2>
+        <h2 className="mb-3 text-lg font-bold text-text-primary">
+          {t("finance.provider.recentTransactions")}
+        </h2>
         <FinanceTransactionList transactions={transactions.slice(0, 5)} />
       </section>
 
       <p className="text-xs text-text-muted">
-        Комиссия LOOK: {formatCommissionPercent()}. Режим тестирования — без Stripe Connect.
+        {t("finance.provider.commissionNote", { rate: formatCommissionPercent() })}
       </p>
     </div>
   );

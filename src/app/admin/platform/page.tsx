@@ -4,6 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { PlatformBalancePanel } from "@/components/finance/PlatformBalancePanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { isDemoMode } from "@/lib/config";
 import Link from "next/link";
@@ -12,6 +13,7 @@ import { useEffect } from "react";
 
 export default function PlatformBalancePage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { isPlatformAdmin, ready, profileReady } = useAuth();
   const demo = isDemoMode();
 
@@ -29,14 +31,14 @@ export default function PlatformBalancePage() {
     <AppLayout hideNav title="LOOK Platform">
       <div className="space-y-5 p-4 pb-8">
         <PageHeader
-          title="Баланс платформы"
-          subtitle="Доход LOOK, комиссии и оборот (тестовый режим)"
+          title={t("admin.platformTitle")}
+          subtitle={t("admin.platformSubtitle")}
           backHref="/profile"
         />
         <PlatformBalancePanel />
         <Link href="/finance/transactions">
           <Button variant="outline" className="w-full">
-            История операций
+            {t("finance.transactions.title")}
           </Button>
         </Link>
       </div>

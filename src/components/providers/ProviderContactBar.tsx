@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import {
   getProviderLoginRedirect,
   getProviderMessageUrl,
@@ -25,6 +26,8 @@ export function ProviderContactBar({
   isOwnProfile,
   variant = "sticky",
 }: ProviderContactBarProps) {
+  const { t } = useTranslation();
+
   if (isOwnProfile) return null;
 
   const messageHref = isAuthenticated
@@ -41,20 +44,20 @@ export function ProviderContactBar({
     <div className="space-y-2">
       {showChatHint && (
         <p className="text-center text-xs text-text-muted">
-          Чат откроется после принятия отклика исполнителя
+          {t("provider.chatHintAfterOffer")}
         </p>
       )}
       <div className="flex flex-col gap-2 sm:flex-row">
         <Link href={messageHref} className="flex-1">
           <Button className="w-full gap-2" size="lg">
             <MessageCircle className="h-5 w-5" />
-            Написать
+            {t("provider.message")}
           </Button>
         </Link>
         <Link href={offerHref} className="flex-1">
           <Button variant="outline" className="w-full gap-2" size="lg">
             <PlusCircle className="h-5 w-5" />
-            Предложить заказ
+            {t("provider.offerOrder")}
           </Button>
         </Link>
       </div>

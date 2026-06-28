@@ -1,10 +1,13 @@
 "use client";
 
-import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
+import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { formatPrice, formatRelativeTime } from "@/lib/utils";
+import { useTranslation } from "@/components/providers/LocaleProvider";
+import { formatRelativeTimeT } from "@/lib/i18n/client-messages";
+import { localizeOffer } from "@/lib/i18n/localize-data";
+import { formatPrice } from "@/lib/utils";
 import type { Offer, RequestStatus } from "@/types";
 import Link from "next/link";
 import { MessageSquare } from "lucide-react";
@@ -24,6 +27,7 @@ interface OfferCardProps {
 export function OfferCard({
   offer,
   requestId,
+  requestStatus,
   showActions = false,
   conversationId,
   acceptLoading,
@@ -31,10 +35,21 @@ export function OfferCard({
   onAccept,
   onReject,
 }: OfferCardProps) {
+  const { t, locale } = useTranslation();
+  const localized = localizeOffer(offer, locale);
   const href = `/requests/${requestId ?? offer.request_id}/offers/${offer.id}`;
+  const resolvedRequestStatus = requestStatus ?? offer.request?.status;
 
   return (
     <Card className="overflow-hidden">
+      {localized.request?.title && (
+        <Link
+          href={`/requests/${offer.request_id}`}
+          className="mb-3 block text-sm font-semibold text-text-primary line-clamp-2 hover:text-brand-600"
+        >
+          {localized.request.title}
+        </Link>
+      )}
       <div className="mb-3 flex items-start justify-between gap-3">
         {offer.provider ? (
           <Link href={`/providers/${offer.provider_id}`} className="flex items-center gap-3">
@@ -51,7 +66,7 @@ export function OfferCard({
               {offer.provider.rating > 0 && (
                 <p className="text-xs text-text-secondary">
                   ★ {offer.provider.rating.toFixed(1)} · {offer.provider.completed_orders_count}{" "}
-                  заказов · {offer.provider.reviews_count} отзывов
+                  {t("profile.stats.orders")} · {t("review.count", { count: offer.provider.reviews_count })}
                 </p>
               )}
             </div>
@@ -59,12 +74,17 @@ export function OfferCard({
         ) : (
           <div />
         )}
-        <Badge status={offer.status} type="offer" />
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {resolvedRequestStatus && (
+            <Badge status={resolvedRequestStatus} size="sm" />
+          )}
+          <Badge status={offer.status} type="offer" />
+        </div>
       </div>
 
       <Link href={href} className="block transition-opacity hover:opacity-95">
         <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-text-secondary">
-          {offer.message}
+          {localized.message}
         </p>
 
         <div className="flex items-center gap-4 text-sm">
@@ -72,9 +92,11 @@ export function OfferCard({
             {formatPrice(offer.price, offer.currency)}
           </span>
           {offer.estimated_days && (
-            <span className="text-text-muted">~{offer.estimated_days} дн.</span>
+            <span className="text-text-muted">
+              ~{offer.estimated_days} {t("offer.days")}
+            </span>
           )}
-          <span className="text-text-muted">{formatRelativeTime(offer.created_at)}</span>
+          <span className="text-text-muted">{formatRelativeTimeT(offer.created_at, t, locale)}</span>
         </div>
       </Link>
 
@@ -86,7 +108,7 @@ export function OfferCard({
             loading={acceptLoading}
             onClick={() => onAccept?.(offer.id)}
           >
-            Принять
+            {t("offer.accept")}
           </Button>
           <Button
             className="flex-1"
@@ -95,7 +117,7 @@ export function OfferCard({
             loading={rejectLoading}
             onClick={() => onReject?.(offer.id)}
           >
-            Отклонить
+            {t("offer.reject")}
           </Button>
         </div>
       )}
@@ -104,7 +126,7 @@ export function OfferCard({
         <Link href={`/chat/${conversationId}`} className="mt-4 block">
           <Button size="sm" variant="outline" className="w-full gap-2">
             <MessageSquare className="h-4 w-4" />
-            Открыть чат
+            {t("request.openChat")}
           </Button>
         </Link>
       )}

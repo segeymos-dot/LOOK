@@ -1,8 +1,11 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { RequestCreatedBanner } from "@/components/requests/RequestCreatedBanner";
 import { RequestDetailCard } from "@/components/requests/RequestDetailCard";
+import { RequestDetailPageHeader } from "@/components/requests/RequestDetailPageHeader";
+import { getWorkLifecycleState } from "@/lib/data/work-lifecycle-state";
 import { getRequestOffersForPage } from "@/lib/data/request-offers-server";
+import { getServerLocale } from "@/lib/i18n/server";
+import { localizeOffers, localizeRequest } from "@/lib/i18n/localize-data";
 import { RequestDetailSections } from "@/components/requests/RequestDetailSections";
 import { canActAsProvider } from "@/lib/auth/roles";
 import { isDemoMode } from "@/lib/config";
@@ -24,12 +27,14 @@ export const dynamic = "force-dynamic";
 
 export default async function RequestDetailPage({ params }: PageProps) {
   const { id } = await params;
+  const locale = await getServerLocale();
 
   if (isDemoMode()) {
     const request = getMockRequest(id);
     if (!request) notFound();
 
-    const offers = getMockOffers(id);
+    const localizedRequest = localizeRequest(request, locale);
+    const offers = localizeOffers(getMockOffers(id), locale);
     const conversationByOfferId = offers.reduce<Record<string, string>>(
       (map, offer) => {
         const conversation = getMockConversationForOffer(offer.id);
@@ -42,17 +47,17 @@ export default async function RequestDetailPage({ params }: PageProps) {
     return (
       <AppLayout activePath="/search" hideNav>
         <div className="space-y-5 p-4">
-          <PageHeader title="Заказ" backHref="/search" />
-          <RequestDetailCard request={request} />
+          <RequestDetailPageHeader />
+          <RequestDetailCard request={localizedRequest} />
           <RequestDetailSections
             requestId={id}
-            customerId={request.customer_id}
-            requestStatus={request.status}
-            requestCurrency={request.currency}
+            customerId={localizedRequest.customer_id}
+            requestStatus={localizedRequest.status}
+            requestCurrency={localizedRequest.currency}
             initialOffers={offers}
             conversationByOfferId={conversationByOfferId}
             viewerUserId={mockCurrentUser.id}
-            viewerIsCustomer={mockCurrentUser.id === request.customer_id}
+            viewerIsCustomer={mockCurrentUser.id === localizedRequest.customer_id}
             viewerCanActAsProvider={mockCurrentUser.role !== "customer"}
             isDemo
           />
@@ -86,25 +91,34 @@ export default async function RequestDetailPage({ params }: PageProps) {
   }
 
   const { offers, conversations } = await getRequestOffersForPage(id);
+  const lifecycle = await getWorkLifecycleState(supabase, id);
+  const effectiveStatus = lifecycle?.effectiveStatus ?? request.status;
+  const revisionFeedback = lifecycle?.revisionFeedback ?? null;
+  const localizedRequest = localizeRequest(
+    { ...request, status: effectiveStatus, offers_count: offers.length },
+    locale
+  );
+  const localizedOffers = localizeOffers(offers, locale);
 
   return (
     <AppLayout activePath="/search" hideNav>
       <div className="space-y-5 p-4">
-        <PageHeader title="Заказ" backHref="/search" />
+        <RequestDetailPageHeader />
         <Suspense>
           <RequestCreatedBanner />
         </Suspense>
-        <RequestDetailCard request={{ ...request, offers_count: offers.length }} />
+        <RequestDetailCard request={localizedRequest} />
         <RequestDetailSections
           requestId={id}
           customerId={request.customer_id}
-          requestStatus={request.status}
+          requestStatus={effectiveStatus}
           requestCurrency={request.currency}
-          initialOffers={offers}
+          initialOffers={localizedOffers}
           conversationByOfferId={conversations}
           viewerUserId={user?.id ?? null}
           viewerIsCustomer={user ? user.id === request.customer_id : undefined}
           viewerCanActAsProvider={viewerCanActAsProvider}
+          revisionFeedback={revisionFeedback}
         />
       </div>
     </AppLayout>

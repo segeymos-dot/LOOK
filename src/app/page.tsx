@@ -1,18 +1,19 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { HomeHero } from "@/components/home/HomeHero";
+import { HomeCategoriesHeader, HomeRecentHeader, HomeEmptyRequests } from "@/components/home/HomeSections";
 import { CategoryGrid } from "@/components/categories/CategoryGrid";
 import { RequestCard } from "@/components/requests/RequestCard";
-import { Button } from "@/components/ui/Button";
 import { isDemoMode } from "@/lib/config";
 import { mockCategories, mockRequests } from "@/lib/mock/data";
 import { attachOffersCounts } from "@/lib/data/conversations-server";
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { getServerLocale } from "@/lib/i18n/server";
+import { localizeCategories, localizeRequests } from "@/lib/i18n/localize-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  const locale = await getServerLocale();
   let categories = mockCategories;
   let requests = mockRequests;
 
@@ -31,44 +32,21 @@ export default async function HomePage() {
     requests = await attachOffersCounts(supabase, requestsRes.data ?? []);
   }
 
+  categories = localizeCategories(categories ?? [], locale);
+  requests = localizeRequests(requests ?? [], locale);
+
   return (
     <AppLayout activePath="/">
       <div className="space-y-8 p-4">
         <HomeHero />
 
         <section>
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold tracking-tight text-text-primary">Категории</h2>
-              <p className="text-sm text-text-secondary">Выберите направление</p>
-            </div>
-            <Link
-              href="/search"
-              className="flex items-center gap-1 text-sm font-semibold text-brand-600"
-            >
-              Все
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+          <HomeCategoriesHeader />
           <CategoryGrid categories={categories ?? []} />
         </section>
 
         <section>
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold tracking-tight text-text-primary">
-                Актуальные запросы
-              </h2>
-              <p className="text-sm text-text-secondary">Свежие заказы от заказчиков</p>
-            </div>
-            <Link
-              href="/search"
-              className="flex items-center gap-1 text-sm font-semibold text-brand-600"
-            >
-              Все
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+          <HomeRecentHeader />
 
           <div className="space-y-3">
             {requests && requests.length > 0 ? (
@@ -76,12 +54,7 @@ export default async function HomePage() {
                 <RequestCard key={request.id} request={request} />
               ))
             ) : (
-              <div className="rounded-2xl border border-dashed border-border bg-surface px-6 py-12 text-center">
-                <p className="font-medium text-text-secondary">Пока нет запросов</p>
-                <Link href="/requests/new" className="mt-4 inline-block">
-                  <Button size="sm">Создать первый запрос</Button>
-                </Link>
-              </div>
+              <HomeEmptyRequests />
             )}
           </div>
         </section>

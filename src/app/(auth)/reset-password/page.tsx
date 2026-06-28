@@ -2,17 +2,19 @@
 
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { isDemoMode } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
-import { mapAuthError } from "@/lib/test-auth";
-import { resetPasswordSchema } from "@/lib/validations";
+import { createResetPasswordSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const resetPasswordSchema = useMemo(() => createResetPasswordSchema(t), [t]);
   const demo = isDemoMode();
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -60,7 +62,7 @@ export default function ResetPasswordPage() {
     setLoading(false);
 
     if (error) {
-      setErrors({ form: mapAuthError(error.message) });
+      setErrors({ form: mapAuthErrorT(error.message, t) });
       return;
     }
 
@@ -72,30 +74,30 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthLayout
-      title="Новый пароль"
-      subtitle="Введите новый пароль для вашего аккаунта"
+      title={t("auth.reset.title")}
+      subtitle={t("auth.reset.subtitle")}
       footer={
         <p className="text-center text-sm text-text-secondary">
           <Link href="/login" className="font-semibold text-brand-600">
-            Ко входу
+            {t("auth.reset.toLogin")}
           </Link>
         </p>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
+        <PasswordInput
           id="password"
-          label="Новый пароль"
-          type="password"
-          placeholder="Минимум 6 символов"
+          label={t("auth.reset.password")}
+          autoComplete="new-password"
+          placeholder="••••••"
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
           error={errors.password}
         />
-        <Input
+        <PasswordInput
           id="confirmPassword"
-          label="Повторите пароль"
-          type="password"
+          label={t("auth.reset.confirm")}
+          autoComplete="new-password"
           placeholder="••••••"
           value={form.confirmPassword}
           onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
@@ -103,7 +105,7 @@ export default function ResetPasswordPage() {
         />
         {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
         <Button type="submit" loading={loading} className="w-full">
-          Сохранить пароль
+          {t("auth.reset.submit")}
         </Button>
       </form>
     </AuthLayout>

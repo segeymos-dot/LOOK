@@ -8,6 +8,9 @@ import type {
   Request,
   Review,
 } from "@/types";
+import type { Locale } from "@/lib/i18n";
+import { localizeRequest } from "@/lib/i18n/localize-data";
+import { expandSearchTerms } from "@/lib/i18n/demo-data-translations";
 
 const now = new Date();
 const daysAgo = (n: number) =>
@@ -127,6 +130,7 @@ export const mockReviews: Review[] = [
   {
     id: "rev-1",
     provider_id: "user-2",
+    reviewee_id: "user-2",
     reviewer_id: "user-1",
     request_id: "req-1",
     rating: 5,
@@ -137,6 +141,7 @@ export const mockReviews: Review[] = [
   {
     id: "rev-2",
     provider_id: "user-2",
+    reviewee_id: "user-2",
     reviewer_id: "user-4",
     request_id: null,
     rating: 5,
@@ -147,6 +152,7 @@ export const mockReviews: Review[] = [
   {
     id: "rev-3",
     provider_id: "user-3",
+    reviewee_id: "user-3",
     reviewer_id: "user-1",
     request_id: null,
     rating: 5,
@@ -320,6 +326,8 @@ export const mockConversations: Conversation[] = [
       sender_id: "user-2",
       content: "Могу приехать на замер в субботу, удобно?",
       read_at: null,
+      delivered_at: daysAgo(0),
+      attachment_urls: [],
       created_at: daysAgo(0),
     },
     unread_count: 1,
@@ -333,6 +341,8 @@ export const mockMessages: Message[] = [
     sender_id: "user-2",
     content: "Здравствуйте! Посмотрел ваш запрос, готов взяться за работу.",
     read_at: daysAgo(0),
+    delivered_at: daysAgo(0),
+    attachment_urls: [],
     created_at: daysAgo(0),
     sender: mockProfiles[1],
   },
@@ -342,6 +352,8 @@ export const mockMessages: Message[] = [
     sender_id: "user-1",
     content: "Отлично! Когда сможете приехать на замер?",
     read_at: daysAgo(0),
+    delivered_at: daysAgo(0),
+    attachment_urls: [],
     created_at: daysAgo(0),
     sender: mockProfiles[0],
   },
@@ -351,6 +363,8 @@ export const mockMessages: Message[] = [
     sender_id: "user-2",
     content: "Могу приехать на замер в субботу, удобно?",
     read_at: null,
+    delivered_at: daysAgo(0),
+    attachment_urls: [],
     created_at: daysAgo(0),
     sender: mockProfiles[1],
   },
@@ -394,7 +408,11 @@ export function getMockMessages(conversationId: string): Message[] {
   return mockMessages.filter((m) => m.conversation_id === conversationId);
 }
 
-export function searchMockRequests(query: string, categorySlug?: string | null): Request[] {
+export function searchMockRequests(
+  query: string,
+  categorySlug?: string | null,
+  locale: Locale = "ru"
+): Request[] {
   let results = mockRequests.filter(
     (r) => r.status === "open" || r.status === "in_progress"
   );
@@ -405,12 +423,25 @@ export function searchMockRequests(query: string, categorySlug?: string | null):
   }
 
   if (query.trim()) {
-    const q = query.toLowerCase();
-    results = results.filter(
-      (r) =>
-        r.title.toLowerCase().includes(q) ||
-        r.description.toLowerCase().includes(q)
-    );
+    const terms = expandSearchTerms(query, locale);
+    results = results.filter((r) => {
+      const localized = localizeRequest(r, locale);
+      const localizedEn = locale === "en" ? localized : localizeRequest(r, "en");
+      const localizedRu = locale === "ru" ? localized : localizeRequest(r, "ru");
+      const haystack = [
+        r.title,
+        r.description,
+        localized.title,
+        localized.description,
+        localizedEn.title,
+        localizedEn.description,
+        localizedRu.title,
+        localizedRu.description,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return terms.some((term) => haystack.includes(term.toLowerCase()));
+    });
   }
 
   return results;

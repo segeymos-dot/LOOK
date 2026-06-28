@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
-import { formatRelativeTime } from "@/lib/utils";
+import { useTranslation } from "@/components/providers/LocaleProvider";
+import { formatRelativeTimeT } from "@/lib/i18n/client-messages";
+import { localizeConversation } from "@/lib/i18n/localize-data";
 import type { Conversation } from "@/types";
 import { ChevronRight } from "lucide-react";
 
@@ -10,6 +14,8 @@ interface ConversationItemProps {
 }
 
 export function ConversationItem({ conversation, currentUserId }: ConversationItemProps) {
+  const { t, locale } = useTranslation();
+  const localized = localizeConversation(conversation, locale);
   const otherUser =
     conversation.customer_id === currentUserId
       ? conversation.provider
@@ -27,28 +33,28 @@ export function ConversationItem({ conversation, currentUserId }: ConversationIt
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <p className="truncate font-semibold text-text-primary">
-            {otherUser?.full_name ?? "Пользователь"}
+            {otherUser?.full_name ?? t("chat.unknownUser")}
           </p>
           {conversation.last_message_at && (
             <span className="shrink-0 text-xs text-text-muted">
-              {formatRelativeTime(conversation.last_message_at)}
+              {formatRelativeTimeT(conversation.last_message_at, t, locale)}
             </span>
           )}
         </div>
 
-        {conversation.request && (
+        {localized.request && (
           <p className="truncate text-sm font-medium text-brand-600">
-            {conversation.request.title}
+            {localized.request.title}
           </p>
         )}
 
-        {conversation.last_message ? (
+        {localized.last_message ? (
           <p className="truncate text-sm text-text-secondary">
-            {conversation.last_message.sender_id === currentUserId ? "Вы: " : ""}
-            {conversation.last_message.content}
+            {localized.last_message.sender_id === currentUserId ? t("chat.youPrefix") : ""}
+            {localized.last_message.content}
           </p>
         ) : (
-          <p className="truncate text-sm text-text-muted">Нет сообщений</p>
+          <p className="truncate text-sm text-text-muted">{t("chat.noMessages")}</p>
         )}
       </div>
 

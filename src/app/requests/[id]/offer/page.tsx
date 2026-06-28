@@ -6,22 +6,25 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Textarea } from "@/components/ui/Textarea";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { canActAsProvider } from "@/lib/auth/roles";
 import { getAuthenticatedUser } from "@/lib/auth/client-fetch";
 import { submitOffer } from "@/lib/data/submit-offer";
 import { isDemoMode } from "@/lib/config";
+import { createOfferSchema } from "@/lib/i18n/client-messages";
 import { createClient } from "@/lib/supabase/client";
-import { offerSchema } from "@/lib/validations";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AlertCircle } from "lucide-react";
 
 export default function NewOfferPage() {
   const { id: requestId } = useParams<{ id: string }>();
   const router = useRouter();
   const { displayProfile, loading: authLoading } = useAuth();
+  const { t } = useTranslation();
+  const offerSchema = useMemo(() => createOfferSchema(t), [t]);
 
   const [loading, setLoading] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
@@ -117,7 +120,7 @@ export default function NewOfferPage() {
       router.push(`/requests/${requestId}`);
       router.refresh();
     } catch {
-      setErrors({ form: "Не удалось отправить отклик" });
+      setErrors({ form: t("offer.submitError") });
     } finally {
       setLoading(false);
     }
@@ -137,16 +140,14 @@ export default function NewOfferPage() {
     return (
       <AppLayout hideNav>
         <div className="space-y-4 p-4">
-          <PageHeader title="Отклик" backHref={`/requests/${requestId}`} />
+          <PageHeader title={t("offer.detailTitle")} backHref={`/requests/${requestId}`} />
           <Card padding="md" className="border-amber-200 bg-warning-bg">
             <div className="flex gap-3">
               <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
               <div>
-                <p className="text-sm text-amber-900">
-                  Откликаться на заказы могут только исполнители. Измените роль в профиле.
-                </p>
+                <p className="text-sm text-amber-900">{t("offer.providerOnly")}</p>
                 <Link href="/profile" className="mt-3 inline-block">
-                  <Button size="sm">Профиль</Button>
+                  <Button size="sm">{t("profile.title")}</Button>
                 </Link>
               </div>
             </div>
@@ -160,17 +161,17 @@ export default function NewOfferPage() {
     <AppLayout hideNav>
       <form onSubmit={handleSubmit} className="space-y-5 p-4">
         <PageHeader
-          title="Откликнуться"
-          subtitle="Укажите цену и сообщение заказчику"
+          title={t("offer.respond")}
+          subtitle={t("offer.respondSubtitle")}
           backHref={`/requests/${requestId}`}
         />
 
         <Card padding="md" className="space-y-4">
           <Input
             id="price"
-            label="Предлагаемая цена"
+            label={t("offer.price")}
             type="number"
-            placeholder="5000"
+            placeholder={t("offer.price")}
             value={form.price}
             onChange={(e) => setForm({ ...form, price: e.target.value })}
             error={errors.price}
@@ -178,8 +179,8 @@ export default function NewOfferPage() {
 
           <Textarea
             id="message"
-            label="Сообщение"
-            placeholder="Опишите, как вы выполните задачу..."
+            label={t("offer.comment")}
+            placeholder={t("offer.providerPlaceholder")}
             rows={5}
             value={form.message}
             onChange={(e) => setForm({ ...form, message: e.target.value })}
@@ -190,7 +191,7 @@ export default function NewOfferPage() {
         {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
 
         <Button type="submit" loading={loading} className="w-full" size="lg">
-          Отправить отклик
+          {t("offer.submit")}
         </Button>
       </form>
     </AppLayout>

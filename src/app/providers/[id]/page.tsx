@@ -1,7 +1,8 @@
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ProviderPageHeader } from "@/components/providers/ProviderPageHeader";
 import { ProviderPublicProfile } from "@/components/providers/ProviderPublicProfile";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { canActAsProvider } from "@/lib/auth/roles";
+import { getServerTranslation } from "@/lib/i18n/server";
 import {
   getProviderMetadataProfile,
   resolveProviderPageData,
@@ -33,14 +34,16 @@ async function getMetadataProfile(id: string) {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const profile = await getMetadataProfile(id);
+  const { t } = await getServerTranslation();
 
   if (!profile || !canActAsProvider(profile.role)) {
-    return { title: "Исполнитель не найден — LOOK" };
+    return { title: `${t("provider.notFound")} — LOOK` };
   }
 
   return {
-    title: `${profile.full_name} — исполнитель — LOOK`,
-    description: profile.bio ?? `Профиль исполнителя ${profile.full_name}`,
+    title: t("provider.metaTitle", { name: profile.full_name }),
+    description:
+      profile.bio ?? t("provider.metaDescriptionFallback", { name: profile.full_name }),
   };
 }
 
@@ -52,7 +55,7 @@ export default async function ProviderProfilePage({ params }: PageProps) {
 
   return (
     <AppLayout hideNav title={data.profile.full_name}>
-      <PageHeader title="Профиль исполнителя" backHref="/search" className="px-4 pt-4" />
+      <ProviderPageHeader />
       <ProviderPublicProfile
         profile={data.profile}
         reviews={data.reviews}

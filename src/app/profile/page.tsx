@@ -16,20 +16,22 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { isDemoMode } from "@/lib/config";
 import {
   canActAsCustomer,
   canActAsProvider,
-  getRoleLabel,
 } from "@/lib/auth/roles";
 import { getMockReviewsForProvider, mockCategories } from "@/lib/mock/data";
 import { getProviderVerification } from "@/lib/profile/provider-utils";
 import { createClient } from "@/lib/supabase/client";
+import { getRoleLabelT, mapUserFacingErrorT } from "@/lib/i18n/client-messages";
 import type { Category, PortfolioItem, Review } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
+  BarChart3,
   Building2,
   ClipboardList,
   ExternalLink,
@@ -46,11 +48,13 @@ import { FormEvent, useEffect, useState } from "react";
 
 export default function ProfilePage() {
   const { user, profile, displayProfile, ready, signOut, setProfile, isPlatformAdmin } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const resolvedProfile = displayProfile ?? profile;
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [form, setForm] = useState({
@@ -61,6 +65,7 @@ export default function ProfilePage() {
     phone: "",
     avatar_url: "",
     skills: "",
+    portfolio: "",
     portfolio_items: [] as PortfolioItem[],
     provider_category_slugs: [] as string[],
     role: "both" as "customer" | "provider" | "both",
@@ -107,6 +112,7 @@ export default function ProfilePage() {
         phone: resolvedProfile.phone ?? "",
         avatar_url: resolvedProfile.avatar_url ?? "",
         skills: resolvedProfile.skills ?? "",
+        portfolio: resolvedProfile.portfolio ?? "",
         portfolio_items: resolvedProfile.portfolio_items ?? [],
         provider_category_slugs: resolvedProfile.provider_category_slugs ?? [],
         role: resolvedProfile.role,
@@ -119,6 +125,7 @@ export default function ProfilePage() {
     if (!user) return;
 
     setSaving(true);
+    setSaveError(null);
 
     if (!isDemoMode()) {
       const supabase = createClient();
@@ -131,6 +138,7 @@ export default function ProfilePage() {
         phone_verified: Boolean(form.phone?.trim()),
         avatar_url: form.avatar_url || null,
         skills: form.skills || null,
+        portfolio: form.portfolio || null,
         portfolio_items: form.portfolio_items,
         provider_category_slugs: form.provider_category_slugs,
         role: form.role,
@@ -144,6 +152,7 @@ export default function ProfilePage() {
         .single();
 
       if (error) {
+        setSaveError(mapUserFacingErrorT(error.message, t));
         setSaving(false);
         return;
       }
@@ -177,9 +186,9 @@ export default function ProfilePage() {
 
   if (!ready) {
     return (
-      <AppLayout activePath="/profile" title="Профиль">
+      <AppLayout activePath="/profile" title={t("profile.title")}>
         <div className="flex flex-col items-center justify-center px-4 py-20">
-          <p className="text-text-secondary">Загрузка профиля…</p>
+          <p className="text-text-secondary">{t("profile.loading")}</p>
         </div>
       </AppLayout>
     );
@@ -187,12 +196,12 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <AppLayout activePath="/profile" title="Профиль">
+      <AppLayout activePath="/profile" title={t("profile.title")}>
         <div className="flex flex-col items-center justify-center px-4 py-20">
           <Avatar name="?" size="xl" className="mb-4 opacity-50" />
-          <p className="mb-4 text-text-secondary">Войдите в аккаунт</p>
+          <p className="mb-4 text-text-secondary">{t("profile.loginRequired")}</p>
           <Link href="/login?redirect=/profile">
-            <Button>Войти</Button>
+            <Button>{t("profile.loginBtn")}</Button>
           </Link>
         </div>
       </AppLayout>
@@ -200,21 +209,21 @@ export default function ProfilePage() {
   }
 
   return (
-    <AppLayout activePath="/profile" title="Профиль">
+    <AppLayout activePath="/profile" title={t("profile.title")}>
       <div className="space-y-5 p-4">
         <Card padding="lg" className="text-center">
           <Avatar
             src={resolvedProfile?.avatar_url}
-            name={resolvedProfile?.full_name ?? user?.email ?? "User"}
+            name={resolvedProfile?.full_name ?? user?.email ?? t("common.user")}
             size="xl"
             ring
             className="mx-auto"
           />
           <h1 className="mt-4 text-xl font-bold tracking-tight">
-            {resolvedProfile?.full_name ?? user?.email ?? "Профиль"}
+            {resolvedProfile?.full_name ?? user?.email ?? t("profile.title")}
           </h1>
           <Chip variant="brand" className="mt-2">
-            {getRoleLabel(resolvedProfile?.role)}
+            {getRoleLabelT(resolvedProfile?.role, t)}
           </Chip>
 
           {showProviderSection && resolvedProfile && (
@@ -261,7 +270,7 @@ export default function ProfilePage() {
             <Link href={`/providers/${resolvedProfile.id}`} className="mt-4 inline-block">
               <Button variant="outline" size="sm" className="gap-2">
                 <ExternalLink className="h-4 w-4" />
-                Публичный профиль
+                {t("profile.publicProfile")}
               </Button>
             </Link>
           )}
@@ -269,28 +278,36 @@ export default function ProfilePage() {
 
         {!editing && (
           <Card padding="md" className="space-y-3">
-            <h2 className="text-sm font-semibold text-text-primary">Финансы (тест)</h2>
+            <h2 className="text-sm font-semibold text-text-primary">{t("profile.financeTest")}</h2>
             <div className="grid gap-2">
               {showProviderSection && (
                 <Link href="/my/balance">
                   <Button variant="outline" className="w-full justify-start gap-2" size="sm">
                     <Wallet className="h-4 w-4" />
-                    Баланс исполнителя
+                    {t("profile.providerBalance")}
                   </Button>
                 </Link>
               )}
               {(isPlatformAdmin || isDemoMode()) && (
-                <Link href="/admin/platform">
-                  <Button variant="outline" className="w-full justify-start gap-2" size="sm">
-                    <Building2 className="h-4 w-4" />
-                    Баланс платформы LOOK
-                  </Button>
-                </Link>
+                <>
+                  <Link href="/admin/stats">
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <BarChart3 className="h-4 w-4" />
+                      {t("profile.adminStats")}
+                    </Button>
+                  </Link>
+                  <Link href="/admin/platform">
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <Building2 className="h-4 w-4" />
+                      {t("profile.adminPlatform")}
+                    </Button>
+                  </Link>
+                </>
               )}
               <Link href="/finance/transactions">
                 <Button variant="outline" className="w-full justify-start gap-2" size="sm">
                   <History className="h-4 w-4" />
-                  История операций
+                  {t("profile.transactions")}
                 </Button>
               </Link>
             </div>
@@ -303,20 +320,20 @@ export default function ProfilePage() {
               {user && (
                 <AvatarUpload
                   userId={user.id}
-                  name={form.full_name || "User"}
+                  name={form.full_name || t("common.user")}
                   value={form.avatar_url || null}
                   onChange={(url) => setForm({ ...form, avatar_url: url })}
                 />
               )}
               <Input
                 id="full_name"
-                label="Имя"
+                label={t("profile.name")}
                 value={form.full_name}
                 onChange={(e) => setForm({ ...form, full_name: e.target.value })}
               />
               <Input
                 id="phone"
-                label="Телефон"
+                label={t("profile.phone")}
                 type="tel"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -324,45 +341,53 @@ export default function ProfilePage() {
               <div className="grid grid-cols-2 gap-3">
                 <Input
                   id="city"
-                  label="Город"
+                  label={t("profile.city")}
                   value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
                 />
                 <Input
                   id="country"
-                  label="Страна"
+                  label={t("profile.country")}
                   value={form.country}
                   onChange={(e) => setForm({ ...form, country: e.target.value })}
                 />
               </div>
               <Textarea
                 id="bio"
-                label="О себе"
+                label={t("profile.bio")}
                 rows={3}
                 value={form.bio}
                 onChange={(e) => setForm({ ...form, bio: e.target.value })}
               />
               <Select
                 id="role"
-                label="Роль"
+                label={t("profile.role")}
                 value={form.role}
                 onChange={(e) =>
                   setForm({ ...form, role: e.target.value as typeof form.role })
                 }
               >
-                <option value="customer">Заказчик</option>
-                <option value="provider">Исполнитель</option>
-                <option value="both">Оба</option>
+                <option value="customer">{t("role.customer")}</option>
+                <option value="provider">{t("role.provider")}</option>
+                <option value="both">{t("role.both")}</option>
               </Select>
 
               {(form.role === "provider" || form.role === "both") && user && (
                 <>
                   <Input
                     id="skills"
-                    label="Навыки"
-                    placeholder="Через запятую"
+                    label={t("profile.skills")}
+                    placeholder={t("profile.skillsHint")}
                     value={form.skills}
                     onChange={(e) => setForm({ ...form, skills: e.target.value })}
+                  />
+                  <Textarea
+                    id="portfolio"
+                    label={t("profile.portfolio")}
+                    placeholder={t("profile.portfolioPlaceholder")}
+                    rows={3}
+                    value={form.portfolio}
+                    onChange={(e) => setForm({ ...form, portfolio: e.target.value })}
                   />
                   <PortfolioEditor
                     userId={user.id}
@@ -379,12 +404,21 @@ export default function ProfilePage() {
                 </>
               )}
 
+              {saveError && <p className="text-sm text-danger">{saveError}</p>}
+
               <div className="flex gap-2 pt-2">
                 <Button type="submit" loading={saving} className="flex-1">
-                  Сохранить
+                  {t("common.save")}
                 </Button>
-                <Button type="button" variant="secondary" onClick={() => setEditing(false)}>
-                  Отмена
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setSaveError(null);
+                    setEditing(false);
+                  }}
+                >
+                  {t("common.cancel")}
                 </Button>
               </div>
             </form>
@@ -399,12 +433,21 @@ export default function ProfilePage() {
 
             {showProviderSection && resolvedProfile?.skills && (
               <Card padding="md">
-                <h3 className="mb-2 text-sm font-semibold text-text-primary">Навыки</h3>
+                <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("profile.skills")}</h3>
                 <div className="flex flex-wrap gap-2">
                   {resolvedProfile.skills.split(",").map((skill) => (
                     <Chip key={skill.trim()}>{skill.trim()}</Chip>
                   ))}
                 </div>
+              </Card>
+            )}
+
+            {showProviderSection && resolvedProfile?.portfolio?.trim() && (
+              <Card padding="md">
+                <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("profile.portfolio")}</h3>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-text-secondary">
+                  {resolvedProfile.portfolio}
+                </p>
               </Card>
             )}
 
@@ -423,7 +466,7 @@ export default function ProfilePage() {
                 <Link href="/my/requests">
                   <Button variant="secondary" className="w-full gap-2">
                     <ClipboardList className="h-5 w-5" />
-                    Мои запросы
+                    {t("profile.myRequests")}
                   </Button>
                 </Link>
               )}
@@ -432,13 +475,13 @@ export default function ProfilePage() {
                   <Link href="/search">
                     <Button variant="secondary" className="w-full gap-2">
                       <Search className="h-5 w-5" />
-                      Найти заказы
+                      {t("profile.findOrders")}
                     </Button>
                   </Link>
                   <Link href="/my/offers">
                     <Button variant="secondary" className="w-full gap-2">
                       <Briefcase className="h-5 w-5" />
-                      Мои предложения
+                      {t("profile.myOffers")}
                     </Button>
                   </Link>
                 </>
@@ -446,10 +489,13 @@ export default function ProfilePage() {
               <Button
                 variant="outline"
                 className="w-full gap-2"
-                onClick={() => setEditing(true)}
+                onClick={() => {
+                  setSaveError(null);
+                  setEditing(true);
+                }}
               >
                 <Pencil className="h-4 w-4" />
-                Редактировать профиль
+                {t("profile.edit")}
               </Button>
               <Button
                 variant="ghost"
@@ -462,7 +508,7 @@ export default function ProfilePage() {
                 }}
               >
                 <LogOut className="h-4 w-4" />
-                Выйти
+                {t("profile.logout")}
               </Button>
             </div>
           </>

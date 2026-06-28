@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { isDemoMode } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
 import { readFileAsDataUrl, uploadPortfolioImage } from "@/lib/storage/upload";
@@ -29,6 +30,8 @@ function newItem(): PortfolioItem {
 }
 
 export function PortfolioEditor({ userId, items, onChange }: PortfolioEditorProps) {
+  const { t } = useTranslation();
+
   const updateItem = (id: string, patch: Partial<PortfolioItem>) => {
     onChange(items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   };
@@ -40,16 +43,16 @@ export function PortfolioEditor({ userId, items, onChange }: PortfolioEditorProp
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-text-primary">Портфолио</label>
+        <label className="text-sm font-medium text-text-primary">{t("profile.portfolio")}</label>
         <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, newItem()])}>
           <Plus className="h-4 w-4" />
-          Добавить проект
+          {t("profile.portfolioEditor.add")}
         </Button>
       </div>
 
       {items.length === 0 && (
         <Card padding="md" className="text-center text-sm text-text-muted">
-          Добавьте проекты с фото, описанием и ссылками
+          {t("profile.portfolioPlaceholder")}
         </Card>
       )}
 
@@ -80,6 +83,7 @@ function PortfolioItemEditor({
   onUpdate: (patch: Partial<PortfolioItem>) => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleImage = async (file: File) => {
@@ -99,7 +103,9 @@ function PortfolioItemEditor({
   return (
     <Card padding="md" className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-text-primary">Проект №{index + 1}</p>
+        <p className="text-sm font-semibold text-text-primary">
+          {t("profile.portfolioGallery.projectN", { n: index + 1 })}
+        </p>
         <Button type="button" size="sm" variant="ghost" className="text-danger" onClick={onRemove}>
           <Trash2 className="h-4 w-4" />
         </Button>
@@ -109,7 +115,7 @@ function PortfolioItemEditor({
         <div className="relative aspect-video overflow-hidden rounded-xl bg-slate-100">
           <Image
             src={item.image_url}
-            alt={item.title || "Проект"}
+            alt={item.title || t("profile.portfolioGallery.projectN", { n: index + 1 })}
             fill
             className="object-cover"
             unoptimized={item.image_url.startsWith("data:") || item.image_url.startsWith("blob:")}
@@ -122,7 +128,7 @@ function PortfolioItemEditor({
           className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border py-8 text-sm text-text-muted hover:border-brand-300 hover:bg-brand-50/50"
         >
           <Upload className="h-6 w-6" />
-          Загрузить фото проекта
+          {t("profile.avatar.upload")}
         </button>
       )}
 
@@ -140,29 +146,29 @@ function PortfolioItemEditor({
 
       <Input
         id={`portfolio-title-${item.id}`}
-        label="Название"
-        placeholder="Ремонт кухни"
+        label={t("profile.portfolioEditor.title")}
+        placeholder={t("profile.portfolioEditor.title")}
         value={item.title}
         onChange={(e) => onUpdate({ title: e.target.value })}
       />
       <Textarea
         id={`portfolio-desc-${item.id}`}
-        label="Описание"
+        label={t("profile.portfolioEditor.description")}
         rows={3}
-        placeholder="Кратко опишите выполненную работу"
+        placeholder={t("profile.portfolioEditor.description")}
         value={item.description}
         onChange={(e) => onUpdate({ description: e.target.value })}
       />
       <Input
         id={`portfolio-link-${item.id}`}
-        label="Ссылка (необязательно)"
+        label={t("profile.portfolioEditor.link")}
         placeholder="https://..."
         value={item.link ?? ""}
         onChange={(e) => onUpdate({ link: e.target.value || null })}
       />
       {item.image_url && (
         <Button type="button" size="sm" variant="secondary" onClick={() => inputRef.current?.click()}>
-          Заменить фото
+          {t("profile.avatar.change")}
         </Button>
       )}
     </Card>

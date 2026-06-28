@@ -2,6 +2,7 @@
 
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { isDemoMode } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
 import { readFileAsDataUrl, uploadAvatar } from "@/lib/storage/upload";
@@ -16,6 +17,7 @@ interface AvatarUploadProps {
 }
 
 export function AvatarUpload({ userId, name, value, onChange }: AvatarUploadProps) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export function AvatarUpload({ userId, name, value, onChange }: AvatarUploadProp
       const url = await uploadAvatar(supabase, userId, file);
       onChange(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось загрузить фото");
+      setError(err instanceof Error ? err.message : t("profile.avatar.uploadError"));
     } finally {
       setUploading(false);
     }
@@ -76,9 +78,9 @@ export function AvatarUpload({ userId, name, value, onChange }: AvatarUploadProp
         disabled={uploading}
         onClick={() => inputRef.current?.click()}
       >
-        {value ? "Изменить фото" : "Загрузить фото"}
+        {value ? t("profile.avatar.change") : t("profile.avatar.upload")}
       </Button>
-      <p className="text-center text-xs text-text-muted">JPEG, PNG, WebP до 5 МБ</p>
+      <p className="text-center text-xs text-text-muted">{t("profile.avatar.hint")}</p>
       {error && <p className="text-sm text-danger">{error}</p>}
     </div>
   );

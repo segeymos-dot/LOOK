@@ -2,13 +2,13 @@
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { authFetch } from "@/lib/auth/client-fetch";
 import {
   calculatePaymentSplit,
   formatCommissionPercent,
   getPlatformCommissionRate,
-  PAYMENT_STATUS_LABELS,
 } from "@/lib/config/finance";
 import { formatPrice } from "@/lib/utils";
 import type { Payment, RequestStatus } from "@/types";
@@ -39,6 +39,7 @@ export function RequestTestPayment({
 }: RequestTestPaymentProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [payment, setPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(false);
   const [payLoading, setPayLoading] = useState(false);
@@ -79,7 +80,7 @@ export function RequestTestPayment({
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setError(data.error ?? "Не удалось провести тестовую оплату");
+        setError(data.error ?? t("finance.payment.error"));
         return;
       }
       setPayment({
@@ -99,7 +100,7 @@ export function RequestTestPayment({
       });
       router.refresh();
     } catch {
-      setError("Не удалось провести тестовую оплату");
+      setError(t("finance.payment.error"));
     } finally {
       setPayLoading(false);
     }
@@ -109,9 +110,9 @@ export function RequestTestPayment({
     <Card padding="md" className="border-brand-100 bg-gradient-to-br from-brand-50/80 to-surface shadow-card">
       <div className="mb-3 flex items-center gap-2">
         <CreditCard className="h-5 w-5 text-brand-600" />
-        <h3 className="font-semibold text-text-primary">Тестовая оплата</h3>
+        <h3 className="font-semibold text-text-primary">{t("finance.payment.title")}</h3>
         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800">
-          Test
+          {t("finance.payment.testBadge")}
         </span>
       </div>
 
@@ -119,36 +120,36 @@ export function RequestTestPayment({
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm text-emerald-700">
             <ShieldCheck className="h-4 w-4" />
-            {PAYMENT_STATUS_LABELS.paid} — {formatPrice(payment.amount_gross, payment.currency)}
+            {t("finance.paymentStatus.paid")} — {formatPrice(payment.amount_gross, payment.currency)}
           </div>
           <p className="text-sm text-text-secondary">
-            LOOK {formatCommissionPercent(rate)}:{" "}
-            <strong>{formatPrice(payment.platform_fee, payment.currency)}</strong> · Исполнителю:{" "}
-            <strong>{formatPrice(payment.provider_amount, payment.currency)}</strong>
+            {t("finance.payment.splitNote", {
+              rate: formatCommissionPercent(rate),
+              fee: formatPrice(payment.platform_fee, payment.currency),
+              amount: formatPrice(payment.provider_amount, payment.currency),
+            })}
           </p>
-          <p className="text-xs text-text-muted">
-            Теперь можно завершить заказ. Реальные платежи не подключены.
-          </p>
+          <p className="text-xs text-text-muted">{t("finance.payment.completeHint")}</p>
         </div>
       ) : (
         <>
           <p className="mb-3 text-sm text-text-secondary">
-            Симуляция оплаты без Stripe. Комиссия LOOK — {formatCommissionPercent(rate)}.
+            {t("finance.payment.simulateDesc", { rate: formatCommissionPercent(rate) })}
           </p>
           <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs">
             <div className="rounded-xl bg-surface p-2 shadow-sm">
               <p className="font-bold text-text-primary">{formatPrice(split.gross, currency)}</p>
-              <p className="text-text-muted">Заказчик</p>
+              <p className="text-text-muted">{t("finance.payment.customerLabel")}</p>
             </div>
             <div className="rounded-xl bg-surface p-2 shadow-sm">
               <p className="font-bold text-brand-600">{formatPrice(split.platformFee, currency)}</p>
-              <p className="text-text-muted">LOOK</p>
+              <p className="text-text-muted">{t("finance.payment.platformLabel")}</p>
             </div>
             <div className="rounded-xl bg-surface p-2 shadow-sm">
               <p className="font-bold text-emerald-700">
                 {formatPrice(split.providerAmount, currency)}
               </p>
-              <p className="text-text-muted">Исполнитель</p>
+              <p className="text-text-muted">{t("finance.payment.providerLabel")}</p>
             </div>
           </div>
           {error && (
@@ -160,7 +161,7 @@ export function RequestTestPayment({
             onClick={handlePay}
           >
             <CreditCard className="h-4 w-4" />
-            Оплатить (тест) {formatPrice(split.gross, currency)}
+            {t("finance.payment.payTest", { amount: formatPrice(split.gross, currency) })}
           </Button>
         </>
       )}

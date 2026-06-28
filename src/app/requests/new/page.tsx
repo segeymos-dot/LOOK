@@ -9,11 +9,13 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { canActAsCustomer } from "@/lib/auth/roles";
 import { isDemoMode } from "@/lib/config";
 import { getMockCategoriesForProvider, getMockProfile, mockCategories } from "@/lib/mock/data";
+import { localizeCategoryName } from "@/lib/i18n/localize-data";
 import { createClient } from "@/lib/supabase/client";
-import { requestSchema } from "@/lib/validations";
+import { createRequestSchema, mapUserFacingErrorT } from "@/lib/i18n/client-messages";
 import type { Category } from "@/types";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -34,6 +36,8 @@ function NewRequestPageContent() {
   const providerId = searchParams.get("provider");
   const contactIntent = searchParams.get("intent") === "contact";
   const { displayProfile, loading: authLoading } = useAuth();
+  const { t, locale } = useTranslation();
+  const requestSchema = useMemo(() => createRequestSchema(t), [t]);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [providerName, setProviderName] = useState<string | null>(null);
@@ -104,11 +108,11 @@ function NewRequestPageContent() {
   const pageSubtitle = useMemo(() => {
     if (providerName) {
       return contactIntent
-        ? `Создайте заказ для ${providerName} — чат откроется после принятия отклика`
-        : `Заказ для исполнителя ${providerName}`;
+        ? t("request.contactIntent", { name: providerName })
+        : t("request.providerFor", { name: providerName });
     }
-    return "Опишите задачу — исполнители отправят предложения";
-  }, [contactIntent, providerName]);
+    return t("request.newSubtitle");
+  }, [contactIntent, providerName, t]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -169,10 +173,9 @@ function NewRequestPageContent() {
 
     if (error) {
       setErrors({
-        form:
-          error.message.includes("row-level security")
-            ? "Нет прав на создание заказа. Войдите как заказчик."
-            : `Не удалось создать запрос: ${error.message}`,
+        form: error.message.includes("row-level security")
+          ? t("request.createForbidden")
+          : t("request.createError", { message: mapUserFacingErrorT(error.message, t) }),
       });
       return;
     }
@@ -182,24 +185,21 @@ function NewRequestPageContent() {
 
   if (!isDemoMode() && !authLoading && displayProfile && !canActAsCustomer(displayProfile.role)) {
     return (
-      <AppLayout activePath="/requests/new" title="Новый запрос">
+      <AppLayout activePath="/requests/new" title={t("request.newTitle")}>
         <div className="space-y-4 p-4">
-          <PageHeader title="Новый запрос" backHref="/" />
+          <PageHeader title={t("request.newTitle")} backHref="/" />
           <Card padding="md" className="border-amber-200 bg-warning-bg">
             <div className="flex gap-3">
               <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
               <div>
-                <p className="text-sm text-amber-900">
-                  Создавать заказы могут только заказчики. Измените роль в профиле на «Заказчик»
-                  или «Оба».
-                </p>
+                <p className="text-sm text-amber-900">{t("request.customerOnly")}</p>
                 <div className="mt-3 flex gap-2">
                   <Link href="/profile">
-                    <Button size="sm">Профиль</Button>
+                    <Button size="sm">{t("profile.title")}</Button>
                   </Link>
                   <Link href="/search">
                     <Button size="sm" variant="secondary">
-                      Найти заказы
+                      {t("profile.findOrders")}
                     </Button>
                   </Link>
                 </div>
@@ -212,10 +212,10 @@ function NewRequestPageContent() {
   }
 
   return (
-    <AppLayout activePath="/requests/new" title="Новый запрос">
+    <AppLayout activePath="/requests/new" title={t("request.newTitle")}>
       <form onSubmit={handleSubmit} className="space-y-5 p-4">
         <PageHeader
-          title="Создать заказ"
+          title={t("home.createOrder")}
           subtitle={pageSubtitle}
           backHref={providerId ? `/providers/${providerId}` : "/"}
         />
@@ -225,7 +225,7 @@ function NewRequestPageContent() {
             <Avatar src={providerAvatar} name={providerName} size="md" ring />
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-                Исполнитель
+                {t("role.provider")}
               </p>
               <p className="font-semibold text-text-primary">{providerName}</p>
             </div>
@@ -235,8 +235,8 @@ function NewRequestPageContent() {
         <Card padding="md" className="space-y-4">
           <Input
             id="title"
-            label="Заголовок"
-            placeholder="Например: Нужен ремонт кухни"
+            label={t("request.orderTitle")}
+            placeholder={t("request.titlePlaceholder")}
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
             error={errors.title}
@@ -244,8 +244,8 @@ function NewRequestPageContent() {
 
           <Textarea
             id="description"
-            label="Описание"
-            placeholder="Опишите задачу подробно..."
+            label={t("request.description")}
+            placeholder={t("request.descriptionPlaceholder")}
             rows={5}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -254,22 +254,22 @@ function NewRequestPageContent() {
 
           <Select
             id="category_id"
-            label="Категория"
+            label={t("request.category")}
             value={form.category_id}
             onChange={(e) => setForm({ ...form, category_id: e.target.value })}
             error={errors.category_id}
           >
-            <option value="">Выберите категорию</option>
+            <option value="">{t("request.categoryPlaceholder")}</option>
             {categories.map((cat) => (
               <option key={cat.id} value={cat.id}>
-                {cat.name}
+                {localizeCategoryName(cat, locale)}
               </option>
             ))}
           </Select>
 
           <Input
             id="budget"
-            label="Бюджет (USD)"
+            label={t("request.budget")}
             type="number"
             min={1}
             step={1}
@@ -281,15 +281,15 @@ function NewRequestPageContent() {
 
           <Input
             id="location"
-            label="Локация"
-            placeholder="Город или удалённо"
+            label={t("request.location")}
+            placeholder={t("request.locationPlaceholder")}
             value={form.location}
             onChange={(e) => setForm({ ...form, location: e.target.value })}
           />
 
           <Input
             id="deadline"
-            label="Срок (необязательно)"
+            label={t("request.deadlineOptional")}
             type="date"
             value={form.deadline}
             onChange={(e) => setForm({ ...form, deadline: e.target.value })}
@@ -299,7 +299,7 @@ function NewRequestPageContent() {
         {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
 
         <Button type="submit" loading={loading} className="w-full" size="lg">
-          Опубликовать заказ
+          {t("request.submit")}
         </Button>
       </form>
     </AppLayout>

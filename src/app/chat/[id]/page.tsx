@@ -4,23 +4,48 @@ import { Avatar } from "@/components/ui/Avatar";
 import { DemoBanner } from "@/components/layout/DemoBanner";
 import { MessageInput } from "@/components/chat/MessageInput";
 import { MessageList } from "@/components/chat/MessageList";
+import { OrderWorkLifecyclePanel } from "@/components/requests/OrderWorkLifecyclePanel";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useMessages } from "@/hooks/useMessages";
 import { authFetch } from "@/lib/auth/session";
 import { isDemoMode } from "@/lib/config";
 import { getMockConversation } from "@/lib/mock/data";
+import { localizeText } from "@/lib/i18n/localize-data";
+import type { RequestStatus, WorkAttachment } from "@/types";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 
+type LifecycleInfo = {
+  requestId: string;
+  customerId: string;
+  effectiveStatus: RequestStatus;
+  revisionFeedback: string | null;
+  acceptedProviderId: string | null;
+  grossAmount: number;
+  currency: string;
+};
+
 export default function ChatDetailPage() {
+  const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { locale } = useTranslation();
   const { messages, loading, sendMessage } = useMessages(id);
   const [otherUserName, setOtherUserName] = useState("");
   const [otherUserAvatar, setOtherUserAvatar] = useState<string | null>(null);
   const [requestTitle, setRequestTitle] = useState("");
+  const [requestId, setRequestId] = useState<string | null>(null);
+  const [lifecycle, setLifecycle] = useState<LifecycleInfo | null>(null);
+
+  const refreshLifecycle = useCallback(async (reqId: string) => {
+    const response = await authFetch(`/api/requests/${reqId}/lifecycle`);
+    if (!response.ok) return;
+    const data = (await response.json()) as LifecycleInfo;
+    setLifecycle(data);
+  }, []);
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -31,6 +56,7 @@ export default function ChatDetailPage() {
         setOtherUserName(other?.full_name ?? "");
         setOtherUserAvatar(other?.avatar_url ?? null);
         setRequestTitle(data.request?.title ?? "");
+        setRequestId(data.request_id);
       }
       return;
     }
@@ -42,9 +68,10 @@ export default function ChatDetailPage() {
       const { conversation: data } = (await response.json()) as {
         conversation?: {
           customer_id: string;
+          request_id: string;
           provider?: { full_name: string; avatar_url?: string | null };
           customer?: { full_name: string; avatar_url?: string | null };
-          request?: { title: string };
+          request?: { id: string; title: string };
         };
       };
 
@@ -54,15 +81,29 @@ export default function ChatDetailPage() {
         setOtherUserName(other?.full_name ?? "");
         setOtherUserAvatar(other?.avatar_url ?? null);
         setRequestTitle(data.request?.title ?? "");
+        const reqId = data.request?.id ?? data.request_id;
+        setRequestId(reqId);
+        if (reqId) await refreshLifecycle(reqId);
       }
     };
 
-    if (user) fetchConversation();
-  }, [id, user]);
+    if (user) void fetchConversation();
+  }, [id, user, refreshLifecycle]);
 
-  const handleSend = async (content: string) => {
+  const handleSend = async (content: string, attachments?: WorkAttachment[]) => {
     if (!user) return;
-    await sendMessage(content, user.id);
+    await sendMessage(content, user.id, attachments);
+  };
+
+  useEffect(() => {
+    if (requestId && !isDemoMode()) {
+      void refreshLifecycle(requestId);
+    }
+  }, [messages.length, requestId, refreshLifecycle]);
+
+  const handleLifecycleChange = () => {
+    if (requestId) void refreshLifecycle(requestId);
+    router.refresh();
   };
 
   return (
@@ -79,12 +120,33 @@ export default function ChatDetailPage() {
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-text-primary">{otherUserName}</p>
             {requestTitle && (
-              <p className="truncate text-xs text-brand-600">{requestTitle}</p>
+              <Link href={requestId ? `/requests/${requestId}` : "/search"} className="truncate text-xs text-brand-600 hover:underline">
+                {localizeText(requestTitle, locale)}
+              </Link>
             )}
           </div>
         </div>
         <DemoBanner />
       </header>
+
+      {lifecycle &&
+        lifecycle.effectiveStatus !== "open" &&
+        lifecycle.effectiveStatus !== "cancelled" && (
+          <div className="border-b border-border-subtle bg-surface p-3">
+            <OrderWorkLifecyclePanel
+              requestId={lifecycle.requestId}
+              customerId={lifecycle.customerId}
+              requestStatus={lifecycle.effectiveStatus}
+              grossAmount={lifecycle.grossAmount}
+              currency={lifecycle.currency}
+              acceptedProviderId={lifecycle.acceptedProviderId}
+              revisionFeedback={lifecycle.revisionFeedback}
+              viewerUserId={user?.id ?? null}
+              viewerIsCustomer={user?.id === lifecycle.customerId}
+              onSuccess={handleLifecycleChange}
+            />
+          </div>
+        )}
 
       {loading ? (
         <div className="flex flex-1 items-center justify-center">

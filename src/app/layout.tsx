@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { LocaleProvider } from "@/components/providers/LocaleProvider";
+import { VisitTracker } from "@/components/analytics/VisitTracker";
+import { getServerTranslation } from "@/lib/i18n/server";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -9,21 +12,23 @@ const plusJakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "LOOK — Маркетплейс услуг",
-  description:
-    "Глобальный маркетплейс услуг. Публикуйте запросы, получайте предложения от исполнителей.",
-  manifest: "/manifest.json",
-  icons: {
-    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
-    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
-  },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "LOOK",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getServerTranslation();
+  return {
+    title: t("meta.title"),
+    description: t("meta.description"),
+    manifest: "/manifest.json",
+    icons: {
+      icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+      apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: "LOOK",
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -33,15 +38,21 @@ export const viewport: Viewport = {
   themeColor: "#6366F1",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { locale } = await getServerTranslation();
   return (
-    <html lang="ru">
+    <html lang={locale} suppressHydrationWarning>
       <body className={`${plusJakarta.className} antialiased`}>
-        <AuthProvider>{children}</AuthProvider>
+        <LocaleProvider initialLocale={locale}>
+          <AuthProvider>
+            <VisitTracker />
+            {children}
+          </AuthProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

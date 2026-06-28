@@ -1,4 +1,8 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/components/providers/LocaleProvider";
+import { localizeCategoryName } from "@/lib/i18n/localize-data";
 import type { Category } from "@/types";
 import { Check } from "lucide-react";
 
@@ -13,8 +17,11 @@ export function CategoryMultiSelect({
   categories,
   selected,
   onChange,
-  label = "Категории",
+  label,
 }: CategoryMultiSelectProps) {
+  const { t, locale } = useTranslation();
+  const resolvedLabel = label ?? t("profile.categories");
+
   const toggle = (slug: string) => {
     if (selected.includes(slug)) {
       onChange(selected.filter((s) => s !== slug));
@@ -25,7 +32,7 @@ export function CategoryMultiSelect({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-text-primary">{label}</label>
+      <label className="block text-sm font-medium text-text-primary">{resolvedLabel}</label>
       <div className="flex flex-wrap gap-2">
         {categories.map((cat) => {
           const isSelected = selected.includes(cat.slug);
@@ -42,7 +49,7 @@ export function CategoryMultiSelect({
               )}
             >
               {isSelected && <Check className="h-3.5 w-3.5" />}
-              {cat.name}
+              {localizeCategoryName(cat, locale)}
             </button>
           );
         })}

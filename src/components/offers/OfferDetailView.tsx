@@ -1,15 +1,18 @@
 "use client";
 
+import { OrderWorkLifecyclePanel } from "@/components/requests/OrderWorkLifecyclePanel";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { authFetch, getAuthenticatedUser } from "@/lib/auth/client-fetch";
 import { canDecideOnOffer } from "@/lib/auth/viewer-role";
 import { getMockConversationForOffer, mockCurrentUser } from "@/lib/mock/data";
 import { mapOfferActionError } from "@/lib/offers/offer-action-errors";
-import { formatPrice, formatRelativeTime } from "@/lib/utils";
+import { formatRelativeTimeT } from "@/lib/i18n/client-messages";
+import { formatPrice } from "@/lib/utils";
 import type { Offer, RequestStatus } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -23,6 +26,7 @@ interface OfferDetailViewProps {
   initialConversationId?: string | null;
   viewerUserId?: string | null;
   viewerIsCustomer?: boolean;
+  revisionFeedback?: string | null;
   isDemo?: boolean;
 }
 
@@ -34,10 +38,12 @@ export function OfferDetailView({
   initialConversationId = null,
   viewerUserId = null,
   viewerIsCustomer,
+  revisionFeedback = null,
   isDemo = false,
 }: OfferDetailViewProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const { t, locale } = useTranslation();
   const [offer, setOffer] = useState(initialOffer);
   const [requestStatus, setRequestStatus] = useState(initialRequestStatus);
   const [conversationId, setConversationId] = useState(initialConversationId);
@@ -90,7 +96,7 @@ export function OfferDetailView({
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        setError(mapOfferActionError(result.error ?? "Не удалось принять предложение"));
+        setError(mapOfferActionError(result.error ?? t("offer.acceptError")));
         return;
       }
 
@@ -106,7 +112,7 @@ export function OfferDetailView({
 
       router.refresh();
     } catch {
-      setError("Не удалось принять предложение");
+      setError(t("offer.acceptError"));
     } finally {
       setAcceptLoading(false);
     }
@@ -128,18 +134,20 @@ export function OfferDetailView({
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        setError(mapOfferActionError(result.error ?? "Не удалось отклонить предложение"));
+        setError(mapOfferActionError(result.error ?? t("offer.rejectError")));
         return;
       }
 
       setOffer((current) => ({ ...current, status: "rejected" }));
       router.refresh();
     } catch {
-      setError("Не удалось отклонить предложение");
+      setError(t("offer.rejectError"));
     } finally {
       setRejectLoading(false);
     }
   };
+
+  const isCustomer = activeUserId === customerId;
 
   return (
     <AppLayout activePath="/search" hideNav>
@@ -148,12 +156,12 @@ export function OfferDetailView({
           href={`/requests/${requestId}`}
           className="text-sm text-indigo-600"
         >
-          ← Назад к заказу
+          ← {t("offer.backToRequest")}
         </Link>
 
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="mb-4 flex items-start justify-between gap-3">
-            <h1 className="text-xl font-bold">Предложение исполнителя</h1>
+            <h1 className="text-xl font-bold">{t("offer.detailTitle")}</h1>
             <Badge status={offer.status} type="offer" />
           </div>
 
@@ -174,8 +182,9 @@ export function OfferDetailView({
                 </p>
                 {offer.provider.rating > 0 && (
                   <p className="text-sm text-text-secondary">
-                    ★ {offer.provider.rating.toFixed(1)} · {offer.provider.reviews_count} отзывов
-                    · {offer.provider.completed_orders_count} заказов
+                    ★ {offer.provider.rating.toFixed(1)} ·{" "}
+                    {t("review.count", { count: offer.provider.reviews_count })} ·{" "}
+                    {offer.provider.completed_orders_count} {t("profile.stats.orders")}
                   </p>
                 )}
                 {(offer.provider.city || offer.provider.country) && (
@@ -188,7 +197,7 @@ export function OfferDetailView({
           )}
 
           <div className="mb-4">
-            <p className="mb-1 text-sm text-gray-500">Предлагаемая цена</p>
+            <p className="mb-1 text-sm text-gray-500">{t("offer.price")}</p>
             <p className="text-2xl font-bold text-indigo-600">
               {formatPrice(offer.price, offer.currency)}
             </p>
@@ -196,18 +205,20 @@ export function OfferDetailView({
 
           {offer.estimated_days && (
             <div className="mb-4">
-              <p className="mb-1 text-sm text-gray-500">Срок выполнения</p>
-              <p className="text-gray-900">~{offer.estimated_days} дн.</p>
+              <p className="mb-1 text-sm text-gray-500">{t("offer.deadline")}</p>
+              <p className="text-gray-900">
+                ~{offer.estimated_days} {t("offer.days")}
+              </p>
             </div>
           )}
 
           <div className="mb-4">
-            <p className="mb-1 text-sm text-gray-500">Сообщение</p>
+            <p className="mb-1 text-sm text-gray-500">{t("offer.message")}</p>
             <p className="whitespace-pre-wrap text-gray-700">{offer.message}</p>
           </div>
 
           <p className="text-sm text-gray-400">
-            Отправлено {formatRelativeTime(offer.created_at)}
+            {t("offer.sentAt")} {formatRelativeTimeT(offer.created_at, t, locale)}
           </p>
         </div>
 
@@ -224,7 +235,7 @@ export function OfferDetailView({
               loading={acceptLoading}
               onClick={handleAccept}
             >
-              Принять предложение
+              {t("offer.accept")}
             </Button>
             <Button
               className="flex-1"
@@ -232,15 +243,30 @@ export function OfferDetailView({
               loading={rejectLoading}
               onClick={handleReject}
             >
-              Отклонить
+              {t("offer.reject")}
             </Button>
           </div>
         ) : null}
 
         {offer.status === "accepted" && conversationId && (
           <Link href={`/chat/${conversationId}`}>
-            <Button className="w-full">Открыть чат</Button>
+            <Button className="w-full">{t("request.openChat")}</Button>
           </Link>
+        )}
+
+        {offer.status === "accepted" && (
+          <OrderWorkLifecyclePanel
+            requestId={requestId}
+            customerId={customerId}
+            requestStatus={requestStatus}
+            grossAmount={Number(offer.price)}
+            currency={offer.currency}
+            acceptedProviderId={offer.provider_id}
+            revisionFeedback={revisionFeedback}
+            viewerUserId={activeUserId}
+            viewerIsCustomer={isCustomer}
+            isDemo={isDemo}
+          />
         )}
       </div>
     </AppLayout>

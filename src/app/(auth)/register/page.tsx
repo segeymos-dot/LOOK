@@ -4,51 +4,53 @@ import { CategoryMultiSelect } from "@/components/profile/CategoryMultiSelect";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Textarea } from "@/components/ui/Textarea";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { syncClientSession } from "@/lib/auth/sync-client-session";
 import { isDemoMode } from "@/lib/config";
 import { mockCategories } from "@/lib/mock/data";
+import { createRegisterSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
 import { createClient } from "@/lib/supabase/client";
-import { registerSchema } from "@/lib/validations";
 import type { Category, UserRole } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
-import { Briefcase, ChevronLeft, UserCircle, Users } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Briefcase, ChevronLeft, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const roleOptions: {
-  value: UserRole;
-  label: string;
-  description: string;
-  icon: typeof UserCircle;
-}[] = [
-  {
-    value: "customer",
-    label: "Заказчик",
-    description: "Публикую заказы и нанимаю исполнителей",
-    icon: UserCircle,
-  },
-  {
-    value: "provider",
-    label: "Исполнитель",
-    description: "Ищу заказы и предлагаю услуги",
-    icon: Briefcase,
-  },
-  {
-    value: "both",
-    label: "Оба",
-    description: "И заказы, и услуги — полный доступ",
-    icon: Users,
-  },
-];
+const roleIcons = {
+  customer: UserCircle,
+  provider: Briefcase,
+} as const;
 
 export default function RegisterPage() {
   const router = useRouter();
   const { syncSession } = useAuth();
+  const { t, locale } = useTranslation();
   const demo = isDemoMode();
+  const registerSchema = useMemo(() => createRegisterSchema(t), [t, locale]);
+
+  useEffect(() => {
+    setErrors({});
+  }, [locale]);
+
+  const roleOptions = [
+    {
+      value: "customer" as UserRole,
+      label: t("auth.register.customer"),
+      description: t("auth.register.customerDesc"),
+      icon: roleIcons.customer,
+    },
+    {
+      value: "provider" as UserRole,
+      label: t("auth.register.provider"),
+      description: t("auth.register.providerDesc"),
+      icon: roleIcons.provider,
+    },
+  ];
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -62,7 +64,7 @@ export default function RegisterPage() {
     country: "",
     city: "",
     avatar_url: "",
-    role: "both" as UserRole,
+    role: "customer" as UserRole,
     bio: "",
     skills: "",
     portfolio: "",
@@ -83,7 +85,7 @@ export default function RegisterPage() {
       .then(({ data }) => setCategories(data ?? []));
   }, []);
 
-  const showProviderFields = form.role === "provider" || form.role === "both";
+  const showProviderFields = form.role === "provider";
   const totalSteps = showProviderFields ? 3 : 2;
 
   const handleSubmit = async (e: FormEvent) => {
@@ -123,7 +125,9 @@ export default function RegisterPage() {
 
     if (!response.ok || !result.success) {
       setLoading(false);
-      setErrors({ form: result.error ?? "Не удалось зарегистрироваться" });
+      setErrors({
+        form: mapAuthErrorT(result.error ?? t("auth.register.error"), t),
+      });
       return;
     }
 
@@ -143,20 +147,20 @@ export default function RegisterPage() {
 
   const nextStep = () => {
     if (step === 0 && !form.role) {
-      setErrors({ role: "Выберите роль" });
+      setErrors({ role: t("auth.register.roleRequired") });
       return;
     }
     if (step === 1) {
       if (form.full_name.length < 2) {
-        setErrors({ full_name: "Минимум 2 символа" });
+        setErrors({ full_name: t("validation.minName") });
         return;
       }
       if (!form.email.includes("@")) {
-        setErrors({ email: "Введите корректный email" });
+        setErrors({ email: t("validation.emailInvalid") });
         return;
       }
       if (form.password.length < 6) {
-        setErrors({ password: "Минимум 6 символов" });
+        setErrors({ password: t("validation.minPassword") });
         return;
       }
     }
@@ -166,30 +170,30 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout
-      title="Регистрация"
-      subtitle={`Шаг ${step + 1} из ${totalSteps}`}
+      title={t("auth.register.title")}
+      subtitle={`${t("auth.register.step")} ${step + 1} / ${totalSteps}`}
       banner={
         demo ? (
           <p className="mt-3 rounded-xl bg-warning-bg px-3 py-2 text-sm text-amber-800">
-            Демо-режим: регистрация отключена
+            {t("auth.register.demoBanner")}
           </p>
         ) : undefined
       }
       footer={
         <div className="space-y-2 text-center text-sm text-text-secondary">
           <p>
-            Уже есть аккаунт?{" "}
+            {t("auth.register.hasAccount")}{" "}
             <Link href="/login" className="font-semibold text-brand-600">
-              Войти
+              {t("auth.register.login")}
             </Link>
           </p>
           <p className="text-xs">
             <Link href="/terms" className="text-brand-600">
-              Terms of Service
+              {t("legal.termsLink")}
             </Link>
             {" · "}
             <Link href="/privacy" className="text-brand-600">
-              Privacy Policy
+              {t("legal.privacyLink")}
             </Link>
           </p>
         </div>
@@ -210,7 +214,7 @@ export default function RegisterPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {step === 0 && (
           <div className="space-y-3">
-            <p className="text-sm font-medium text-text-primary">Как вы планируете использовать LOOK?</p>
+            <p className="text-sm font-medium text-text-primary">{t("auth.register.roleQuestion")}</p>
             {roleOptions.map(({ value, label, description, icon: Icon }) => (
               <button
                 key={value}
@@ -245,35 +249,34 @@ export default function RegisterPage() {
           <div className="space-y-4">
             <Input
               id="full_name"
-              label="Имя"
-              placeholder="Иван Иванов"
+              label={t("auth.register.name")}
+              placeholder={t("auth.register.namePlaceholder")}
               value={form.full_name}
               onChange={(e) => setForm({ ...form, full_name: e.target.value })}
               error={errors.full_name}
             />
             <Input
               id="email"
-              label="Email"
+              label={t("auth.register.email")}
               type="email"
               placeholder="you@example.com"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               error={errors.email}
             />
-            <Input
+            <PasswordInput
               id="password"
-              label="Пароль"
-              type="password"
-              placeholder="Минимум 6 символов"
+              label={t("auth.register.password")}
+              placeholder={t("auth.register.passwordPlaceholder")}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               error={errors.password}
             />
             <Input
               id="phone"
-              label="Телефон"
+              label={t("auth.register.phone")}
               type="tel"
-              placeholder="+7 900 000-00-00"
+              placeholder={t("auth.register.phonePlaceholder")}
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               error={errors.phone}
@@ -281,27 +284,27 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-3">
               <Input
                 id="country"
-                label="Страна"
-                placeholder="Россия"
+                label={t("auth.register.country")}
+                placeholder={t("auth.register.countryPlaceholder")}
                 value={form.country}
                 onChange={(e) => setForm({ ...form, country: e.target.value })}
               />
               <Input
                 id="city"
-                label="Город"
-                placeholder="Москва"
+                label={t("auth.register.city")}
+                placeholder={t("auth.register.cityPlaceholder")}
                 value={form.city}
                 onChange={(e) => setForm({ ...form, city: e.target.value })}
               />
             </div>
             <Input
               id="avatar_url"
-              label="Фото профиля (URL)"
-              placeholder="https://..."
+              label={t("auth.register.avatarUrl")}
+              placeholder={t("auth.register.avatarPlaceholder")}
               value={form.avatar_url}
               onChange={(e) => setForm({ ...form, avatar_url: e.target.value })}
               error={errors.avatar_url}
-              hint="Ссылка на изображение для аватара"
+              hint={t("auth.register.avatarHint")}
             />
           </div>
         )}
@@ -310,24 +313,24 @@ export default function RegisterPage() {
           <div className="space-y-4">
             <Textarea
               id="bio"
-              label="Описание опыта"
-              placeholder="Расскажите о своём опыте и специализации..."
+              label={t("auth.register.bio")}
+              placeholder={t("auth.register.bioPlaceholder")}
               rows={4}
               value={form.bio}
               onChange={(e) => setForm({ ...form, bio: e.target.value })}
             />
             <Input
               id="skills"
-              label="Навыки"
-              placeholder="Ремонт, дизайн, программирование..."
+              label={t("auth.register.skills")}
+              placeholder={t("auth.register.skillsPlaceholder")}
               value={form.skills}
               onChange={(e) => setForm({ ...form, skills: e.target.value })}
-              hint="Через запятую"
+              hint={t("auth.register.skillsHint")}
             />
             <Textarea
               id="portfolio"
-              label="Портфолио"
-              placeholder="Ссылки на работы или описание портфолио"
+              label={t("auth.register.portfolio")}
+              placeholder={t("auth.register.portfolioPlaceholder")}
               rows={3}
               value={form.portfolio}
               onChange={(e) => setForm({ ...form, portfolio: e.target.value })}
@@ -336,7 +339,7 @@ export default function RegisterPage() {
               categories={categories}
               selected={form.provider_category_slugs}
               onChange={(slugs) => setForm({ ...form, provider_category_slugs: slugs })}
-              label="Категории услуг"
+              label={t("auth.register.categories")}
             />
           </div>
         )}
@@ -352,13 +355,13 @@ export default function RegisterPage() {
               className="mt-1 h-4 w-4 rounded border-border text-brand-600 focus:ring-brand-500"
             />
             <span>
-              Я принимаю{" "}
+              {t("legal.acceptPrefix")}{" "}
               <Link href="/terms" className="font-semibold text-brand-600">
-                Terms of Service
+                {t("legal.termsLink")}
               </Link>{" "}
-              и{" "}
+              {t("legal.and")}{" "}
               <Link href="/privacy" className="font-semibold text-brand-600">
-                Privacy Policy
+                {t("legal.privacyLink")}
               </Link>
             </span>
           </label>
@@ -376,25 +379,25 @@ export default function RegisterPage() {
               className="gap-1"
             >
               <ChevronLeft className="h-4 w-4" />
-              Назад
+              {t("auth.register.back")}
             </Button>
           )}
           {step < totalSteps - 1 ? (
             <Button type="button" onClick={nextStep} className="flex-1">
-              Далее
+              {t("auth.register.next")}
             </Button>
           ) : (
             <Button type="submit" loading={loading} className="flex-1">
-              Зарегистрироваться
+              {t("auth.register.submit")}
             </Button>
           )}
         </div>
       </form>
 
-      {step === 0 && form.role === "both" && (
+      {step === 0 && form.role === "provider" && (
         <Card variant="outline" padding="sm" className="mt-4 bg-brand-50/50">
           <p className="text-xs leading-relaxed text-text-secondary">
-            Роль «Оба» даёт доступ к созданию заказов и откликам на чужие запросы.
+            {t("auth.register.providerHint")}
           </p>
         </Card>
       )}

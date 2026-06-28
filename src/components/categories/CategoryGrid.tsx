@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import type { Category } from "@/types";
+import { useTranslation } from "@/components/providers/LocaleProvider";
+import { localizeCategoryName } from "@/lib/i18n/localize-data";
 import { cn } from "@/lib/utils";
 import {
   BookOpen,
@@ -30,6 +34,8 @@ const iconMap: Record<string, LucideIcon> = {
 };
 
 export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
+  const { locale } = useTranslation();
+
   return (
     <div className="grid grid-cols-2 gap-3">
       {categories.map((category) => {
@@ -55,7 +61,9 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
             >
               <Icon className="h-5 w-5" />
             </div>
-            <p className="text-sm font-semibold text-text-primary">{category.name}</p>
+            <p className="text-sm font-semibold text-text-primary">
+              {localizeCategoryName(category, locale)}
+            </p>
           </Link>
         );
       })}

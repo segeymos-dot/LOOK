@@ -1,6 +1,10 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
+import { useTranslation } from "@/components/providers/LocaleProvider";
+import { localizePortfolioItem } from "@/lib/i18n/localize-data";
 import type { PortfolioItem } from "@/types";
 import { ExternalLink } from "lucide-react";
 
@@ -12,16 +16,19 @@ interface PortfolioGalleryProps {
 
 export function PortfolioGallery({
   items,
-  title = "Портфолио",
+  title,
   variant = "default",
 }: PortfolioGalleryProps) {
+  const { t, locale } = useTranslation();
+  const resolvedTitle = title ?? t("profile.portfolioGallery.title");
+
   if (!items?.length) {
     if (variant === "public") {
       return (
         <section className="space-y-3">
-          <h2 className="text-lg font-bold tracking-tight text-text-primary">{title}</h2>
+          <h2 className="text-lg font-bold tracking-tight text-text-primary">{resolvedTitle}</h2>
           <Card padding="md" className="text-center">
-            <p className="text-sm text-text-muted">Портфолио пока пустое</p>
+            <p className="text-sm text-text-muted">{t("profile.portfolioGallery.empty")}</p>
           </Card>
         </section>
       );
@@ -32,9 +39,11 @@ export function PortfolioGallery({
   if (variant === "public") {
     return (
       <section className="space-y-3">
-        <h2 className="text-lg font-bold tracking-tight text-text-primary">{title}</h2>
+        <h2 className="text-lg font-bold tracking-tight text-text-primary">{resolvedTitle}</h2>
         <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2">
-          {items.map((item, index) => (
+          {items.map((item, index) => {
+            const localized = localizePortfolioItem(item, locale);
+            return (
             <Card
               key={item.id}
               padding="none"
@@ -44,7 +53,7 @@ export function PortfolioGallery({
                 <div className="relative aspect-[4/3] w-full bg-slate-100">
                   <Image
                     src={item.image_url}
-                    alt={item.title}
+                    alt={localized.title}
                     fill
                     className="object-cover"
                     unoptimized={
@@ -55,7 +64,7 @@ export function PortfolioGallery({
               )}
               <div className="p-4">
                 <div className="mb-1 flex items-start justify-between gap-2">
-                  <h3 className="font-semibold text-text-primary">{item.title}</h3>
+                  <h3 className="font-semibold text-text-primary">{localized.title}</h3>
                   {item.link && (
                     <Link
                       href={item.link}
@@ -67,15 +76,18 @@ export function PortfolioGallery({
                     </Link>
                   )}
                 </div>
-                {item.description && (
+                {localized.description && (
                   <p className="line-clamp-3 text-sm leading-relaxed text-text-secondary">
-                    {item.description}
+                    {localized.description}
                   </p>
                 )}
-                <p className="mt-2 text-xs text-text-muted">Проект {index + 1}</p>
+                <p className="mt-2 text-xs text-text-muted">
+                  {t("profile.portfolioGallery.projectN", { n: index + 1 })}
+                </p>
               </div>
             </Card>
-          ))}
+          );
+          })}
         </div>
       </section>
     );
@@ -83,15 +95,17 @@ export function PortfolioGallery({
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-bold tracking-tight text-text-primary">{title}</h2>
+      <h2 className="text-lg font-bold tracking-tight text-text-primary">{resolvedTitle}</h2>
       <div className="space-y-4">
-        {items.map((item, index) => (
+        {items.map((item, index) => {
+          const localized = localizePortfolioItem(item, locale);
+          return (
           <Card key={item.id} padding="none" className="overflow-hidden">
             {item.image_url && (
               <div className="relative aspect-[16/10] w-full bg-slate-100">
                 <Image
                   src={item.image_url}
-                  alt={item.title}
+                  alt={localized.title}
                   fill
                   className="object-cover"
                   unoptimized={item.image_url.startsWith("data:") || item.image_url.startsWith("blob:")}
@@ -101,7 +115,7 @@ export function PortfolioGallery({
             <div className="p-4">
               <div className="mb-1 flex items-start justify-between gap-2">
                 <h3 className="font-semibold text-text-primary">
-                  Проект №{index + 1}: {item.title}
+                  {t("profile.portfolioGallery.projectN", { n: index + 1 })}: {localized.title}
                 </h3>
                 {item.link && (
                   <Link
@@ -114,12 +128,13 @@ export function PortfolioGallery({
                   </Link>
                 )}
               </div>
-              {item.description && (
-                <p className="text-sm leading-relaxed text-text-secondary">{item.description}</p>
+              {localized.description && (
+                <p className="text-sm leading-relaxed text-text-secondary">{localized.description}</p>
               )}
             </div>
           </Card>
-        ))}
+        );
+        })}
       </div>
     </section>
   );

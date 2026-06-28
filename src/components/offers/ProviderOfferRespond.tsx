@@ -4,19 +4,20 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { getAuthenticatedUser } from "@/lib/auth/client-fetch";
 import { canActAsProvider, canRespondToRequest } from "@/lib/auth/roles";
 import { isRequestOwner as checkRequestOwner } from "@/lib/auth/viewer-role";
 import { submitOffer } from "@/lib/data/submit-offer";
 import { isDemoMode } from "@/lib/config";
+import { createOfferSchema } from "@/lib/i18n/client-messages";
 import { mockCurrentUser } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/client";
-import { offerSchema } from "@/lib/validations";
 import type { Offer, RequestStatus } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { Briefcase } from "lucide-react";
 
 interface ProviderOfferRespondProps {
@@ -46,6 +47,8 @@ export function ProviderOfferRespond({
 }: ProviderOfferRespondProps) {
   const router = useRouter();
   const { user, loading: authLoading, displayProfile, isProvider } = useAuth();
+  const { t } = useTranslation();
+  const offerSchema = useMemo(() => createOfferSchema(t), [t]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -95,12 +98,10 @@ export function ProviderOfferRespond({
   if (!activeUserId) {
     return (
       <Card padding="md" className="border-brand-200 bg-brand-50">
-        <p className="mb-3 text-sm text-text-secondary">
-          Войдите как исполнитель, чтобы отправить предложение по этому заказу.
-        </p>
+        <p className="mb-3 text-sm text-text-secondary">{t("offer.loginToRespond")}</p>
         <Link href={`/login?redirect=/requests/${requestId}`}>
           <Button className="w-full" size="lg">
-            Войти и откликнуться
+            {t("profile.loginBtn")}
           </Button>
         </Link>
       </Card>
@@ -110,13 +111,9 @@ export function ProviderOfferRespond({
   if (hasActiveOffer) {
     return (
       <Card padding="md" className="border-brand-200 bg-brand-50">
-        <p className="text-sm font-medium text-brand-800">
-          Вы уже откликнулись на этот заказ
-        </p>
+        <p className="text-sm font-medium text-brand-800">{t("offer.alreadyResponded")}</p>
         {ownOffer?.status === "pending" && (
-          <p className="mt-1 text-sm text-text-secondary">
-            Ожидайте решения заказчика. Ваше предложение отображается ниже.
-          </p>
+          <p className="mt-1 text-sm text-text-secondary">{t("status.pending")}</p>
         )}
       </Card>
     );
@@ -200,7 +197,7 @@ export function ProviderOfferRespond({
       setForm({ price: "", message: "" });
       router.refresh();
     } catch {
-      setErrors({ form: "Не удалось отправить предложение" });
+      setErrors({ form: t("offer.submitError") });
     } finally {
       setLoading(false);
     }
@@ -211,18 +208,16 @@ export function ProviderOfferRespond({
       <Card padding="md">
         <div className="mb-3 flex items-center gap-2">
           <Briefcase className="h-5 w-5 text-brand-600" />
-          <p className="font-semibold text-text-primary">Отклик исполнителя</p>
+          <p className="font-semibold text-text-primary">{t("offer.respondTitle")}</p>
         </div>
-        <p className="mb-4 text-sm text-text-secondary">
-          Укажите цену и комментарий — заказчик увидит ваше предложение в разделе ниже.
-        </p>
+        <p className="mb-4 text-sm text-text-secondary">{t("offer.message")}</p>
         <Button
           type="button"
           size="lg"
           className="w-full"
           onClick={() => setShowForm(true)}
         >
-          Откликнуться на заказ
+          {t("offer.respond")}
         </Button>
       </Card>
     );
@@ -232,15 +227,15 @@ export function ProviderOfferRespond({
     <Card padding="md">
       <div className="mb-4 flex items-center gap-2">
         <Briefcase className="h-5 w-5 text-brand-600" />
-        <p className="font-semibold text-text-primary">Ваше предложение</p>
+        <p className="font-semibold text-text-primary">{t("offer.respondTitle")}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           id="offer-price"
-          label="Цена"
+          label={t("offer.price")}
           type="number"
-          placeholder="5000"
+          placeholder={t("offer.price")}
           value={form.price}
           onChange={(e) => setForm({ ...form, price: e.target.value })}
           error={errors.price}
@@ -248,8 +243,8 @@ export function ProviderOfferRespond({
 
         <Textarea
           id="offer-message"
-          label="Комментарий исполнителя"
-          placeholder="Опишите, как вы выполните задачу..."
+          label={t("offer.comment")}
+          placeholder={t("offer.providerPlaceholder")}
           rows={4}
           value={form.message}
           onChange={(e) => setForm({ ...form, message: e.target.value })}
@@ -266,10 +261,10 @@ export function ProviderOfferRespond({
             onClick={() => setShowForm(false)}
             disabled={loading}
           >
-            Отмена
+            {t("common.cancel")}
           </Button>
           <Button type="submit" loading={loading} className="flex-1">
-            Отправить предложение
+            {t("offer.submit")}
           </Button>
         </div>
       </form>

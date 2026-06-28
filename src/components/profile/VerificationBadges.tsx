@@ -1,4 +1,7 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import type { ProviderVerification } from "@/types";
 import { BadgeCheck, Mail, Phone, UserCheck } from "lucide-react";
 
@@ -7,29 +10,20 @@ interface VerificationBadgesProps {
   className?: string;
 }
 
-const badges = [
-  {
-    key: "phoneVerified" as const,
-    label: "Телефон подтверждён",
-    icon: Phone,
-  },
-  {
-    key: "emailVerified" as const,
-    label: "Email подтверждён",
-    icon: Mail,
-  },
-  {
-    key: "profileComplete" as const,
-    label: "Профиль заполнен",
-    icon: UserCheck,
-  },
+const badgeKeys = [
+  { key: "phoneVerified" as const, labelKey: "profile.verification.phone", icon: Phone },
+  { key: "emailVerified" as const, labelKey: "profile.verification.email", icon: Mail },
+  { key: "profileComplete" as const, labelKey: "profile.verification.complete", icon: UserCheck },
 ];
 
 export function VerificationBadges({ verification, className }: VerificationBadgesProps) {
+  const { t } = useTranslation();
+
   return (
     <div className={cn("flex flex-wrap gap-2", className)}>
-      {badges.map(({ key, label, icon: Icon }) => {
+      {badgeKeys.map(({ key, labelKey, icon: Icon }) => {
         const verified = verification[key];
+        const label = t(labelKey);
         return (
           <span
             key={key}

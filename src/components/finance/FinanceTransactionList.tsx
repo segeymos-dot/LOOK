@@ -1,6 +1,12 @@
+"use client";
+
 import { Card } from "@/components/ui/Card";
-import { TRANSACTION_TYPE_LABELS } from "@/lib/config/finance";
-import { formatPrice, formatRelativeTime } from "@/lib/utils";
+import { useTranslation } from "@/components/providers/LocaleProvider";
+import {
+  formatRelativeTimeT,
+  getTransactionTypeLabelT,
+} from "@/lib/i18n/client-messages";
+import { formatPrice } from "@/lib/utils";
 import type { FinanceTransaction } from "@/types";
 import { ArrowDownLeft, ArrowUpRight, Minus } from "lucide-react";
 
@@ -21,12 +27,15 @@ function directionIcon(type: FinanceTransaction["type"]) {
 
 export function FinanceTransactionList({
   transactions,
-  emptyMessage = "Операций пока нет",
+  emptyMessage,
 }: FinanceTransactionListProps) {
+  const { t, locale } = useTranslation();
+  const empty = emptyMessage ?? t("finance.transactions.empty");
+
   if (!transactions.length) {
     return (
       <Card padding="md" className="text-center">
-        <p className="text-sm text-text-muted">{emptyMessage}</p>
+        <p className="text-sm text-text-muted">{empty}</p>
       </Card>
     );
   }
@@ -44,7 +53,7 @@ export function FinanceTransactionList({
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold text-text-primary">
-                    {TRANSACTION_TYPE_LABELS[tx.type] ?? tx.type}
+                    {getTransactionTypeLabelT(tx.type, t)}
                   </p>
                   <p className="text-sm text-text-secondary">{tx.description}</p>
                 </div>
@@ -53,7 +62,7 @@ export function FinanceTransactionList({
                 </p>
               </div>
               <p className="mt-1 text-xs text-text-muted">
-                {formatRelativeTime(tx.created_at)}
+                {formatRelativeTimeT(tx.created_at, t, locale === "en" ? "en-US" : "ru-RU")}
               </p>
             </div>
           </Card>

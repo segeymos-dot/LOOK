@@ -3,15 +3,17 @@
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { getClientAppOrigin } from "@/lib/app-url";
+import { useTranslation } from "@/components/providers/LocaleProvider";
+import { getAuthEmailRedirectTo } from "@/lib/app-url";
 import { isDemoMode } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
-import { mapAuthError } from "@/lib/test-auth";
-import { forgotPasswordSchema } from "@/lib/validations";
+import { createForgotPasswordSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslation();
+  const forgotPasswordSchema = useMemo(() => createForgotPasswordSchema(t), [t]);
   const demo = isDemoMode();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,7 +26,7 @@ export default function ForgotPasswordPage() {
 
     const parsed = forgotPasswordSchema.safeParse({ email });
     if (!parsed.success) {
-      setErrors({ email: parsed.error.errors[0]?.message ?? "Некорректный email" });
+      setErrors({ email: parsed.error.errors[0]?.message ?? t("validation.emailInvalid") });
       return;
     }
 
@@ -35,14 +37,13 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
     const supabase = createClient();
-    const origin = getClientAppOrigin();
     const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-      redirectTo: `${origin}/auth/callback?next=/reset-password`,
+      redirectTo: getAuthEmailRedirectTo("reset"),
     });
     setLoading(false);
 
     if (error) {
-      setErrors({ form: mapAuthError(error.message) });
+      setErrors({ form: mapAuthErrorT(error.message, t) });
       return;
     }
 
@@ -51,12 +52,12 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthLayout
-      title="Восстановление пароля"
-      subtitle={sent ? "Письмо отправлено" : "Мы отправим ссылку для сброса пароля"}
+      title={t("auth.forgot.title")}
+      subtitle={sent ? t("auth.forgot.subtitleSent") : t("auth.forgot.subtitle")}
       footer={
         <p className="text-center text-sm text-text-secondary">
           <Link href="/login" className="font-semibold text-brand-600">
-            Вернуться ко входу
+            {t("auth.forgot.back")}
           </Link>
         </p>
       }
@@ -64,18 +65,17 @@ export default function ForgotPasswordPage() {
       {sent ? (
         <div className="space-y-4 text-center">
           <p className="text-sm text-text-secondary">
-            Если аккаунт с адресом <strong>{email}</strong> существует, вы получите письмо со
-            ссылкой для создания нового пароля.
+            {t("auth.forgot.sent", { email })}
           </p>
           <Link href="/login">
-            <Button className="w-full">Ко входу</Button>
+            <Button className="w-full">{t("auth.forgot.toLogin")}</Button>
           </Link>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             id="email"
-            label="Email"
+            label={t("auth.forgot.email")}
             type="email"
             placeholder="you@example.com"
             value={email}
@@ -84,7 +84,7 @@ export default function ForgotPasswordPage() {
           />
           {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
           <Button type="submit" loading={loading} className="w-full">
-            Отправить ссылку
+            {t("auth.forgot.submit")}
           </Button>
         </form>
       )}
