@@ -1,0 +1,16 @@
+{
+  "name": "look-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mac desktop wrapper for LOOK (local use only)",
+  "main": "shell/main.cjs",
+  "scripts": {
+    "dev": "node scripts/ensure-electron.cjs && electron .",
+    "build": "bash scripts/build-mac-app.sh",
+    "postinstall": "node scripts/ensure-electron.cjs"
+  },
+  "devDependencies": {
+    "@electron/get": "^2.0.3",
+    "electron": "^35.7.5"
+  }
+}

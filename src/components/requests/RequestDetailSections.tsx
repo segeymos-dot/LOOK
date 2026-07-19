@@ -2,8 +2,10 @@
 
 import { ProviderOfferRespond } from "@/components/offers/ProviderOfferRespond";
 import { RequestOffersList } from "@/components/offers/RequestOffersList";
-import { RequestTestPayment } from "@/components/finance/RequestTestPayment";
+import { ProviderWorkSubmit } from "@/components/requests/ProviderWorkSubmit";
+import { CustomerWorkReview } from "@/components/requests/CustomerWorkReview";
 import { RequestLifecycleActions } from "@/components/requests/RequestLifecycleActions";
+import { OrderPaymentPanel } from "@/components/finance/OrderPaymentPanel";
 import type { Offer, RequestStatus } from "@/types";
 import { useState } from "react";
 
@@ -31,7 +33,8 @@ export function RequestDetailSections({
   viewerIsCustomer,
   viewerCanActAsProvider = false,
   isDemo = false,
-}: RequestDetailSectionsProps) {
+  revisionFeedback = null,
+}: RequestDetailSectionsProps & { revisionFeedback?: string | null }) {
   const [offers, setOffers] = useState(initialOffers);
   const acceptedOffer = offers.find((o) => o.status === "accepted");
 
@@ -52,6 +55,43 @@ export function RequestDetailSections({
         viewerIsCustomer={viewerIsCustomer}
         isDemo={isDemo}
       />
+      {acceptedOffer && (
+        <OrderPaymentPanel
+          requestId={requestId}
+          customerId={customerId}
+          providerId={acceptedOffer.provider_id}
+          requestStatus={requestStatus}
+          grossAmount={Number(acceptedOffer.price)}
+          currency={acceptedOffer.currency}
+          viewerUserId={viewerUserId}
+          viewerIsCustomer={viewerIsCustomer}
+          isDemo={isDemo}
+        />
+      )}
+      {acceptedOffer && (
+        <ProviderWorkSubmit
+          requestId={requestId}
+          customerId={customerId}
+          requestStatus={requestStatus}
+          acceptedProviderId={acceptedOffer.provider_id}
+          revisionFeedback={revisionFeedback}
+          viewerUserId={viewerUserId}
+          viewerIsCustomer={viewerIsCustomer}
+          isDemo={isDemo}
+        />
+      )}
+      {acceptedOffer && (
+        <CustomerWorkReview
+          requestId={requestId}
+          customerId={customerId}
+          requestStatus={requestStatus}
+          grossAmount={Number(acceptedOffer.price)}
+          currency={acceptedOffer.currency}
+          viewerUserId={viewerUserId}
+          viewerIsCustomer={viewerIsCustomer}
+          isDemo={isDemo}
+        />
+      )}
       <ProviderOfferRespond
         requestId={requestId}
         customerId={customerId}
@@ -64,18 +104,6 @@ export function RequestDetailSections({
         isDemo={isDemo}
         onOfferSubmitted={handleOfferSubmitted}
       />
-      {acceptedOffer && (
-        <RequestTestPayment
-          requestId={requestId}
-          requestStatus={requestStatus}
-          customerId={customerId}
-          grossAmount={Number(acceptedOffer.price)}
-          currency={acceptedOffer.currency}
-          isDemo={isDemo}
-          viewerUserId={viewerUserId}
-          viewerIsCustomer={viewerIsCustomer}
-        />
-      )}
       <RequestOffersList
         requestId={requestId}
         initialOffers={offers}

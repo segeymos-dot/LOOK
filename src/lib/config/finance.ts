@@ -1,11 +1,11 @@
-/** Platform commission rate (15% default). Override via NEXT_PUBLIC_PLATFORM_COMMISSION_RATE */
+/** Platform commission rate (10% default). Override via NEXT_PUBLIC_PLATFORM_COMMISSION_RATE */
 export function getPlatformCommissionRate(): number {
   const raw = process.env.NEXT_PUBLIC_PLATFORM_COMMISSION_RATE;
   if (raw) {
     const parsed = Number(raw);
     if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 1) return parsed;
   }
-  return 0.15;
+  return 0.10;
 }
 
 export function formatCommissionPercent(rate = getPlatformCommissionRate()): string {

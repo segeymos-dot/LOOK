@@ -1,4 +1,5 @@
 import { markConversationMessagesRead } from "@/lib/data/conversations-server";
+import { insertChatMessage } from "@/lib/data/chat-message-insert";
 import { getClientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { createAuthenticatedClient } from "@/lib/supabase/authenticated-client";
 import { messageSchema } from "@/lib/validations";
@@ -68,7 +69,10 @@ export async function POST(
     return rateLimitResponse(limited.retryAfterSec);
   }
 
-  const body = (await request.json()) as { content?: string };
+  const body = (await request.json()) as {
+    content?: string;
+    attachment_urls?: { name: string; url: string; type: string }[];
+  };
   const parsed = messageSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -77,20 +81,27 @@ export async function POST(
     );
   }
 
+  const hasContent = parsed.data.content.trim().length > 0;
+  const attachments = parsed.data.attachment_urls ?? [];
+  if (!hasContent && attachments.length === 0) {
+    return NextResponse.json({ error: "Сообщение не может быть пустым" }, { status: 400 });
+  }
+
   const ipLimited = rateLimit(`messages-ip:${getClientIp(request)}`, 60, 60_000);
   if (!ipLimited.ok) {
     return rateLimitResponse(ipLimited.retryAfterSec);
   }
 
-  const { error } = await supabase.from("messages").insert({
+  const { data: message, error } = await insertChatMessage(supabase, {
     conversation_id: id,
     sender_id: user.id,
     content: parsed.data.content,
+    attachment_urls: attachments,
   });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, message });
 }

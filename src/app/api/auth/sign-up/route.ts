@@ -1,4 +1,6 @@
 import { getClientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { isDuplicateConfirmedSignup } from "@/lib/auth/email-confirmation";
+import { getAuthEmailRedirectTo } from "@/lib/app-url";
 import { createClient } from "@/lib/supabase/server";
 import { mapAuthError } from "@/lib/test-auth";
 import { registerSchema } from "@/lib/validations";
@@ -20,17 +22,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const origin =
-    request.headers.get("origin")?.replace(/\/$/, "") ||
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
-    "http://localhost:3000";
+  const emailRedirectTo = getAuthEmailRedirectTo("signup");
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback?next=/`,
+      emailRedirectTo,
       data: {
         full_name: parsed.data.full_name,
         role: parsed.data.role,
@@ -49,6 +48,17 @@ export async function POST(request: Request) {
   if (error) {
     return NextResponse.json(
       { success: false, error: mapAuthError(error.message) },
+      { status: error.message.toLowerCase().includes("rate limit") ? 429 : 400 }
+    );
+  }
+
+  if (isDuplicateConfirmedSignup(data.user)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Этот email уже зарегистрирован и подтверждён. Войдите в аккаунт или восстановите пароль.",
+      },
       { status: 400 }
     );
   }
@@ -81,5 +91,7 @@ export async function POST(request: Request) {
         }
       : null,
     email: parsed.data.email,
+    requiresEmailConfirmation: !data.session,
+    emailRedirectTo,
   });
 }

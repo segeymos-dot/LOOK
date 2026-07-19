@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Home, Search, PlusCircle, MessageCircle, User, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 
 interface BottomNavProps {
   activePath: string;
@@ -11,17 +12,28 @@ interface BottomNavProps {
 
 export function BottomNav({ activePath }: BottomNavProps) {
   const { user, isProvider, isCustomer } = useAuth();
+  const { t } = useTranslation();
 
   const navItems = [
-    { href: "/", icon: Home, label: "Главная" },
-    { href: "/search", icon: Search, label: "Поиск" },
+    { href: "/", icon: Home, label: t("nav.home") },
+    { href: "/search", icon: Search, label: t("nav.search") },
     isCustomer || !user
-      ? { href: user ? "/requests/new" : "/login?redirect=/requests/new", icon: PlusCircle, label: "Создать", accent: true }
+      ? {
+          href: user ? "/requests/new" : "/login?redirect=/requests/new",
+          icon: PlusCircle,
+          label: t("nav.create"),
+          accent: true,
+        }
       : isProvider
-        ? { href: "/my/offers", icon: Briefcase, label: "Отклики" }
-        : { href: "/login?redirect=/requests/new", icon: PlusCircle, label: "Создать", accent: true },
-    { href: "/chat", icon: MessageCircle, label: "Чаты" },
-    { href: "/profile", icon: User, label: "Профиль" },
+        ? { href: "/my/offers", icon: Briefcase, label: t("nav.offers") }
+        : {
+            href: "/login?redirect=/requests/new",
+            icon: PlusCircle,
+            label: t("nav.create"),
+            accent: true,
+          },
+    { href: "/chat", icon: MessageCircle, label: t("nav.chats") },
+    { href: "/profile", icon: User, label: t("nav.profile") },
   ];
 
   return (

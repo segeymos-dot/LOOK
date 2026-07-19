@@ -20,6 +20,7 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
   const [linkName, setLinkName] = useState("");
   const [showAttach, setShowAttach] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const addLink = () => {
     if (!linkUrl.trim()) return;
@@ -41,11 +42,17 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
     if ((!content.trim() && attachments.length === 0) || sending) return;
 
     setSending(true);
-    await onSend(content.trim(), attachments.length > 0 ? attachments : undefined);
-    setContent("");
-    setAttachments([]);
-    setShowAttach(false);
-    setSending(false);
+    setSendError(null);
+    try {
+      await onSend(content.trim(), attachments.length > 0 ? attachments : undefined);
+      setContent("");
+      setAttachments([]);
+      setShowAttach(false);
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : t("chat.sendError"));
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -82,7 +89,13 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex items-end gap-2 p-3">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2 p-3">
+        {sendError && (
+          <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {sendError}
+          </p>
+        )}
+        <div className="flex items-end gap-2">
         <button
           type="button"
           disabled={disabled || sending}
@@ -114,6 +127,7 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
         >
           <Send className="h-4 w-4" />
         </Button>
+        </div>
       </form>
     </div>
   );

@@ -33,7 +33,7 @@ export default function ChatDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { locale } = useTranslation();
-  const { messages, loading, sendMessage } = useMessages(id);
+  const { messages, loading, sendMessage } = useMessages(id, user?.id);
   const [otherUserName, setOtherUserName] = useState("");
   const [otherUserAvatar, setOtherUserAvatar] = useState<string | null>(null);
   const [requestTitle, setRequestTitle] = useState("");
@@ -92,7 +92,10 @@ export default function ChatDetailPage() {
 
   const handleSend = async (content: string, attachments?: WorkAttachment[]) => {
     if (!user) return;
-    await sendMessage(content, user.id, attachments);
+    const result = await sendMessage(content, user.id, attachments);
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
   };
 
   useEffect(() => {

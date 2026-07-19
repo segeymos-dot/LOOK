@@ -12,7 +12,7 @@ export const registerSchema = z.object({
   full_name: z.string().min(2, "Минимум 2 символа"),
   email: z.string().email("Введите корректный email"),
   password: z.string().min(6, "Минимум 6 символов"),
-  role: z.enum(["customer", "provider", "both"]),
+  role: z.enum(["customer", "provider"]),
   phone: optionalString,
   country: optionalString,
   city: optionalString,
@@ -56,7 +56,16 @@ export const offerSchema = z.object({
 });
 
 export const messageSchema = z.object({
-  content: z.string().min(1, "Сообщение не может быть пустым").max(2000),
+  content: z.string().max(2000).default(""),
+  attachment_urls: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        url: z.string().url(),
+        type: z.enum(["image", "document", "link"]),
+      })
+    )
+    .optional(),
 });
 
 export const portfolioItemSchema = z.object({
@@ -68,10 +77,27 @@ export const portfolioItemSchema = z.object({
 });
 
 export const reviewSchema = z.object({
-  provider_id: z.string().uuid(),
+  reviewee_id: z.string().uuid(),
   request_id: z.string().uuid(),
   rating: z.coerce.number().int().min(1).max(5),
   comment: z.string().min(5, "Минимум 5 символов").max(1000),
+});
+
+export const workSubmitSchema = z.object({
+  summary: z.string().min(10, "Минимум 10 символов").max(5000),
+  attachments: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        url: z.string().url(),
+        type: z.enum(["image", "document", "link"]),
+      })
+    )
+    .optional(),
+});
+
+export const revisionSchema = z.object({
+  feedback: z.string().min(5, "Опишите, что нужно доработать").max(2000),
 });
 
 export const profileSchema = z.object({
@@ -84,7 +110,7 @@ export const profileSchema = z.object({
   skills: z.string().max(500).optional(),
   portfolio_items: z.array(portfolioItemSchema).optional(),
   provider_category_slugs: z.array(z.string()).optional(),
-  role: z.enum(["customer", "provider", "both"]),
+  role: z.enum(["customer", "provider"]),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

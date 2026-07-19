@@ -1,5 +1,6 @@
 "use client";
 
+import { PaymentHistoryList } from "@/components/finance/PaymentHistoryList";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CategoryMultiSelect } from "@/components/profile/CategoryMultiSelect";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
@@ -311,6 +312,7 @@ export default function ProfilePage() {
                 </Button>
               </Link>
             </div>
+            <PaymentHistoryList />
           </Card>
         )}
 

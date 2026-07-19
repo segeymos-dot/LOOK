@@ -1,6 +1,22 @@
 export type UserRole = "customer" | "provider" | "both";
-export type RequestStatus = "open" | "in_progress" | "completed" | "cancelled";
+export type RequestStatus = "open" | "in_progress" | "pending_review" | "completed" | "cancelled";
 export type OfferStatus = "pending" | "accepted" | "rejected" | "withdrawn";
+
+/** Payment state on the order (separate from lifecycle status). */
+export type OrderPaymentStatus =
+  | "unpaid"
+  | "payment_pending"
+  | "paid"
+  | "completed"
+  | "refunded"
+  | "failed";
+
+export type OrderPayoutStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 export interface PortfolioItem {
   id: string;
@@ -35,6 +51,7 @@ export interface Profile {
 export interface Review {
   id: string;
   provider_id: string;
+  reviewee_id: string;
   reviewer_id: string;
   request_id: string | null;
   rating: number;
@@ -64,6 +81,16 @@ export interface Request {
   location: string | null;
   status: RequestStatus;
   deadline: string | null;
+  revision_feedback?: string | null;
+  work_submitted_at?: string | null;
+  order_payment_status?: OrderPaymentStatus;
+  order_amount?: number | null;
+  look_commission?: number | null;
+  provider_payout_amount?: number | null;
+  payment_provider_name?: string | null;
+  payment_transaction_id?: string | null;
+  payout_status?: OrderPayoutStatus | null;
+  paid_at?: string | null;
   created_at: string;
   updated_at: string;
   // Joined fields
@@ -104,12 +131,30 @@ export interface Conversation {
   unread_count?: number;
 }
 
+export interface WorkAttachment {
+  name: string;
+  url: string;
+  type: "image" | "document" | "link";
+}
+
+export interface WorkSubmission {
+  id: string;
+  request_id: string;
+  provider_id: string;
+  summary: string;
+  attachments: WorkAttachment[];
+  revision_number: number;
+  created_at: string;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
   sender_id: string;
   content: string;
   read_at: string | null;
+  delivered_at?: string | null;
+  attachment_urls?: WorkAttachment[];
   created_at: string;
   // Joined fields
   sender?: Profile;
@@ -140,7 +185,7 @@ export interface SendMessageInput {
 }
 
 export interface CreateReviewInput {
-  provider_id: string;
+  reviewee_id: string;
   request_id: string;
   rating: number;
   comment: string;
@@ -174,6 +219,7 @@ export interface Payment {
   currency: string;
   status: PaymentStatus;
   payment_method: string;
+  external_reference?: string | null;
   paid_at: string | null;
   created_at: string;
 }
@@ -219,4 +265,27 @@ export interface PaymentSimulationResult {
   commission_rate: number;
   currency: string;
   status: PaymentStatus;
+  external_reference?: string | null;
+  order_payment_status?: OrderPaymentStatus;
+  /** look_test | stripe */
+  payment_provider?: string;
+  already_paid?: boolean;
 }
+
+export type PaymentHistoryEntry = {
+  id: string;
+  request_id: string;
+  request_title: string;
+  role: "customer" | "provider";
+  amount_gross: number;
+  platform_fee: number;
+  provider_amount: number;
+  currency: string;
+  payment_status: PaymentStatus;
+  order_payment_status: OrderPaymentStatus | null;
+  payment_provider_name: string | null;
+  payment_transaction_id: string | null;
+  payout_status: string | null;
+  paid_at: string | null;
+  created_at: string;
+};

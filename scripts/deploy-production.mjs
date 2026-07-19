@@ -48,16 +48,40 @@ function run(cmd, args, opts = {}) {
   return result;
 }
 
-function syncVercelEnv(name, value) {
+function isLocalAppUrl(value) {
+  if (!value) return false;
+  return (
+    value.includes("localhost") ||
+    value.includes("127.0.0.1") ||
+    value.includes(":3010")
+  );
+}
+
+function syncVercelEnv(name, value, { overwriteLocalAppUrl = false } = {}) {
   if (!value) return;
   const existing = run(vercelBin, ["env", "get", name, "production"], {
     silent: true,
     allowFailure: true,
   });
   const current = existing.stdout?.toString().trim();
-  if (current && !current.includes("Error") && !current.includes("not found")) {
+  const hasValue =
+    current && !current.includes("Error") && !current.includes("not found");
+
+  if (
+    hasValue &&
+    overwriteLocalAppUrl &&
+    name === "NEXT_PUBLIC_APP_URL" &&
+    isLocalAppUrl(current) &&
+    !isLocalAppUrl(value)
+  ) {
+    run(vercelBin, ["env", "rm", name, "production", "--yes"], {
+      allowFailure: true,
+      silent: true,
+    });
+  } else if (hasValue) {
     return;
   }
+
   run(
     vercelBin,
     ["env", "add", name, "production", "--value", value, "--yes"],
@@ -78,9 +102,7 @@ const fromEnv =
   localEnv.NEXT_PUBLIC_APP_URL?.trim();
 const productionAppUrl = customDomain
   ? `https://${customDomain.replace(/^https?:\/\//, "").replace(/\/$/, "")}`
-  : fromEnv &&
-      !fromEnv.includes("localhost") &&
-      !fromEnv.includes("127.0.0.1")
+  : fromEnv && !isLocalAppUrl(fromEnv)
     ? fromEnv.replace(/\/$/, "")
     : PRODUCTION_APP_URL;
 
@@ -106,7 +128,11 @@ if (!fs.existsSync(vercelBin)) {
 }
 
 for (const [name, value] of Object.entries(envToSync)) {
-  if (value) syncVercelEnv(name, value);
+  if (value) {
+    syncVercelEnv(name, value, {
+      overwriteLocalAppUrl: name === "NEXT_PUBLIC_APP_URL",
+    });
+  }
 }
 
 const deployArgs = ["deploy", "--prod", "--yes"];

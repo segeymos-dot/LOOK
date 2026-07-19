@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { executeTestOrderPayment } from "@/lib/payments/order-payment";
 import type {
   FinanceTransaction,
   Payment,
@@ -24,17 +25,10 @@ export async function getPaymentForRequest(
 
 export async function simulateTestPayment(
   supabase: SupabaseClient,
-  requestId: string
+  requestId: string,
+  externalReference?: string
 ): Promise<FinanceResult<PaymentSimulationResult>> {
-  const { data, error } = await supabase.rpc("simulate_test_payment", {
-    p_request_id: requestId,
-  });
-
-  if (error) {
-    return { success: false, error: error.message };
-  }
-
-  return { success: true, data: data as PaymentSimulationResult };
+  return executeTestOrderPayment(supabase, requestId, externalReference);
 }
 
 export async function getProviderBalance(
@@ -73,7 +67,7 @@ export async function getPlatformSummary(
   const currency = commissionList[0]?.currency ?? paymentList[0]?.currency ?? "USD";
 
   return {
-    commission_rate: Number(rateRow?.value ?? 0.15),
+    commission_rate: Number(rateRow?.value ?? 0.10),
     total_commission: commissionList.reduce((s, c) => s + Number(c.commission_amount), 0),
     paid_orders_count: paymentList.length,
     gross_volume: paymentList.reduce((s, p) => s + Number(p.amount_gross), 0),

@@ -1,6 +1,8 @@
 import { OfferDetailView } from "@/components/offers/OfferDetailView";
+import { getWorkLifecycleState } from "@/lib/data/work-lifecycle-state";
 import { getOfferForPage } from "@/lib/data/fetch-offer-server";
 import { isDemoMode } from "@/lib/config";
+import { createClient } from "@/lib/supabase/server";
 import {
   getMockConversationForOffer,
   getMockOffer,
@@ -57,15 +59,20 @@ export default async function OfferDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  const supabase = await createClient();
+  const lifecycle = await getWorkLifecycleState(supabase, requestId);
+  const effectiveStatus = lifecycle?.effectiveStatus ?? offer.request.status;
+
   return (
     <OfferDetailView
       initialOffer={offer}
       requestId={requestId}
       customerId={offer.request.customer_id}
-      initialRequestStatus={offer.request.status}
+      initialRequestStatus={effectiveStatus}
       initialConversationId={conversationId}
       viewerUserId={userId}
       viewerIsCustomer={userId === offer.request.customer_id}
+      revisionFeedback={lifecycle?.revisionFeedback ?? null}
     />
   );
 }

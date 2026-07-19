@@ -132,7 +132,8 @@ for (const { ru, en } of Object.values(CATEGORY_LABELS)) {
   enToRu.set(en, ru);
 }
 
-export function translateDemoString(text: string, locale: "ru" | "en"): string {
+export function translateDemoString(text: string | null | undefined, locale: "ru" | "en"): string {
+  if (text == null) return "";
   const trimmed = text.trim();
   if (!trimmed) return text;
 

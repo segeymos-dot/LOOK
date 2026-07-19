@@ -15,6 +15,7 @@ import {
   getMockRequest,
   mockCurrentUser,
 } from "@/lib/mock/data";
+import { getMockOrderPayment, initDemoOrderPayment } from "@/lib/mock/order-payments";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -35,6 +36,21 @@ export default async function RequestDetailPage({ params }: PageProps) {
 
     const localizedRequest = localizeRequest(request, locale);
     const offers = localizeOffers(getMockOffers(id), locale);
+    const acceptedOffer = offers.find((o) => o.status === "accepted");
+    if (
+      acceptedOffer &&
+      localizedRequest.status === "in_progress" &&
+      !getMockOrderPayment(id)
+    ) {
+      initDemoOrderPayment({
+        requestId: id,
+        customerId: localizedRequest.customer_id,
+        providerId: acceptedOffer.provider_id,
+        orderAmount: Number(acceptedOffer.price),
+        currency: acceptedOffer.currency,
+        requestTitle: localizedRequest.title,
+      });
+    }
     const conversationByOfferId = offers.reduce<Record<string, string>>(
       (map, offer) => {
         const conversation = getMockConversationForOffer(offer.id);

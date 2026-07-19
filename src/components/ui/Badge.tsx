@@ -1,16 +1,13 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import type { RequestStatus, OfferStatus } from "@/types";
-
-const requestStatusLabels: Record<RequestStatus, string> = {
-  open: "Открыт",
-  in_progress: "В работе",
-  completed: "Завершён",
-  cancelled: "Отменён",
-};
+import { useTranslation } from "@/components/providers/LocaleProvider";
 
 const requestStatusStyles: Record<RequestStatus, string> = {
   open: "bg-success-bg text-emerald-700",
   in_progress: "bg-info-bg text-blue-700",
+  pending_review: "bg-warning-bg text-amber-700",
   completed: "bg-slate-100 text-slate-700",
   cancelled: "bg-danger-bg text-red-700",
 };
@@ -18,15 +15,9 @@ const requestStatusStyles: Record<RequestStatus, string> = {
 const requestStatusDots: Record<RequestStatus, string> = {
   open: "bg-emerald-500",
   in_progress: "bg-blue-500",
+  pending_review: "bg-amber-500",
   completed: "bg-slate-400",
   cancelled: "bg-red-500",
-};
-
-const offerStatusLabels: Record<OfferStatus, string> = {
-  pending: "В ожидании",
-  accepted: "Принят",
-  rejected: "Отклонено",
-  withdrawn: "Отозвано",
 };
 
 const offerStatusStyles: Record<OfferStatus, string> = {
@@ -43,6 +34,13 @@ const offerStatusDots: Record<OfferStatus, string> = {
   withdrawn: "bg-slate-400",
 };
 
+const offerStatusKeys: Record<OfferStatus, string> = {
+  pending: "status.pending",
+  accepted: "status.accepted",
+  rejected: "status.rejected",
+  withdrawn: "status.withdrawn",
+};
+
 interface BadgeProps {
   status: RequestStatus | OfferStatus;
   type?: "request" | "offer";
@@ -51,9 +49,13 @@ interface BadgeProps {
 }
 
 export function Badge({ status, type = "request", className, size = "sm" }: BadgeProps) {
-  const labels = type === "request" ? requestStatusLabels : offerStatusLabels;
+  const { t } = useTranslation();
   const styles = type === "request" ? requestStatusStyles : offerStatusStyles;
   const dots = type === "request" ? requestStatusDots : offerStatusDots;
+  const label =
+    type === "request"
+      ? t(`status.${status as RequestStatus}`)
+      : t(offerStatusKeys[status as OfferStatus]);
 
   return (
     <span
@@ -71,7 +73,7 @@ export function Badge({ status, type = "request", className, size = "sm" }: Badg
           dots[status as keyof typeof dots]
         )}
       />
-      {labels[status as keyof typeof labels]}
+      {label}
     </span>
   );
 }

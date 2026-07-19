@@ -3,7 +3,7 @@
 import { FinanceStatCard } from "@/components/finance/FinanceStatCard";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { authFetch } from "@/lib/auth/client-fetch";
-import { formatCommissionPercent } from "@/lib/config/finance";
+import { formatCommissionPercent, getPlatformCommissionRate } from "@/lib/config/finance";
 import { formatPrice } from "@/lib/utils";
 import type { PlatformSummary } from "@/types";
 import { BadgeDollarSign, Percent, Receipt, TrendingUp } from "lucide-react";
@@ -59,7 +59,7 @@ export function PlatformBalancePanel() {
         <FinanceStatCard
           icon={Percent}
           label={t("finance.platform.commissionRate")}
-          value={formatCommissionPercent(summary?.commission_rate ?? 0.15)}
+          value={formatCommissionPercent(summary?.commission_rate ?? getPlatformCommissionRate())}
         />
         <FinanceStatCard
           icon={Receipt}

@@ -3,6 +3,7 @@
 import { ConversationItem } from "@/components/chat/ConversationItem";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
+import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { authFetch } from "@/lib/auth/client-fetch";
 import { isDemoMode } from "@/lib/config";
@@ -21,6 +22,7 @@ export function ChatConversationList({
   userId,
 }: ChatConversationListProps) {
   const { user, ready } = useAuth();
+  const { t } = useTranslation();
   const [conversations, setConversations] = useState(initialConversations);
   const [loading, setLoading] = useState(false);
 
@@ -80,12 +82,12 @@ export function ChatConversationList({
     <div className="p-4">
       <EmptyState
         icon={MessageCircle}
-        title="Нет активных чатов"
-        description="Чат появится после принятия предложения или первого сообщения"
+        title={t("chat.emptyTitle")}
+        description={t("chat.emptyDesc")}
         action={
           <Link href="/search">
             <Button variant="secondary" size="sm">
-              Найти заказы
+              {t("home.browseOrders")}
             </Button>
           </Link>
         }

@@ -51,25 +51,21 @@ export function getTestAccounts(): TestAccount[] {
   ];
 }
 
+import { mapUserFacingError } from "@/lib/ui/user-facing-error";
+
 export function mapAuthError(message: string): string {
   const lower = message.toLowerCase();
-  if (
-    lower.includes("database error querying schema") ||
-    lower.includes("database error finding user")
-  ) {
-    return "Тестовые пользователи созданы через SQL с ошибкой. Выполните supabase/migrations/006_fix_seeded_auth_users.sql в SQL Editor Supabase.";
-  }
   if (lower.includes("rate limit") || lower.includes("email rate")) {
-    return "Превышен лимит отправки email в Supabase. Отключите подтверждение email в настройках Auth или войдите через тестовый аккаунт.";
+    return "Превышен лимит отправки писем. Подождите немного и попробуйте снова.";
   }
   if (lower.includes("already registered") || lower.includes("already been registered")) {
     return "Этот email уже зарегистрирован. Войдите или используйте другой адрес.";
   }
   if (lower.includes("invalid") && lower.includes("email")) {
-    return "Некорректный email. Используйте реальный адрес или тестовый вход.";
+    return "Некорректный email. Проверьте адрес и попробуйте снова.";
   }
   if (lower.includes("email not confirmed")) {
     return "Email не подтверждён. Проверьте почту или запросите письмо повторно.";
   }
-  return message;
+  return mapUserFacingError(message);
 }

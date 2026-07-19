@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify full order lifecycle: create → offer → accept → pay → complete.
+ * Verify full order lifecycle: create → offer → accept → submit work → accept work → reviews.
  * Usage: node scripts/verify-order-flow.mjs
  */
 import { readFileSync, existsSync } from "node:fs";
@@ -42,6 +42,16 @@ function fail(msg) {
   process.exit(1);
 }
 
+async function rpcExists(name) {
+  const res = await fetch(`${url}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: { apikey: key, "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  const body = await res.text();
+  return !body.includes("PGRST202");
+}
+
 async function signIn(email) {
   const res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
     method: "POST",
@@ -65,12 +75,93 @@ async function signIn(email) {
 async function main() {
   console.log("LOOK order flow verification\n");
 
+  if (!(await rpcExists("submit_work"))) {
+    console.warn(
+      "⚠️  submit_work RPC missing — using legacy flow (pay before complete).\n" +
+        "   Apply migration 017 for the full work lifecycle.\n"
+    );
+    await legacyFlow();
+    return;
+  }
+
+  await modernFlow();
+}
+
+async function legacyFlow() {
   const customer = await signIn("customer@test.look");
   pass("customer@test.look login");
 
   const provider = await signIn("provider@test.look");
   pass("provider@test.look login");
 
+  const request = await createOrder(customer);
+  pass(`Request created (${request.id}) status=open`);
+
+  const offer = await createOffer(provider, request.id);
+  pass(`Offer submitted (${offer.id})`);
+
+  const acceptBody = await acceptOffer(customer, offer.id);
+  pass(`Offer accepted, conversation=${acceptBody.conversation_id}`);
+
+  const payBody = await testPayment(customer, request.id);
+  if (payBody.platform_fee !== 150 || payBody.provider_amount !== 850) {
+    fail(`Commission split wrong: ${JSON.stringify(payBody)}`);
+  }
+  pass("Test payment: gross=1000, LOOK=150, provider=850");
+
+  const completeBody = await completeRequest(customer, request.id);
+  if (completeBody.status !== "completed") fail(`Expected completed, got ${completeBody.status}`);
+  pass("Request completed (legacy)");
+
+  await verifyFinance(provider, request.id);
+  console.log("\nAll order flow checks passed (legacy).");
+  console.log(`Test request ID: ${request.id}`);
+}
+
+async function modernFlow() {
+  const customer = await signIn("customer@test.look");
+  pass("customer@test.look login");
+
+  const provider = await signIn("provider@test.look");
+  pass("provider@test.look login");
+
+  const request = await createOrder(customer);
+  pass(`Request created (${request.id}) status=open`);
+
+  const offer = await createOffer(provider, request.id);
+  pass(`Offer submitted (${offer.id})`);
+
+  const acceptBody = await acceptOffer(customer, offer.id);
+  pass(`Offer accepted, conversation=${acceptBody.conversation_id}`);
+
+  const submitRes = await fetch(`${url}/rest/v1/rpc/submit_work`, {
+    method: "POST",
+    headers: provider.headers,
+    body: JSON.stringify({
+      p_request_id: request.id,
+      p_summary: "Работа выполнена, результат готов к проверке.",
+      p_attachments: [],
+    }),
+  });
+  const submitBody = await submitRes.json();
+  if (!submitRes.ok) fail(`Submit work: ${JSON.stringify(submitBody)}`);
+  pass("Provider submitted work → pending_review");
+
+  const acceptWorkRes = await fetch(`${url}/rest/v1/rpc/accept_work`, {
+    method: "POST",
+    headers: customer.headers,
+    body: JSON.stringify({ p_request_id: request.id }),
+  });
+  const acceptWorkBody = await acceptWorkRes.json();
+  if (!acceptWorkRes.ok) fail(`Accept work: ${JSON.stringify(acceptWorkBody)}`);
+  pass("Customer accepted work → completed + payment");
+
+  await verifyFinance(provider, request.id);
+  console.log("\nAll order flow checks passed.");
+  console.log(`Test request ID: ${request.id}`);
+}
+
+async function createOrder(customer) {
   const catsRes = await fetch(`${url}/rest/v1/categories?select=id&limit=1`, {
     headers: customer.headers,
   });
@@ -96,10 +187,12 @@ async function main() {
   if (!createRes.ok) fail(`Create request: ${JSON.stringify(created)}`);
   const request = Array.isArray(created) ? created[0] : created;
   if (request.status !== "open") fail(`Expected status open, got ${request.status}`);
-  pass(`Request created (${request.id}) status=open`);
+  return request;
+}
 
+async function createOffer(provider, requestId) {
   const searchRes = await fetch(
-    `${url}/rest/v1/requests?id=eq.${request.id}&select=id,status`,
+    `${url}/rest/v1/requests?id=eq.${requestId}&select=id,status`,
     { headers: provider.headers }
   );
   const visible = await searchRes.json();
@@ -110,7 +203,7 @@ async function main() {
     method: "POST",
     headers: provider.headers,
     body: JSON.stringify({
-      request_id: request.id,
+      request_id: requestId,
       provider_id: provider.userId,
       price: 1000,
       message: "Готов выполнить заказ качественно и в срок",
@@ -119,51 +212,54 @@ async function main() {
   });
   const offerBody = await offerRes.json();
   if (!offerRes.ok) fail(`Create offer: ${JSON.stringify(offerBody)}`);
-  const offer = Array.isArray(offerBody) ? offerBody[0] : offerBody;
-  pass(`Offer submitted (${offer.id})`);
+  return Array.isArray(offerBody) ? offerBody[0] : offerBody;
+}
 
+async function acceptOffer(customer, offerId) {
   const acceptRes = await fetch(`${url}/rest/v1/rpc/accept_offer`, {
     method: "POST",
     headers: customer.headers,
-    body: JSON.stringify({ p_offer_id: offer.id }),
+    body: JSON.stringify({ p_offer_id: offerId }),
   });
   const acceptBody = await acceptRes.json();
   if (!acceptRes.ok) fail(`Accept offer: ${JSON.stringify(acceptBody)}`);
   if (!acceptBody.conversation_id) fail("No conversation_id after accept");
-  pass(`Offer accepted, conversation=${acceptBody.conversation_id}`);
 
   const statusRes = await fetch(
-    `${url}/rest/v1/requests?id=eq.${request.id}&select=status`,
+    `${url}/rest/v1/requests?id=eq.${acceptBody.request_id}&select=status`,
     { headers: customer.headers }
   );
   const [{ status }] = await statusRes.json();
   if (status !== "in_progress") fail(`Expected in_progress, got ${status}`);
   pass("Request status=in_progress");
+  return acceptBody;
+}
 
+async function testPayment(customer, requestId) {
   const payRes = await fetch(`${url}/rest/v1/rpc/simulate_test_payment`, {
     method: "POST",
     headers: customer.headers,
-    body: JSON.stringify({ p_request_id: request.id }),
+    body: JSON.stringify({ p_request_id: requestId }),
   });
   const payBody = await payRes.json();
   if (!payRes.ok) fail(`Test payment: ${JSON.stringify(payBody)}`);
-  if (payBody.platform_fee !== 150 || payBody.provider_amount !== 850) {
-    fail(`Commission split wrong: ${JSON.stringify(payBody)}`);
-  }
-  pass("Test payment: gross=1000, LOOK=150, provider=850");
+  return payBody;
+}
 
+async function completeRequest(customer, requestId) {
   const completeRes = await fetch(`${url}/rest/v1/rpc/complete_request`, {
     method: "POST",
     headers: customer.headers,
-    body: JSON.stringify({ p_request_id: request.id }),
+    body: JSON.stringify({ p_request_id: requestId }),
   });
   const completeBody = await completeRes.json();
   if (!completeRes.ok) fail(`Complete request: ${JSON.stringify(completeBody)}`);
-  if (completeBody.status !== "completed") fail(`Expected completed, got ${completeBody.status}`);
-  pass("Request completed");
+  return completeBody;
+}
 
+async function verifyFinance(provider, requestId) {
   const txRes = await fetch(
-    `${url}/rest/v1/transactions?request_id=eq.${request.id}&select=type,amount`,
+    `${url}/rest/v1/transactions?request_id=eq.${requestId}&select=type,amount`,
     { headers: provider.headers }
   );
   const txs = await txRes.json();
@@ -187,9 +283,6 @@ async function main() {
     fail("Admin cannot read platform commissions");
   }
   pass("Admin platform commissions visible");
-
-  console.log("\nAll order flow checks passed.");
-  console.log(`Test request ID: ${request.id}`);
 }
 
 main().catch((err) => {

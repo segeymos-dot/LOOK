@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
+import { PaymentStatusChip } from "@/components/finance/PaymentStatusChip";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { localizeRequest } from "@/lib/i18n/localize-data";
 import { formatPrice } from "@/lib/utils";
@@ -24,7 +25,14 @@ export function RequestDetailCard({ request }: RequestDetailCardProps) {
         <h1 className="break-words text-xl font-bold tracking-tight text-text-primary line-clamp-3">
           {localized.title}
         </h1>
-        <Badge status={request.status} size="md" />
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <Badge status={request.status} size="md" />
+          <PaymentStatusChip
+            requestId={request.id}
+            requestStatus={request.status}
+            orderPaymentStatus={request.order_payment_status}
+          />
+        </div>
       </div>
 
       {localized.category && (

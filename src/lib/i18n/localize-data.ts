@@ -24,9 +24,12 @@ export function localizeCategoryName(
   category: Pick<Category, "name" | "slug">,
   locale: Locale
 ): string {
-  const bySlug = CATEGORY_LABELS[category.slug];
+  const slug = category.slug ?? "";
+  const bySlug = slug ? CATEGORY_LABELS[slug] : undefined;
   if (bySlug) return locale === "en" ? bySlug.en : bySlug.ru;
-  return translateDemoString(category.name, locale);
+  const name = category.name ?? "";
+  if (name) return translateDemoString(name, locale);
+  return slug;
 }
 
 export function localizeCategory(category: Category, locale: Locale): Category {

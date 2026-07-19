@@ -1,0 +1,5 @@
+desktop/
+supabase/migrations/LOOK.app/
+scripts/
+*.md
+!README.md

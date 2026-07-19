@@ -1,16 +1,29 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { reviewSchema } from "@/lib/validations";
+import { createAuthenticatedClient } from "@/lib/supabase/authenticated-client";
+import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
+  const accessToken = request.headers
+    .get("Authorization")
+    ?.replace(/^Bearer\s+/i, "");
 
+  if (!accessToken) {
+    return NextResponse.json(
+      { success: false, error: "Необходима авторизация" },
+      { status: 401 }
+    );
+  }
+
+  const supabase = createAuthenticatedClient(accessToken);
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { success: false, error: "Необходима авторизация" },
+      { status: 401 }
+    );
   }
 
   const body = await request.json().catch(() => null);
@@ -23,7 +36,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { provider_id, request_id, rating, comment } = parsed.data;
+  const { reviewee_id, request_id, rating, comment } = parsed.data;
 
   const { data: req } = await supabase
     .from("requests")
@@ -31,7 +44,7 @@ export async function POST(request: Request) {
     .eq("id", request_id)
     .single();
 
-  if (!req || req.customer_id !== user.id || req.status !== "completed") {
+  if (!req || req.status !== "completed") {
     return NextResponse.json(
       { success: false, error: "Отзыв можно оставить только после завершения заказа" },
       { status: 403 }
@@ -40,15 +53,26 @@ export async function POST(request: Request) {
 
   const { data: acceptedOffer } = await supabase
     .from("offers")
-    .select("id")
+    .select("id, provider_id")
     .eq("request_id", request_id)
-    .eq("provider_id", provider_id)
     .eq("status", "accepted")
     .maybeSingle();
 
   if (!acceptedOffer) {
     return NextResponse.json(
-      { success: false, error: "Исполнитель не выполнял этот заказ" },
+      { success: false, error: "Заказ без принятого исполнителя" },
+      { status: 403 }
+    );
+  }
+
+  const isCustomerReview =
+    req.customer_id === user.id && reviewee_id === acceptedOffer.provider_id;
+  const isProviderReview =
+    acceptedOffer.provider_id === user.id && reviewee_id === req.customer_id;
+
+  if (!isCustomerReview && !isProviderReview) {
+    return NextResponse.json(
+      { success: false, error: "Нет прав оставить отзыв по этому заказу" },
       { status: 403 }
     );
   }
@@ -56,7 +80,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("reviews")
     .insert({
-      provider_id,
+      provider_id: reviewee_id,
       reviewer_id: user.id,
       request_id,
       rating,

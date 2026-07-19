@@ -34,6 +34,7 @@ export function simulateDemoPayment(input: {
   providerId: string;
   grossAmount: number;
   currency?: string;
+  externalReference?: string;
 }): PaymentSimulationResult {
   const existing = demoPayments.get(input.requestId);
   if (existing?.status === "paid") {
@@ -58,6 +59,7 @@ export function simulateDemoPayment(input: {
     currency,
     status: "paid",
     payment_method: "test",
+    external_reference: input.externalReference ?? `test_txn_demo_${Date.now()}`,
     paid_at: now,
     created_at: now,
     commission_rate: rate,
@@ -143,6 +145,8 @@ export function simulateDemoPayment(input: {
     commission_rate: rate,
     currency,
     status: "paid",
+    external_reference: payment.external_reference,
+    order_payment_status: "paid" as const,
   };
 }
 

@@ -42,3 +42,16 @@ next-env.d.ts
 # supabase
 .branches
 .temp
+# Accidental Electron dumps must never live under SQL migrations
+supabase/migrations/**/*.app/
+supabase/migrations/LOOK.app/
+
+# mac desktop wrapper
+/desktop/node_modules
+/desktop/dist
+/desktop/look-project-path.txt
+/desktop/assets/icon.icns
+/desktop/assets/icon.iconset
+
+# keep tracked env templates
+!.env.example
