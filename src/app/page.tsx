@@ -1,4 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
+import { HomeGreeting } from "@/components/home/HomeGreeting";
 import { HomeHero } from "@/components/home/HomeHero";
 import { HomeCategoriesHeader, HomeRecentHeader, HomeEmptyRequests } from "@/components/home/HomeSections";
 import { CategoryGrid } from "@/components/categories/CategoryGrid";
@@ -38,6 +39,7 @@ export default async function HomePage() {
   return (
     <AppLayout activePath="/">
       <div className="space-y-8 p-4">
+        <HomeGreeting />
         <HomeHero />
 
         <section>
