@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
+import { PrimaryButton } from "@/components/ui/v2/PrimaryButton";
 import { Card } from "@/components/ui/Card";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
@@ -58,10 +59,10 @@ export function HomeHero() {
         <div className="flex flex-col gap-2 sm:flex-row">
           {showCreateOrder && (
             <Link href={createHref} className="flex-1">
-              <Button variant="secondary" className="w-full gap-2 bg-white text-brand-700 hover:bg-white/90">
+              <PrimaryButton fullWidth>
                 <PlusCircle className="h-5 w-5" />
                 {t("home.createOrder")}
-              </Button>
+              </PrimaryButton>
             </Link>
           )}
           {isCustomer && user && (
