@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 
 export function HomeSectionHeaders() {
@@ -34,11 +34,12 @@ export function HomeCategoriesHeader() {
   const { t } = useTranslation();
   return (
     <div className="mb-4 flex items-center justify-between">
-      <div>
-        <h2 className="text-lg font-bold tracking-tight text-text-primary">
-          {t("home.categories")}
-        </h2>
-        <p className="text-sm text-text-secondary">{t("home.categoriesSub")}</p>
+      <div
+        className="flex items-center"
+        style={{ gap: "7px", fontSize: "12px", fontWeight: 400 }}
+      >
+        <Search className="h-3.5 w-3.5 shrink-0 text-text-secondary" aria-hidden />
+        <span className="text-text-secondary">Поиск услуг и исполнителей</span>
       </div>
       <Link
         href="/search"

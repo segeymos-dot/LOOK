@@ -30,7 +30,7 @@ function firstNameFromSource(value: string | null | undefined): string | undefin
 
 export function HomeGreeting() {
   const { user, displayProfile, profile } = useAuth();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [greetingKey, setGreetingKey] = useState<TimeGreetingKey>("goodEvening");
 
   useEffect(() => {
@@ -66,6 +66,10 @@ export function HomeGreeting() {
     ? t(`home.${greetingKey}Name`, { name: firstName })
     : t(`home.${greetingKey}`);
 
+  const subtitleClassName =
+    "mb-2 w-[220px] max-w-[220px] text-left text-[15px] text-[#64748B] sm:text-[16px]";
+  const subtitleStyle = { lineHeight: 1.5 } as const;
+
   return (
     <div className="min-w-0 space-y-3">
       <p className="text-sm font-semibold leading-snug text-[#64748B] sm:text-[15px]">
@@ -74,9 +78,18 @@ export function HomeGreeting() {
       <h1 className="max-w-full text-[1.875rem] font-extrabold leading-[1.12] tracking-[-0.025em] text-[#111827] sm:text-[2.125rem]">
         {t("home.greetingTitle")}
       </h1>
-      <p className="max-w-full text-[15px] leading-relaxed text-[#64748B] sm:text-[16px]">
-        {t("home.greetingSubtitle")}
-      </p>
+      {locale === "ru" ? (
+        <p className={subtitleClassName} style={subtitleStyle}>
+          <span className="block">Создавайте заказы,</span>
+          <span className="block">находите исполнителей</span>
+          <span className="block">и решайте любые задачи</span>
+          <span className="block">легко!</span>
+        </p>
+      ) : (
+        <p className={subtitleClassName} style={subtitleStyle}>
+          {t("home.greetingSubtitle")}
+        </p>
+      )}
     </div>
   );
 }

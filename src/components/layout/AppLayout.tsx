@@ -36,8 +36,17 @@ export function AppLayout({
       <header
         className={
           isHomeHeader
-            ? "sticky top-0 z-40 bg-white pt-safe"
+            ? "sticky top-0 z-40 pt-safe"
             : "glass-header sticky top-0 z-40 border-b border-border-subtle pt-safe"
+        }
+        style={
+          isHomeHeader
+            ? {
+                backgroundColor: "#BFE8FF",
+                backgroundImage:
+                  "linear-gradient(180deg, #BFE8FF 0%, #D9F3FF 100%)",
+              }
+            : undefined
         }
       >
         {isHomeHeader ? (

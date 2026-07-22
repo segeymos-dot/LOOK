@@ -26,7 +26,16 @@ export function HomeHeader() {
   return (
     <div className="flex min-w-0 items-center justify-between gap-2 px-4 py-3">
       <Link href="/" className="shrink-0 pr-1">
-        <span className="bg-gradient-to-b from-[#33A1FF] to-[#1677F2] bg-clip-text text-[1.375rem] font-extrabold leading-none tracking-[-0.03em] text-transparent">
+        <span
+          style={{
+            color: "#1677F2",
+            fontSize: "36px",
+            fontWeight: 800,
+            lineHeight: 1,
+            letterSpacing: "-0.03em",
+            opacity: 1,
+          }}
+        >
           LOOK
         </span>
       </Link>

@@ -243,6 +243,9 @@ export const en: TranslationDict = {
     providerDesc: "Browse open requests and send offers with your price",
     bothDesc: "Post requests or respond to other users' orders",
     createOrder: "Create order",
+    createOrderBannerTitle: "Create a new request",
+    createOrderBannerSubtitle:
+      "Describe your task and receive offers from verified professionals.",
     myOrders: "My orders",
     browseOrders: "Browse orders",
     myOffers: "My offers",

@@ -38,7 +38,14 @@ export default async function HomePage() {
 
   return (
     <AppLayout activePath="/">
-      <div className="space-y-8 p-4">
+      <div
+        className="space-y-8 p-4"
+        style={{
+          backgroundColor: "#EFF8FF",
+          backgroundImage:
+            "linear-gradient(180deg, #EAF7FF 0%, #F6FBFF 45%, #FFFFFF 100%)",
+        }}
+      >
         <HomeGreeting />
         <HomeHero />
 
