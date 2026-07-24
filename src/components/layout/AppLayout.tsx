@@ -5,7 +5,6 @@ import { BetaBanner } from "./BetaBanner";
 import { DemoBanner } from "./DemoBanner";
 import { BottomNav } from "./BottomNav";
 import { Avatar } from "@/components/ui/Avatar";
-import { HomeHeader } from "@/components/home/HomeHeader";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "@/components/providers/LocaleProvider";
@@ -39,19 +38,8 @@ export function AppLayout({
             ? "sticky top-0 z-40 pt-safe"
             : "glass-header sticky top-0 z-40 border-b border-border-subtle pt-safe"
         }
-        style={
-          isHomeHeader
-            ? {
-                backgroundColor: "#BFE8FF",
-                backgroundImage:
-                  "linear-gradient(180deg, #BFE8FF 0%, #D9F3FF 100%)",
-              }
-            : undefined
-        }
       >
-        {isHomeHeader ? (
-          <HomeHeader />
-        ) : (
+        {isHomeHeader ? null : (
         <div className="flex items-center justify-between px-4 py-3">
           <div className="min-w-0 shrink-0">
             {title ? (
@@ -72,7 +60,7 @@ export function AppLayout({
             {user && (
             <Link
               href="/profile"
-              className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 transition-colors hover:bg-slate-100"
+              className="flex items-center rounded-full p-1 transition-colors hover:bg-slate-100"
             >
               <Avatar
                 src={resolvedProfile?.avatar_url}
@@ -80,15 +68,16 @@ export function AppLayout({
                 size="sm"
                 ring
               />
-              <span className="hidden max-w-[80px] truncate text-xs font-medium text-text-secondary sm:inline">
-                {displayName.split(" ")[0]}
-              </span>
             </Link>
           )}
           </div>
         </div>
         )}
-        {activePath !== "/" && <BetaBanner />}
+        {activePath !== "/" &&
+          activePath !== "/requests/new" &&
+          activePath !== "/search" &&
+          activePath !== "/profile" &&
+          activePath !== "/chat" && <BetaBanner />}
         <DemoBanner />
       </header>
 

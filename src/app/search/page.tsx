@@ -22,9 +22,14 @@ function SearchContent() {
   const searchParams = useSearchParams();
   const { t, locale } = useTranslation();
   const categorySlug = searchParams.get("category");
-  const [query, setQuery] = useState("");
+  const urlQuery = searchParams.get("q") ?? "";
+  const [query, setQuery] = useState(urlQuery);
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setQuery(urlQuery);
+  }, [urlQuery]);
 
   useEffect(() => {
     const fetchRequests = async () => {

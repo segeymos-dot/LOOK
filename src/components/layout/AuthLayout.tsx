@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { ReactNode } from "react";
-import { BetaBanner } from "./BetaBanner";
 import { DemoBanner } from "./DemoBanner";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { useTranslation } from "@/components/providers/LocaleProvider";
@@ -20,14 +19,13 @@ export function AuthLayout({ title, subtitle, children, footer, banner }: AuthLa
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col bg-surface-muted">
-      <BetaBanner />
       <DemoBanner />
       <div className="gradient-brand px-6 pb-16 pt-safe pt-10">
         <div className="mb-3 flex items-start justify-between gap-3">
           <Link href="/" className="inline-block">
             <span className="text-2xl font-extrabold tracking-tight text-white">LOOK</span>
           </Link>
-          <LanguageSwitcher compact className="border-white/20 bg-white/10" />
+          <LanguageSwitcher compact className="shrink-0" />
         </div>
         <p className="mt-1 text-sm text-white/70">{t("common.marketplace")}</p>
       </div>

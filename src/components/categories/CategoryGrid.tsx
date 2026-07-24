@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Category } from "@/types";
 import { useTranslation } from "@/components/providers/LocaleProvider";
-import { localizeCategoryName } from "@/lib/i18n/localize-data";
+import { getCompactCategoryLines, localizeCategoryName } from "@/lib/i18n/localize-data";
 import { cn } from "@/lib/utils";
 import {
   BookOpen,
@@ -65,11 +65,11 @@ const OTHER_CATEGORY_SLUG = "other";
 const compactLabelStyle = { fontSize: "10px", lineHeight: 1.15 } as const;
 
 export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
-  const { locale } = useTranslation();
+  const { locale, t } = useTranslation();
 
   return (
     <div
-      className="mx-auto gap-x-1.5 gap-y-3 overflow-x-hidden pb-8"
+      className="mx-auto gap-x-1.5 gap-y-3 overflow-x-hidden"
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
@@ -103,6 +103,7 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
           ? repairTone
           : (category.icon && iconTone[category.icon]) || defaultTone;
         const isSelected = selectedId === category.id;
+        const labelLines = getCompactCategoryLines(category.slug, locale);
 
         return (
           <Link
@@ -138,74 +139,16 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
                 aria-hidden
               />
             </span>
-            {isRepair && locale === "ru" ? (
+            {isCompact && labelLines ? (
               <p
                 className="w-full text-center font-semibold text-[#111827]"
                 style={compactLabelStyle}
               >
-                <span className="block">Ремонт и</span>
-                <span className="block">Строительство</span>
-              </p>
-            ) : isIt && locale === "ru" ? (
-              <p
-                className="w-full text-center font-semibold text-[#111827]"
-                style={compactLabelStyle}
-              >
-                <span className="block">IT и</span>
-                <span className="block">разработка</span>
-              </p>
-            ) : isDesign && locale === "ru" ? (
-              <p
-                className="w-full text-center font-semibold text-[#111827]"
-                style={compactLabelStyle}
-              >
-                Дизайн
-              </p>
-            ) : isEducation && locale === "ru" ? (
-              <p
-                className="w-full text-center font-semibold text-[#111827]"
-                style={compactLabelStyle}
-              >
-                Образование
-              </p>
-            ) : isBeauty && locale === "ru" ? (
-              <p
-                className="w-full text-center font-semibold text-[#111827]"
-                style={compactLabelStyle}
-              >
-                <span className="block">Красота и</span>
-                <span className="block">здоровье</span>
-              </p>
-            ) : isTransport && locale === "ru" ? (
-              <p
-                className="w-full text-center font-semibold text-[#111827]"
-                style={compactLabelStyle}
-              >
-                <span className="block">Транспорт и</span>
-                <span className="block">доставка</span>
-              </p>
-            ) : isPhoto && locale === "ru" ? (
-              <p
-                className="w-full text-center font-semibold text-[#111827]"
-                style={compactLabelStyle}
-              >
-                <span className="block">Фото и</span>
-                <span className="block">видео</span>
-              </p>
-            ) : isLegal && locale === "ru" ? (
-              <p
-                className="w-full text-center font-semibold text-[#111827]"
-                style={compactLabelStyle}
-              >
-                <span className="block">Юридические</span>
-                <span className="block">услуги</span>
-              </p>
-            ) : isOther && locale === "ru" ? (
-              <p
-                className="w-full text-center font-semibold text-[#111827]"
-                style={compactLabelStyle}
-              >
-                Другое
+                {labelLines.map((line) => (
+                  <span key={line} className="block">
+                    {line}
+                  </span>
+                ))}
               </p>
             ) : (
               <p
@@ -237,23 +180,13 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
         >
           <MoreHorizontal className="h-6 w-6" aria-hidden />
         </span>
-        {locale === "ru" ? (
-          <p
-            className="w-full text-center font-semibold text-[#111827]"
-            style={compactLabelStyle}
-          >
-            <span className="block">Все</span>
-            <span className="block">категории</span>
-          </p>
-        ) : (
-          <p
-            className="w-full text-center font-semibold text-[#111827]"
-            style={compactLabelStyle}
-          >
-            <span className="block">All</span>
-            <span className="block">categories</span>
-          </p>
-        )}
+        <p
+          className="w-full text-center font-semibold text-[#111827]"
+          style={compactLabelStyle}
+        >
+          <span className="block">{t("home.allCategoriesLine1")}</span>
+          <span className="block">{t("home.allCategoriesLine2")}</span>
+        </p>
       </Link>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 type TimeGreetingKey = "goodMorning" | "goodAfternoon" | "goodEvening";
 
@@ -28,9 +28,16 @@ function firstNameFromSource(value: string | null | undefined): string | undefin
   return getFirstName(value);
 }
 
-export function HomeGreeting() {
+export function HomeGreeting({
+  children,
+  header,
+}: {
+  children?: ReactNode;
+  header?: ReactNode;
+}) {
+  // Profile / greeting logic retained (not rendered in this photo-only block).
   const { user, displayProfile, profile } = useAuth();
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const [greetingKey, setGreetingKey] = useState<TimeGreetingKey>("goodEvening");
 
   useEffect(() => {
@@ -62,34 +69,41 @@ export function HomeGreeting() {
     user?.email,
   ]);
 
-  const greetingLine = firstName
+  void (firstName
     ? t(`home.${greetingKey}Name`, { name: firstName })
-    : t(`home.${greetingKey}`);
-
-  const subtitleClassName =
-    "mb-2 w-[220px] max-w-[220px] text-left text-[15px] text-[#64748B] sm:text-[16px]";
-  const subtitleStyle = { lineHeight: 1.5 } as const;
+    : t(`home.${greetingKey}`));
+  void t("home.greetingTitle");
+  void t("home.greetingSubtitle");
 
   return (
-    <div className="min-w-0 space-y-3">
-      <p className="text-sm font-semibold leading-snug text-[#64748B] sm:text-[15px]">
-        {greetingLine} 👋
-      </p>
-      <h1 className="max-w-full text-[1.875rem] font-extrabold leading-[1.12] tracking-[-0.025em] text-[#111827] sm:text-[2.125rem]">
-        {t("home.greetingTitle")}
-      </h1>
-      {locale === "ru" ? (
-        <p className={subtitleClassName} style={subtitleStyle}>
-          <span className="block">Создавайте заказы,</span>
-          <span className="block">находите исполнителей</span>
-          <span className="block">и решайте любые задачи</span>
-          <span className="block">легко!</span>
-        </p>
-      ) : (
-        <p className={subtitleClassName} style={subtitleStyle}>
-          {t("home.greetingSubtitle")}
-        </p>
-      )}
+    <div
+      className="relative min-w-0 w-full overflow-hidden"
+      style={{
+        minHeight: 352,
+        height: 352,
+        backgroundImage: "url('/assets/home/greeting-beach.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      {header ? (
+        <div
+          className="absolute left-0 right-0 top-0 z-[2] flex items-center justify-between"
+          style={{ paddingTop: 16, paddingLeft: 16, paddingRight: 16 }}
+        >
+          {header}
+        </div>
+      ) : null}
+
+      {children ? (
+        <div
+          className="absolute z-[1] [&>div]:!mb-0"
+          style={{ left: 12, right: 12, bottom: 0 }}
+        >
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }
