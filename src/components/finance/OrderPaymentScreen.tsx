@@ -85,16 +85,22 @@ export function OrderPaymentScreen({
       return;
     }
 
+    // Redirect query params alone never mark the order paid.
+    // Only a verified server confirm (or webhook + refresh) can.
     if (success !== "1" || !sessionId || confirmAttempted.current) return;
     confirmAttempted.current = true;
     setConfirming(true);
     setError(null);
 
     void confirmStripeSession(sessionId)
-      .then(() => {
-        setLocalOrderPaymentStatus("paid");
-        router.replace(`/requests/${requestId}?paid=1`);
-        router.refresh();
+      .then(async (result) => {
+        if (result) {
+          setLocalOrderPaymentStatus(result.order_payment_status ?? "paid");
+          router.replace(`/requests/${requestId}?paid=1`);
+          router.refresh();
+          return;
+        }
+        await refresh();
       })
       .catch(async (e: unknown) => {
         // Webhook may have already confirmed — refresh once before showing error.

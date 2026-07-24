@@ -52,7 +52,9 @@ export async function POST(
 
   const { data: order, error: orderError } = await auth.supabase
     .from("requests")
-    .select("id, title, customer_id, status, currency, order_amount, order_payment_status")
+    .select(
+      "id, title, customer_id, status, currency, order_amount, order_payment_status, stripe_checkout_session_id, stripe_checkout_attempt"
+    )
     .eq("id", requestId)
     .maybeSingle();
 
@@ -77,7 +79,7 @@ export async function POST(
 
   const { data: offer } = await auth.supabase
     .from("offers")
-    .select("price, currency")
+    .select("price, currency, provider_id")
     .eq("request_id", requestId)
     .eq("status", "accepted")
     .maybeSingle();
@@ -86,6 +88,7 @@ export async function POST(
     return NextResponse.json({ success: false, error: "No accepted offer" }, { status: 400 });
   }
 
+  // Server-side amount only — never accept client-provided price/commission.
   const amount = Number(order.order_amount ?? offer.price);
   const currency = String(order.currency ?? offer.currency ?? "USD");
   const origin = getAppOrigin(request.headers.get("origin") ?? undefined);
@@ -95,10 +98,13 @@ export async function POST(
     {
       requestId,
       customerId: auth.user.id,
+      providerId: offer.provider_id,
       customerEmail: auth.user.email,
       title: order.title ?? "LOOK order",
       amount,
       currency,
+      existingCheckoutSessionId: order.stripe_checkout_session_id,
+      checkoutAttempt: order.stripe_checkout_attempt,
     },
     origin
   );
