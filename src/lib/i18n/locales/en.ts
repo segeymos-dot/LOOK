@@ -130,6 +130,7 @@ export const en: TranslationDict = {
     signInFailed: "Sign in failed. Try again later or register again.",
   },
   auth: {
+    homeLink: "Home",
     login: {
       title: "Sign in",
       subtitle: "Welcome back",

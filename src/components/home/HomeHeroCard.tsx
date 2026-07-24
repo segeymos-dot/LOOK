@@ -17,10 +17,14 @@ const HERO_SURFER_IMAGE =
  * Surfer photograph fills the card; Plus left of text; Arrow right of surfer.
  */
 export function HomeHeroCard({ href, title, subtitle }: HomeHeroCardProps) {
+  // Fixed px only — flex:none prevents Electron width from stretching controls.
   const plusControl = (
-    <span className="relative z-[1] flex h-[104px] w-[104px] shrink-0 items-center justify-center rounded-2xl bg-white shadow-[0_6px_16px_rgba(15,23,42,0.12)]">
+    <span
+      className="relative z-[1] flex shrink-0 grow-0 items-center justify-center rounded-2xl bg-white shadow-[0_6px_16px_rgba(15,23,42,0.12)]"
+      style={{ width: 52, height: 52, flex: "none" }}
+    >
       <Plus
-        className="h-14 w-14 text-[#1677F2]"
+        className="h-6 w-6 shrink-0 text-[#1677F2]"
         strokeWidth={1.5}
         aria-hidden
       />
@@ -28,10 +32,13 @@ export function HomeHeroCard({ href, title, subtitle }: HomeHeroCardProps) {
   );
 
   const arrowControl = (
-    <span className="flex h-[132px] w-[132px] shrink-0 items-center justify-center rounded-full bg-white shadow-[0_6px_16px_rgba(15,23,42,0.12)] transition-transform group-hover:translate-x-0.5">
+    <span
+      className="flex shrink-0 grow-0 items-center justify-center rounded-full bg-white shadow-[0_6px_16px_rgba(15,23,42,0.12)] transition-transform group-hover:translate-x-0.5"
+      style={{ width: 48, height: 48, flex: "none" }}
+    >
       <ArrowRight
-        className="text-[#6B7280]"
-        style={{ width: 42, height: 32 }}
+        className="shrink-0 text-[#6B7280]"
+        style={{ width: 22, height: 22 }}
         strokeWidth={2.5}
         aria-hidden
       />
@@ -53,14 +60,16 @@ export function HomeHeroCard({ href, title, subtitle }: HomeHeroCardProps) {
           boxSizing: "border-box",
         }}
       >
-        {/* New surfer photograph — fills card, clipped by overflow-hidden + rounded corners */}
+        {/* Surfer photograph — right-biased crop keeps free spray space for Arrow */}
         <span
           aria-hidden
           className="pointer-events-none absolute inset-0 z-0"
           style={{
             backgroundImage: `url('${HERO_SURFER_IMAGE}')`,
             backgroundSize: "cover",
-            backgroundPosition: "center center",
+            // b3820d4 used center center; that placed the surfer under the Arrow.
+            // Bias to the right so the surfer sits left of the Arrow free-space zone.
+            backgroundPosition: "92% 50%",
             backgroundRepeat: "no-repeat",
           }}
         />
@@ -86,20 +95,34 @@ export function HomeHeroCard({ href, title, subtitle }: HomeHeroCardProps) {
           {plusControl}
         </span>
 
-        {/* Title / subtitle — unchanged horizontal position */}
+        {/* Title / subtitle — pulled left toward Plus; bounded so text ends before surfer */}
         <span
-          className="relative z-[1] min-w-0 flex-1 text-left"
-          style={{ paddingLeft: 122 }}
+          className="relative z-[1] min-w-0 shrink-0 grow-0 text-left"
+          style={{
+            // Plus ends at left 24+52=76; 20px gap → text starts at 96
+            paddingLeft: 96,
+            // 96 inset + ~150 text column; keep clear of surfer on the right
+            maxWidth: 246,
+            flex: "none",
+          }}
         >
-          <span className="block text-[22px] font-bold leading-[1.15] tracking-[-0.02em] text-white">
+          <span
+            className="block font-bold tracking-[-0.02em] text-white"
+            style={{
+              fontSize: 19,
+              lineHeight: 1.1,
+              maxWidth: 150,
+            }}
+          >
             {title}
           </span>
           <span
-            className="mt-1.5 block font-normal line-clamp-2"
+            className="mt-1.5 block font-normal line-clamp-3"
             style={{
               color: "#FFFFFF",
-              fontSize: "8px",
-              lineHeight: "11px",
+              fontSize: 10,
+              lineHeight: 1.25,
+              maxWidth: 140,
               WebkitTextSizeAdjust: "100%",
               textSizeAdjust: "100%",
             }}
@@ -108,11 +131,11 @@ export function HomeHeroCard({ href, title, subtitle }: HomeHeroCardProps) {
           </span>
         </span>
 
-        {/* Existing Arrow — between surfer and right edge; vertically centered */}
+        {/* Arrow — tucked farther right (≥16px from edge) to clear the surfer */}
         <span
           className="absolute z-[1]"
           style={{
-            right: 24,
+            right: 16,
             top: "50%",
             transform: "translateY(-50%)",
           }}

@@ -22,9 +22,20 @@ export function AuthLayout({ title, subtitle, children, footer, banner }: AuthLa
       <DemoBanner />
       <div className="gradient-brand px-6 pb-16 pt-safe pt-10">
         <div className="mb-3 flex items-start justify-between gap-3">
-          <Link href="/" className="inline-block">
-            <span className="text-2xl font-extrabold tracking-tight text-white">LOOK</span>
-          </Link>
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="text-2xl font-extrabold tracking-tight text-white">
+              LOOK
+            </span>
+            <span className="text-lg font-semibold text-white/70" aria-hidden>
+              —
+            </span>
+            <Link
+              href="/"
+              className="truncate text-base font-semibold text-white/90 underline-offset-4 transition-colors hover:text-white hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              {t("auth.homeLink")}
+            </Link>
+          </div>
           <LanguageSwitcher compact className="shrink-0" />
         </div>
         <p className="mt-1 text-sm text-white/70">{t("common.marketplace")}</p>
