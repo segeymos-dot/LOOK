@@ -5,6 +5,7 @@ import { getMockOrderPayment, initDemoOrderPayment } from "@/lib/mock/order-paym
 import { getMockOffers, getMockRequest } from "@/lib/mock/data";
 import { getServerLocale } from "@/lib/i18n/server";
 import { localizeRequest } from "@/lib/i18n/localize-data";
+import { areTestPaymentsEnabled } from "@/lib/payments/test-payments-guard";
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -18,6 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function RequestPaymentPage({ params }: PageProps) {
   const { id } = await params;
   const locale = await getServerLocale();
+  const allowTestPayments = areTestPaymentsEnabled();
 
   if (isDemoMode()) {
     const request = getMockRequest(id);
@@ -52,6 +54,7 @@ export default async function RequestPaymentPage({ params }: PageProps) {
               grossAmount={Number(offer.price)}
               currency={offer.currency}
               initialOrderPaymentStatus={mockPay?.order_payment_status ?? "unpaid"}
+              allowTestPayments={allowTestPayments}
             />
           </Suspense>
         </div>
@@ -108,6 +111,7 @@ export default async function RequestPaymentPage({ params }: PageProps) {
             grossAmount={grossAmount}
             currency={currency}
             initialOrderPaymentStatus={request.order_payment_status ?? "unpaid"}
+            allowTestPayments={allowTestPayments}
           />
         </Suspense>
       </div>

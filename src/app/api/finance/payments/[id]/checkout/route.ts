@@ -5,6 +5,7 @@ import { getFinanceApiUser } from "@/lib/api/finance-auth";
 import { getAppOrigin } from "@/lib/app-url";
 import { isStripeConfigured, missingStripeEnvVars } from "@/lib/payments/stripe";
 import { createOrderCheckoutSession } from "@/lib/payments/stripe-order-payment";
+import { areTestPaymentsEnabled } from "@/lib/payments/test-payments-guard";
 import { NextResponse } from "next/server";
 
 /**
@@ -31,12 +32,16 @@ export async function POST(
   }
 
   if (!isStripeConfigured()) {
+    const allowTestFallback = areTestPaymentsEnabled();
     return NextResponse.json(
       {
         success: false,
-        error: "Stripe is not configured",
+        error: allowTestFallback
+          ? "Stripe is not configured"
+          : "Stripe is not configured. Test payments are disabled.",
         missing_env: missingStripeEnvVars(),
-        test_fallback: true,
+        // Only signal UI fake-card fallback when the private server flag is on.
+        test_fallback: allowTestFallback,
       },
       { status: 503 }
     );

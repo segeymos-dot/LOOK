@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { executeTestOrderPayment } from "@/lib/payments/order-payment";
+import { areTestPaymentsEnabled } from "@/lib/payments/test-payments-guard";
 import type {
   FinanceTransaction,
   Payment,
@@ -89,15 +91,32 @@ export async function getTransactions(
 }
 
 export async function simulateTestPayout(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
+  providerId: string,
   amount?: number
 ): Promise<FinanceResult<{ payout_id: string; amount: number; currency: string; status: string }>> {
-  const { data, error } = await supabase.rpc("simulate_test_payout", {
+  if (!areTestPaymentsEnabled()) {
+    return { success: false, error: "Test payments are disabled" };
+  }
+
+  const admin = createAdminClient();
+  if (!admin) {
+    return {
+      success: false,
+      error: "SUPABASE_SERVICE_ROLE_KEY is required for test payouts",
+    };
+  }
+
+  const { data, error } = await admin.rpc("simulate_test_payout", {
     p_amount: amount ?? null,
+    p_provider_id: providerId,
   });
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data: data as { payout_id: string; amount: number; currency: string; status: string } };
+  return {
+    success: true,
+    data: data as { payout_id: string; amount: number; currency: string; status: string },
+  };
 }
 
 export async function isPlatformAdmin(

@@ -9,6 +9,11 @@ import {
 } from "@/lib/data/finance-actions";
 import { getFinanceApiUser } from "@/lib/api/finance-auth";
 import { canActAsProvider } from "@/lib/auth/roles";
+import { authorizeTestPayout } from "@/lib/payments/test-payment-authorization";
+import {
+  areTestPaymentsEnabled,
+  testPaymentsDisabledJson,
+} from "@/lib/payments/test-payments-guard";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
@@ -18,6 +23,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       balance: getDemoProviderBalance(providerId),
+      test_payments_enabled: areTestPaymentsEnabled(),
     });
   }
 
@@ -38,10 +44,18 @@ export async function GET(request: Request) {
   }
 
   const balance = await getProviderBalance(auth.supabase, auth.user.id);
-  return NextResponse.json({ success: true, balance });
+  return NextResponse.json({
+    success: true,
+    balance,
+    test_payments_enabled: areTestPaymentsEnabled(),
+  });
 }
 
 export async function POST(request: Request) {
+  if (!areTestPaymentsEnabled()) {
+    return NextResponse.json(testPaymentsDisabledJson(), { status: 403 });
+  }
+
   if (isDemoMode()) {
     try {
       const body = await request.json().catch(() => ({}));
@@ -59,8 +73,26 @@ export async function POST(request: Request) {
   const auth = await getFinanceApiUser(request);
   if ("error" in auth) return auth.error;
 
+  const { data: profile } = await auth.supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", auth.user.id)
+    .single();
+
+  const authz = authorizeTestPayout({
+    authenticatedUserId: auth.user.id,
+    canActAsProvider: canActAsProvider(profile?.role),
+  });
+  if (!authz.ok) {
+    return NextResponse.json({ success: false, error: authz.error }, { status: authz.status });
+  }
+
+  // Ignore client-supplied provider_id / status — always the authenticated provider.
   const body = await request.json().catch(() => ({}));
-  const result = await simulateTestPayout(auth.supabase, body.amount);
+  const amount =
+    typeof body.amount === "number" && Number.isFinite(body.amount) ? body.amount : undefined;
+
+  const result = await simulateTestPayout(auth.supabase, auth.user.id, amount);
 
   if (!result.success) {
     return NextResponse.json(result, { status: 400 });

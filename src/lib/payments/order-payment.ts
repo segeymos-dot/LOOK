@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { PAYMENT_PROVIDER } from "@/lib/payments/constants";
 import { isOrderPaymentPaid } from "@/lib/payments/order-lifecycle";
+import { areTestPaymentsEnabled } from "@/lib/payments/test-payments-guard";
 import type { OrderPaymentStatus, PaymentSimulationResult } from "@/types";
 
 export type OrderPaymentSnapshot = {
@@ -82,22 +84,33 @@ export async function beginTestOrderPayment(
 }
 
 /**
- * Test/mock payment — records payment in Supabase via `simulate_test_payment` RPC.
- * Used when Stripe keys are absent, or as an explicit test-mode fallback.
- * Real charges go through Stripe Checkout + `/api/webhooks/stripe`.
+ * Simulated test payment via service_role RPC.
+ * Callers must enforce ENABLE_TEST_PAYMENTS + ownership before invoking.
  */
 export async function executeTestOrderPayment(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   requestId: string,
   externalReference?: string
 ): Promise<{ success: true; data: PaymentSimulationResult } | { success: false; error: string }> {
-  let { data, error } = await supabase.rpc("simulate_test_payment", {
+  if (!areTestPaymentsEnabled()) {
+    return { success: false, error: "Test payments are disabled" };
+  }
+
+  const admin = createAdminClient();
+  if (!admin) {
+    return {
+      success: false,
+      error: "SUPABASE_SERVICE_ROLE_KEY is required for test payments",
+    };
+  }
+
+  let { data, error } = await admin.rpc("simulate_test_payment", {
     p_request_id: requestId,
     p_external_reference: externalReference ?? null,
   });
 
   if (error?.message?.includes("p_external_reference")) {
-    ({ data, error } = await supabase.rpc("simulate_test_payment", {
+    ({ data, error } = await admin.rpc("simulate_test_payment", {
       p_request_id: requestId,
     }));
   }

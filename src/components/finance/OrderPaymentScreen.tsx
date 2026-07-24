@@ -30,6 +30,8 @@ interface OrderPaymentScreenProps {
   grossAmount: number;
   currency: string;
   initialOrderPaymentStatus?: OrderPaymentStatus;
+  /** Server-only: ENABLE_TEST_PAYMENTS === "true". Never from NEXT_PUBLIC_*. */
+  allowTestPayments?: boolean;
 }
 
 export function OrderPaymentScreen({
@@ -39,6 +41,7 @@ export function OrderPaymentScreen({
   grossAmount,
   currency,
   initialOrderPaymentStatus = "unpaid",
+  allowTestPayments = false,
 }: OrderPaymentScreenProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -122,12 +125,12 @@ export function OrderPaymentScreen({
         return;
       }
 
-      if (!checkout.useTestFallback) {
+      if (!allowTestPayments || !checkout.useTestFallback) {
         setError(checkout.error);
         return;
       }
 
-      // Fallback: local test checkout when Stripe keys are not configured.
+      // Fallback: local test checkout only when ENABLE_TEST_PAYMENTS=true.
       const begun = await beginPayment();
       if (!begun) {
         setError(t("finance.payment.error"));
@@ -237,10 +240,12 @@ export function OrderPaymentScreen({
               </div>
             </div>
 
-            <p className="mb-4 flex items-center gap-2 text-xs text-amber-800">
-              <Lock className="h-3.5 w-3.5" />
-              {t("finance.checkout.stripeOrTestNote")}
-            </p>
+            {allowTestPayments ? (
+              <p className="mb-4 flex items-center gap-2 text-xs text-amber-800">
+                <Lock className="h-3.5 w-3.5" />
+                {t("finance.checkout.stripeOrTestNote")}
+              </p>
+            ) : null}
 
             {error && (
               <p className="mb-3 rounded-xl bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>
@@ -259,13 +264,15 @@ export function OrderPaymentScreen({
         )}
       </Card>
 
-      <OrderPaymentCheckout
-        open={checkoutOpen}
-        amount={split.gross}
-        currency={currency}
-        onClose={() => setCheckoutOpen(false)}
-        onPay={handlePay}
-      />
+      {allowTestPayments ? (
+        <OrderPaymentCheckout
+          open={checkoutOpen}
+          amount={split.gross}
+          currency={currency}
+          onClose={() => setCheckoutOpen(false)}
+          onPay={handlePay}
+        />
+      ) : null}
     </div>
   );
 }

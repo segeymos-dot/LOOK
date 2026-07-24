@@ -25,6 +25,8 @@ interface RequestTestPaymentProps {
   isDemo?: boolean;
   viewerUserId?: string | null;
   viewerIsCustomer?: boolean;
+  /** Server-only: ENABLE_TEST_PAYMENTS === "true". Defaults off. */
+  allowTestPayments?: boolean;
 }
 
 export function RequestTestPayment({
@@ -36,6 +38,7 @@ export function RequestTestPayment({
   isDemo = false,
   viewerUserId,
   viewerIsCustomer,
+  allowTestPayments = false,
 }: RequestTestPaymentProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -53,7 +56,7 @@ export function RequestTestPayment({
   const split = calculatePaymentSplit(grossAmount, rate);
 
   useEffect(() => {
-    if (!isOwner || requestStatus !== "in_progress") return;
+    if (!allowTestPayments || !isOwner || requestStatus !== "in_progress") return;
 
     const load = async () => {
       setLoading(true);
@@ -67,9 +70,9 @@ export function RequestTestPayment({
     };
 
     void load();
-  }, [requestId, isOwner, requestStatus]);
+  }, [allowTestPayments, requestId, isOwner, requestStatus]);
 
-  if (!isOwner || requestStatus !== "in_progress") return null;
+  if (!allowTestPayments || !isOwner || requestStatus !== "in_progress") return null;
 
   const handlePay = async () => {
     setError(null);

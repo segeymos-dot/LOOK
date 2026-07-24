@@ -18,6 +18,7 @@ export function ProviderBalancePanel() {
   const [loading, setLoading] = useState(true);
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [allowTestPayout, setAllowTestPayout] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -29,6 +30,7 @@ export function ProviderBalancePanel() {
       const balData = await balRes.json();
       const txData = await txRes.json();
       if (balData.balance) setBalance(balData.balance);
+      setAllowTestPayout(Boolean(balData.test_payments_enabled));
       if (txData.transactions) setTransactions(txData.transactions);
     } finally {
       setLoading(false);
@@ -91,7 +93,7 @@ export function ProviderBalancePanel() {
         />
       </div>
 
-      {(balance?.available_balance ?? 0) > 0 && (
+      {allowTestPayout && (balance?.available_balance ?? 0) > 0 && (
         <div className="space-y-2">
           {error && (
             <p className="rounded-xl bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>

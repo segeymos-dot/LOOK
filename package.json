@@ -24,6 +24,7 @@
     "test:work-lifecycle": "node scripts/verify-work-lifecycle.mjs",
     "test:payment-migrations": "node scripts/verify-payment-migrations.mjs",
     "test:stripe-config": "node scripts/verify-stripe-config.mjs",
+    "test:payment-security": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-payment-security.ts",
     "supabase:apply-pending": "node scripts/apply-pending-migrations.mjs",
     "test:registration": "node scripts/verify-registration.mjs",
     "test:audit-migrations": "node scripts/audit-migrations.mjs",
