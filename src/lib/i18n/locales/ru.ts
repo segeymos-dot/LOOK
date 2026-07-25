@@ -522,7 +522,7 @@ export const ru = {
     refresh: "Обновить",
     platformBalance: "Баланс платформы",
     platformTitle: "Баланс платформы",
-    platformSubtitle: "Доход LOOK, комиссии и оборот (тестовый режим)",
+    platformSubtitle: "Доход LOOK, комиссии и оборот",
     nav: {
       stats: "Статистика",
       platform: "Платформа",
@@ -659,7 +659,7 @@ export const ru = {
       commissionRate: "Ставка комиссии",
       paidOrders: "Оплаченных заказов",
       grossVolume: "Оборот платформы",
-      grossVolumeHint: "Сумма всех тестовых оплат",
+      grossVolumeHint: "Сумма всех оплат",
     },
     payment: {
       title: "Оплата заказа",

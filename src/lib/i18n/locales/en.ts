@@ -523,7 +523,7 @@ export const en: TranslationDict = {
     refresh: "Refresh",
     platformBalance: "Platform balance",
     platformTitle: "Platform balance",
-    platformSubtitle: "Commissions, revenue and turnover (test mode)",
+    platformSubtitle: "LOOK revenue, commission and turnover",
     nav: {
       stats: "Statistics",
       platform: "Platform",
@@ -660,7 +660,7 @@ export const en: TranslationDict = {
       commissionRate: "Commission rate",
       paidOrders: "Paid orders",
       grossVolume: "Platform turnover",
-      grossVolumeHint: "Total of all test payments",
+      grossVolumeHint: "Total of all payments",
     },
     payment: {
       title: "Order payment",

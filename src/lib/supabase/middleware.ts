@@ -1,3 +1,4 @@
+import { safeRedirectPath } from "@/lib/app-url";
 import { isDemoMode } from "@/lib/config";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
@@ -48,13 +49,16 @@ export async function updateSession(request: NextRequest) {
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("redirect", request.nextUrl.pathname);
+    url.search = "";
+    url.searchParams.set("redirect", safeRedirectPath(request.nextUrl.pathname));
     return NextResponse.redirect(url);
   }
 
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    const nextPath = safeRedirectPath(request.nextUrl.searchParams.get("redirect"));
+    url.pathname = nextPath;
+    url.search = "";
     return NextResponse.redirect(url);
   }
 
@@ -62,7 +66,8 @@ export async function updateSession(request: NextRequest) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
-      url.searchParams.set("redirect", request.nextUrl.pathname);
+      url.search = "";
+      url.searchParams.set("redirect", safeRedirectPath(request.nextUrl.pathname));
       return NextResponse.redirect(url);
     }
 
@@ -75,6 +80,7 @@ export async function updateSession(request: NextRequest) {
     if (!profile?.is_platform_admin) {
       const url = request.nextUrl.clone();
       url.pathname = "/profile";
+      url.search = "";
       return NextResponse.redirect(url);
     }
   }
