@@ -137,7 +137,6 @@ export function OrderPaymentCheckout({
           <div className="rounded-xl bg-brand-50 px-4 py-3 text-center">
             <p className="text-xs text-text-muted">{t("finance.checkout.amountDue")}</p>
             <p className="text-2xl font-bold text-brand-700">{formatPrice(amount, currency)}</p>
-            <p className="mt-1 text-[11px] text-amber-700">{t("finance.checkout.testModeNote")}</p>
           </div>
 
           <Input

@@ -114,9 +114,6 @@ export function RequestTestPayment({
       <div className="mb-3 flex items-center gap-2">
         <CreditCard className="h-5 w-5 text-brand-600" />
         <h3 className="font-semibold text-text-primary">{t("finance.payment.title")}</h3>
-        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800">
-          {t("finance.payment.testBadge")}
-        </span>
       </div>
 
       {payment?.status === "paid" ? (

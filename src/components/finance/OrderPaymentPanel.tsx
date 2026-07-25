@@ -127,9 +127,6 @@ export function OrderPaymentPanel({
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-semibold text-emerald-900">{t("finance.paymentStatus.paid")}</h3>
               <OrderPaymentStatusBadge status="paid" />
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-800">
-                {t("finance.payment.testBadge")}
-              </span>
             </div>
             <p className="text-sm text-emerald-800">
               {formatPrice(payment.amount_gross, payment.currency)} ·{" "}
@@ -186,9 +183,6 @@ export function OrderPaymentPanel({
       <div className="mb-3 flex items-center gap-2">
         <CreditCard className="h-5 w-5 text-brand-600" />
         <h3 className="font-semibold text-text-primary">{t("finance.payment.title")}</h3>
-        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800">
-          {t("finance.payment.testBadge")}
-        </span>
       </div>
 
       <p className="mb-3 text-sm text-text-secondary">

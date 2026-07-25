@@ -43,6 +43,8 @@ import {
   Phone,
   Pencil,
   Search,
+  Users,
+  UserRound,
   Wallet,
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
@@ -301,6 +303,18 @@ export default function ProfilePage() {
                     <Button variant="outline" className="w-full justify-start gap-2" size="sm">
                       <Building2 className="h-4 w-4" />
                       {t("profile.adminPlatform")}
+                    </Button>
+                  </Link>
+                  <Link href="/admin/customers">
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <Users className="h-4 w-4" />
+                      {t("profile.adminCustomers")}
+                    </Button>
+                  </Link>
+                  <Link href="/admin/providers">
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <UserRound className="h-4 w-4" />
+                      {t("profile.adminProviders")}
                     </Button>
                   </Link>
                 </>

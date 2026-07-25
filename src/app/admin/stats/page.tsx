@@ -1,6 +1,7 @@
 "use client";
 
 import { AppLayout } from "@/components/layout/AppLayout";
+import { AdminSectionNav } from "@/components/admin/AdminSectionNav";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -9,10 +10,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { authFetch } from "@/lib/auth/client-fetch";
 import { isDemoMode } from "@/lib/config";
 import type { PlatformStats } from "@/lib/analytics/platform-stats";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
 export default function AdminStatsPage() {
   const router = useRouter();
@@ -72,18 +72,13 @@ export default function AdminStatsPage() {
           subtitle={t("admin.statsSubtitle")}
           backHref="/profile"
         />
+        <AdminSectionNav activeHref="/admin/stats" />
 
         <div className="flex gap-2">
-          <Button variant="secondary" className="flex-1 gap-2" loading={loading} onClick={load}>
+          <Button variant="secondary" className="w-full gap-2" loading={loading} onClick={load}>
             <RefreshCw className="h-4 w-4" />
             {t("admin.refresh")}
           </Button>
-          <Link href="/admin/platform" className="flex-1">
-            <Button variant="outline" className="w-full gap-2">
-              <BarChart3 className="h-4 w-4" />
-              {t("admin.platformBalance")}
-            </Button>
-          </Link>
         </div>
 
         {error && <p className="text-sm text-danger">{error}</p>}

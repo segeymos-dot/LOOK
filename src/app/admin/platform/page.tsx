@@ -1,6 +1,7 @@
 "use client";
 
 import { AppLayout } from "@/components/layout/AppLayout";
+import { AdminSectionNav } from "@/components/admin/AdminSectionNav";
 import { PlatformBalancePanel } from "@/components/finance/PlatformBalancePanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -35,6 +36,7 @@ export default function PlatformBalancePage() {
           subtitle={t("admin.platformSubtitle")}
           backHref="/profile"
         />
+        <AdminSectionNav activeHref="/admin/platform" />
         <PlatformBalancePanel />
         <Link href="/finance/transactions">
           <Button variant="outline" className="w-full">

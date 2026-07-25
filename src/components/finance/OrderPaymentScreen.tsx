@@ -18,7 +18,7 @@ import {
 } from "@/lib/config/finance";
 import { formatPrice } from "@/lib/utils";
 import type { OrderPaymentStatus } from "@/types";
-import { CreditCard, Lock, ShieldCheck } from "lucide-react";
+import { CreditCard, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -245,13 +245,6 @@ export function OrderPaymentScreen({
                 />
               </div>
             </div>
-
-            {allowTestPayments ? (
-              <p className="mb-4 flex items-center gap-2 text-xs text-amber-800">
-                <Lock className="h-3.5 w-3.5" />
-                {t("finance.checkout.stripeOrTestNote")}
-              </p>
-            ) : null}
 
             {error && (
               <p className="mb-3 rounded-xl bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>
