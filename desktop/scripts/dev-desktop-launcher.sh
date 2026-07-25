@@ -19,6 +19,8 @@ LOCK_FILE="${PID_DIR}/dev-launcher.lock"
 
 PORT="${LOOK_PORT:-3000}"
 APP_URL="http://127.0.0.1:${PORT}"
+ELECTRON_BIN="${DESKTOP_DIR}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+ELECTRON_PID_FILE="${PID_DIR}/electron-dev.pid"
 
 mkdir -p "${LOG_DIR}" "${PID_DIR}"
 
@@ -161,7 +163,55 @@ find_supabase() {
   command -v supabase
 }
 
+# Remove a PID/lock file only when its recorded process no longer exists.
+clean_stale_pid_file() {
+  local file="$1"
+  local label="${2:-process}"
+  if [[ ! -f "${file}" ]]; then
+    return 0
+  fi
+  local old_pid
+  old_pid="$(tr -d '[:space:]' < "${file}" || true)"
+  if [[ -z "${old_pid}" ]]; then
+    rm -f "${file}"
+    return 0
+  fi
+  if kill -0 "${old_pid}" 2>/dev/null; then
+    return 0
+  fi
+  log "Removing stale ${label} pid file (pid ${old_pid} no longer exists)"
+  rm -f "${file}"
+}
+
+# Main LOOK Electron processes only (never Cursor / Docker Electron helpers).
+# Prefer literal path match over pgrep -f (regex + argv truncation issues).
+look_electron_pids() {
+  local pid cmd
+  while read -r pid cmd; do
+    [[ -z "${pid}" ]] && continue
+    # Main binary only — skip GPU/Renderer Helper processes.
+    case "${cmd}" in
+      *"Helper"*) continue ;;
+    esac
+    case "${cmd}" in
+      *"${ELECTRON_BIN}"*)
+        printf '%s\n' "${pid}"
+        ;;
+    esac
+  done < <(/bin/ps -axo pid=,command= 2>/dev/null || true)
+}
+
+look_electron_running() {
+  local pids
+  pids="$(look_electron_pids | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+  [[ -n "${pids}" ]]
+}
+
 acquire_lock() {
+  clean_stale_pid_file "${LOCK_FILE}" "launcher lock"
+  clean_stale_pid_file "${NEXT_PID_FILE}" "Next.js"
+  clean_stale_pid_file "${ELECTRON_PID_FILE}" "Electron"
+
   if [[ -f "${LOCK_FILE}" ]]; then
     local old_pid
     old_pid="$(tr -d '[:space:]' < "${LOCK_FILE}" || true)"
@@ -177,6 +227,12 @@ acquire_lock() {
       if [[ -f "${LOCK_FILE}" ]]; then
         old_pid="$(tr -d '[:space:]' < "${LOCK_FILE}" || true)"
         if [[ -n "${old_pid}" ]] && kill -0 "${old_pid}" 2>/dev/null; then
+          # If Electron is already up, prefer focusing it over failing the click.
+          if look_electron_running; then
+            log "Launcher busy but LOOK Electron is already running — focusing via second-instance"
+            launch_electron_focus_only || true
+            exit 0
+          fi
           show_error "LOOK is already starting. Please wait a few seconds and try again."
           exit 1
         fi
@@ -331,7 +387,7 @@ ${LOG_FILE}"
 }
 
 ensure_electron_runtime() {
-  if [[ -f "${DESKTOP_DIR}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" ]]; then
+  if [[ -x "${ELECTRON_BIN}" ]]; then
     return 0
   fi
   local npm_bin
@@ -349,18 +405,8 @@ ${LOG_FILE}"
   }
 }
 
-launch_electron() {
-  ensure_electron_runtime
-
-  local electron_bin="${DESKTOP_DIR}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
-  if [[ ! -x "${electron_bin}" ]]; then
-    show_error "Electron runtime is missing after setup.
-See log:
-${LOG_FILE}"
-    exit 1
-  fi
-
-  log "Launching Electron in attach/dev mode (${APP_URL})"
+# Single Electron invocation — never backgrounded, never open -n, never recursive.
+run_electron_once() {
   (
     cd "${DESKTOP_DIR}"
     env -u ELECTRON_RUN_AS_NODE \
@@ -369,10 +415,57 @@ ${LOG_FILE}"
       LOOK_DESKTOP=1 \
       LOOK_PROJECT_ROOT="${PROJECT_ROOT}" \
       NEXT_PUBLIC_APP_URL="${APP_URL}" \
-      "${electron_bin}" .
+      "${ELECTRON_BIN}" .
   ) >>"${LOG_FILE}" 2>&1
+}
+
+# When LOOK is already open, start Electron once so requestSingleInstanceLock
+# focuses the existing window; the second process exits immediately.
+launch_electron_focus_only() {
+  ensure_electron_runtime
+  if [[ ! -x "${ELECTRON_BIN}" ]]; then
+    return 1
+  fi
+  log "LOOK Electron already running — requesting focus via second-instance"
+  run_electron_once
+  local status=$?
+  log "Focus Electron helper exited with status ${status}"
+  return 0
+}
+
+launch_electron() {
+  ensure_electron_runtime
+
+  if [[ ! -x "${ELECTRON_BIN}" ]]; then
+    show_error "Electron runtime is missing after setup.
+See log:
+${LOG_FILE}"
+    exit 1
+  fi
+
+  # Primary protection is Electron's requestSingleInstanceLock().
+  # If a LOOK Electron is already alive, only trigger focus — do not keep a
+  # second long-lived process, and do not treat its quick exit as failure.
+  if look_electron_running; then
+    launch_electron_focus_only
+    return 0
+  fi
+
+  log "Launching Electron in attach/dev mode (${APP_URL})"
+  # Electron's requestSingleInstanceLock() is the source of truth for windows.
+  # Do not write a PID file for Electron — helper/main PIDs are process-scanned.
+  rm -f "${ELECTRON_PID_FILE}"
+
+  run_electron_once
   local status=$?
   log "Electron exited with status ${status}"
+
+  # If another instance took over / focused, treat as success.
+  if [[ "${status}" -ne 0 ]] && look_electron_running; then
+    log "Electron exit ${status} but LOOK window still running — treating as success"
+    return 0
+  fi
+
   return "${status}"
 }
 
@@ -388,14 +481,32 @@ ${PROJECT_ROOT}"
   fi
 
   acquire_lock
+
+  # Fast path: services already up + Electron already open → focus only.
+  if look_electron_running && is_styled_ready; then
+    log "Services ready and LOOK Electron already open — focusing existing window"
+    rm -f "${LOCK_FILE}"
+    trap - EXIT
+    launch_electron_focus_only
+    exit 0
+  fi
+
   ensure_docker
   ensure_supabase
   ensure_next
 
-  # Release lock before Electron blocks, so a second click can reuse services.
+  if ! is_styled_ready; then
+    show_error "LOOK Next.js is not fully ready at ${APP_URL}.
+CSS assets must return HTTP 200. See log:
+${LOG_FILE}"
+    exit 1
+  fi
+
+  # Release lock before Electron blocks, so a second click can focus/reuse.
   rm -f "${LOCK_FILE}"
   trap - EXIT
 
+  # Start Electron exactly once (foreground). No open -n, no background twin.
   launch_electron || {
     show_error "LOOK Electron window failed to start.
 See log:

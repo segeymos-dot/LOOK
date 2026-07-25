@@ -21,6 +21,7 @@ let nextProcess = null;
 /** @type {BrowserWindow | null} */
 let mainWindow = null;
 let startedOwnServer = false;
+let isCreatingWindow = false;
 
 function cleanProcessEnv() {
   const home = process.env.HOME ?? "";
@@ -395,48 +396,79 @@ async function pageHasStylesheets(wc) {
   }
 }
 
-async function createWindow() {
-  await clearDevHttpCache();
+function focusMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return false;
+  }
 
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 840,
-    minWidth: 960,
-    minHeight: 640,
-    title: "LOOK",
-    backgroundColor: "#ffffff",
-    show: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-    },
-  });
-
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
-    return { action: "deny" };
-  });
-
-  // Always load the live local Next.js origin — never file:// in development.
-  await mainWindow.loadURL(APP_URL);
-
-  if (DEV_MODE) {
-    const styled = await pageHasStylesheets(mainWindow.webContents);
-    if (!styled) {
-      console.warn("LOOK: stylesheets missing after first load; clearing cache and reloading once");
-      await clearDevHttpCache();
-      await mainWindow.reload();
-      // Brief wait for CSS to apply after reload.
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
   }
 
   mainWindow.show();
+  mainWindow.focus();
+  return true;
+}
 
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-  });
+async function createWindow() {
+  // Never open a second BrowserWindow while one already exists.
+  if (focusMainWindow()) {
+    return;
+  }
+
+  if (isCreatingWindow) {
+    return;
+  }
+
+  isCreatingWindow = true;
+
+  try {
+    await clearDevHttpCache();
+
+    mainWindow = new BrowserWindow({
+      width: 1280,
+      height: 840,
+      minWidth: 960,
+      minHeight: 640,
+      title: "LOOK",
+      backgroundColor: "#ffffff",
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+      },
+    });
+
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+      void shell.openExternal(url);
+      return { action: "deny" };
+    });
+
+    // Always load the live local Next.js origin — never file:// in development.
+    await mainWindow.loadURL(APP_URL);
+
+    if (DEV_MODE) {
+      const styled = await pageHasStylesheets(mainWindow.webContents);
+      if (!styled) {
+        console.warn(
+          "LOOK: stylesheets missing after first load; clearing cache and reloading once"
+        );
+        await clearDevHttpCache();
+        await mainWindow.reload();
+        // Brief wait for CSS to apply after reload.
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
+    mainWindow.show();
+
+    mainWindow.on("closed", () => {
+      mainWindow = null;
+    });
+  } finally {
+    isCreatingWindow = false;
+  }
 }
 
 function stopNextServer() {
@@ -451,35 +483,59 @@ function stopNextServer() {
   }, 3000);
 }
 
-app.whenReady().then(async () => {
+async function bootMainWindow() {
   Menu.setApplicationMenu(null);
+  await ensureServerRunning();
+  await createWindow();
+}
 
-  try {
-    await ensureServerRunning();
-    await createWindow();
-  } catch (error) {
-    console.error(error);
-    app.quit();
-  }
-});
+// Official Electron single-instance guard — must run before any BrowserWindow.
+const gotTheLock = app.requestSingleInstanceLock();
 
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    void ensureServerRunning()
-      .then(() => createWindow())
-      .catch((error) => {
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (focusMainWindow()) {
+      return;
+    }
+
+    // Window was closed but the process is still alive — open one fresh window.
+    void bootMainWindow().catch((error) => {
+      console.error(error);
+      app.quit();
+    });
+  });
+
+  app.whenReady().then(async () => {
+    try {
+      await bootMainWindow();
+    } catch (error) {
+      console.error(error);
+      app.quit();
+    }
+  });
+
+  app.on("activate", () => {
+    if (focusMainWindow()) {
+      return;
+    }
+
+    if (BrowserWindow.getAllWindows().length === 0) {
+      void bootMainWindow().catch((error) => {
         console.error(error);
         app.quit();
       });
-  }
-});
+    }
+  });
 
-app.on("before-quit", () => {
-  stopNextServer();
-});
+  app.on("before-quit", () => {
+    stopNextServer();
+  });
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
+  // Single-window desktop app: red close button exits cleanly so relaunch
+  // starts exactly one fresh process/window (no zombie Dock icons).
+  app.on("window-all-closed", () => {
     app.quit();
-  }
-});
+  });
+}
