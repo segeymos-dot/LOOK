@@ -7,7 +7,8 @@ const VISITOR_KEY = "look_visitor_id";
 const SESSION_KEY = "look_session_id";
 const TABS_KEY = "look_presence_tabs";
 const HEARTBEAT_MS = 30_000;
-const TAB_STALE_MS = 120_000;
+/** Tabs that have not heartbeated within this window are treated as gone. */
+const TAB_STALE_MS = 90_000;
 
 function createId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -19,7 +20,9 @@ function createId(): string {
 function getVisitorId(): string {
   try {
     const existing = window.localStorage.getItem(VISITOR_KEY);
-    if (existing && existing.trim().length >= 8) return existing.trim();
+    if (existing && existing.trim().length >= 8 && existing.trim().length <= 128) {
+      return existing.trim();
+    }
     const id = createId();
     window.localStorage.setItem(VISITOR_KEY, id);
     return id;
@@ -74,26 +77,32 @@ function writeTabs(tabs: TabMap) {
   }
 }
 
+function pruneStaleTabs(tabs: TabMap, now = Date.now()): TabMap {
+  const next: TabMap = {};
+  for (const [id, ts] of Object.entries(tabs)) {
+    if (typeof ts === "number" && now - ts <= TAB_STALE_MS) {
+      next[id] = ts;
+    }
+  }
+  return next;
+}
+
 function registerTab(tabId: string): void {
   const now = Date.now();
-  const tabs = readTabs();
-  for (const [id, ts] of Object.entries(tabs)) {
-    if (now - ts > TAB_STALE_MS) delete tabs[id];
-  }
+  const tabs = pruneStaleTabs(readTabs(), now);
   tabs[tabId] = now;
   writeTabs(tabs);
 }
 
 function touchTab(tabId: string): void {
-  const tabs = readTabs();
-  if (tabs[tabId] != null) {
-    tabs[tabId] = Date.now();
-    writeTabs(tabs);
-  }
+  const now = Date.now();
+  const tabs = pruneStaleTabs(readTabs(), now);
+  tabs[tabId] = now;
+  writeTabs(tabs);
 }
 
 function unregisterTab(tabId: string): number {
-  const tabs = readTabs();
+  const tabs = pruneStaleTabs(readTabs());
   delete tabs[tabId];
   writeTabs(tabs);
   return Object.keys(tabs).length;
@@ -116,7 +125,8 @@ export function endPresenceBeacon(): void {
   const sessionId = getSessionId();
   const payload = JSON.stringify({ visitorId, sessionId });
 
-  // sendBeacon cannot set Authorization; rely on cookie session + 90s timeout.
+  // Prefer sendBeacon (Safari / Electron pagehide). Server clears by visitor_id
+  // even without Authorization, so online drops immediately when last tab closes.
   if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
     const blob = new Blob([payload], { type: "application/json" });
     navigator.sendBeacon("/api/presence/end", blob);
@@ -135,38 +145,48 @@ export function endPresenceBeacon(): void {
   })();
 }
 
-async function sendHeartbeat(): Promise<void> {
-  const visitorId = getVisitorId();
-  const sessionId = getSessionId();
-  const headers = await authHeaders();
+let heartbeatInFlight: Promise<void> | null = null;
 
-  const res = await fetch("/api/presence/heartbeat", {
-    method: "POST",
-    headers,
-    credentials: "same-origin",
-    body: JSON.stringify({ visitorId, sessionId }),
-    keepalive: true,
+async function sendHeartbeat(): Promise<void> {
+  if (heartbeatInFlight) return heartbeatInFlight;
+
+  heartbeatInFlight = (async () => {
+    const visitorId = getVisitorId();
+    const sessionId = getSessionId();
+    const headers = await authHeaders();
+
+    const res = await fetch("/api/presence/heartbeat", {
+      method: "POST",
+      headers,
+      credentials: "same-origin",
+      body: JSON.stringify({ visitorId, sessionId }),
+      keepalive: true,
+    });
+
+    if (!res.ok) return;
+
+    const data = (await res.json()) as {
+      visitorId?: string;
+      sessionId?: string;
+    };
+
+    if (data.visitorId && data.visitorId !== visitorId) {
+      setVisitorId(data.visitorId);
+    }
+    if (data.sessionId) {
+      setSessionId(data.sessionId);
+    }
+  })().finally(() => {
+    heartbeatInFlight = null;
   });
 
-  if (!res.ok) return;
-
-  const data = (await res.json()) as {
-    visitorId?: string;
-    sessionId?: string;
-  };
-
-  if (data.visitorId && data.visitorId !== visitorId) {
-    setVisitorId(data.visitorId);
-  }
-  if (data.sessionId) {
-    setSessionId(data.sessionId);
-  }
+  return heartbeatInFlight;
 }
 
 /**
  * Tracks unique visitors, visit sessions, and online presence via heartbeat.
- * Safe for Browser Tab, Safari, and Electron (localStorage + sessionStorage).
- * Multi-tab: only the last closing tab ends presence; otherwise 90s timeout applies.
+ * Browser Tab / Safari / Electron: localStorage visitor+session, pagehide end.
+ * Multi-tab: shared visitor/session keys; only the last live tab ends presence.
  */
 export function PresenceTracker() {
   useEffect(() => {
@@ -188,16 +208,25 @@ export function PresenceTracker() {
 
     const onPageHide = () => {
       const remaining = unregisterTab(tabId);
-      // Only clear presence when no other LOOK tabs remain.
       if (remaining === 0) endPresenceBeacon();
     };
 
+    // Re-register quickly after temporary offline so reconnect does not open
+    // a duplicate presence key (server upserts by presence_key).
+    const onOnline = () => {
+      if (!cancelled) beat();
+    };
+
     window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("online", onOnline);
 
     return () => {
       cancelled = true;
       if (timer) clearInterval(timer);
       window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("online", onOnline);
+      // Do not end presence here: React Strict Mode remounts and SPA navigations
+      // would falsely drop online while other tabs (or the remount) are alive.
       unregisterTab(tabId);
     };
   }, []);

@@ -2,6 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAuthenticatedClient } from "@/lib/supabase/authenticated-client";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  normalizeSessionId,
+  normalizeVisitorId,
+} from "@/lib/admin/presence-validation";
 
 export type AdminUserStats = {
   registeredCustomers: number;
@@ -11,6 +15,8 @@ export type AdminUserStats = {
   uniqueVisitors: number;
   totalVisits: number;
   onlineWindowSeconds: number;
+  /** Platform admins are excluded from online counters. */
+  adminsCountedInOnline: boolean;
 };
 
 type RpcStats = {
@@ -21,6 +27,7 @@ type RpcStats = {
   unique_visitors?: number;
   total_visits?: number;
   online_window_seconds?: number;
+  admins_counted_in_online?: boolean;
 };
 
 function mapStats(raw: RpcStats | null): AdminUserStats {
@@ -32,6 +39,7 @@ function mapStats(raw: RpcStats | null): AdminUserStats {
     uniqueVisitors: Number(raw?.unique_visitors ?? 0),
     totalVisits: Number(raw?.total_visits ?? 0),
     onlineWindowSeconds: Number(raw?.online_window_seconds ?? 90),
+    adminsCountedInOnline: Boolean(raw?.admins_counted_in_online ?? false),
   };
 }
 
@@ -72,15 +80,17 @@ export async function recordAppHeartbeat(
   },
   request?: Request
 ): Promise<HeartbeatResult> {
-  const visitorId = input.visitorId.trim();
-  if (visitorId.length < 8) {
+  const visitorId = normalizeVisitorId(input.visitorId);
+  if (!visitorId) {
     throw new Error("Invalid visitor id");
   }
+
+  const sessionId = normalizeSessionId(input.sessionId);
 
   const supabase = await createPresenceClient(request);
   const { data, error } = await supabase.rpc("record_app_heartbeat", {
     p_visitor_id: visitorId,
-    p_session_id: input.sessionId || null,
+    p_session_id: sessionId,
     p_user_id: null,
   });
 
@@ -108,14 +118,16 @@ export async function endAppPresence(
   },
   request?: Request
 ): Promise<void> {
-  const visitorId = input.visitorId.trim();
-  if (visitorId.length < 8) return;
+  const visitorId = normalizeVisitorId(input.visitorId);
+  if (!visitorId) return;
+
+  const sessionId = normalizeSessionId(input.sessionId);
 
   try {
     const supabase = await createPresenceClient(request);
     await supabase.rpc("end_app_presence", {
       p_visitor_id: visitorId,
-      p_session_id: input.sessionId || null,
+      p_session_id: sessionId,
     });
   } catch {
     // Best-effort on unload / logout.
@@ -123,12 +135,13 @@ export async function endAppPresence(
 }
 
 /** Service-role cleanup of stale presence (optional maintenance). */
-export async function purgeStalePresence(olderThanSeconds = 300): Promise<void> {
+export async function purgeStalePresence(olderThanSeconds = 600): Promise<void> {
   try {
     const admin = createAdminClient();
     if (!admin) return;
-    const cutoff = new Date(Date.now() - olderThanSeconds * 1000).toISOString();
-    await admin.from("app_presence").delete().lt("last_heartbeat_at", cutoff);
+    await admin.rpc("purge_stale_app_presence", {
+      p_older_than: `${olderThanSeconds} seconds`,
+    });
   } catch {
     // ignore if service role unavailable
   }

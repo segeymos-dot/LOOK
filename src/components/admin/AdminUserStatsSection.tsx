@@ -37,16 +37,28 @@ export function AdminUserStatsSection() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [refreshing, setRefreshing] = useState(false);
   const mounted = useRef(true);
+  const inFlight = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     if (!opts?.silent) {
       setState((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
       setRefreshing(true);
     }
     try {
-      const res = await authFetch("/api/admin/user-stats");
+      const res = await authFetch("/api/admin/user-stats", {
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
       const data = (await res.json()) as { stats?: AdminUserStats; error?: string };
-      if (!mounted.current) return;
+      if (!mounted.current || controller.signal.aborted) return;
       if (!res.ok || !data.stats) {
         if (!opts?.silent) setState({ status: "error" });
         return;
@@ -64,10 +76,12 @@ export function AdminUserStatsSection() {
         }
         return { status: "ready", stats: data.stats! };
       });
-    } catch {
+    } catch (error) {
       if (!mounted.current) return;
+      if (error instanceof DOMException && error.name === "AbortError") return;
       if (!opts?.silent) setState({ status: "error" });
     } finally {
+      inFlight.current = false;
       if (mounted.current) setRefreshing(false);
     }
   }, []);
@@ -83,13 +97,14 @@ export function AdminUserStatsSection() {
     return () => {
       mounted.current = false;
       clearInterval(onlineTimer);
+      abortRef.current?.abort();
     };
   }, [load]);
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-base font-semibold text-text-primary">
             {t("admin.userStats.title")}
           </h2>
@@ -97,7 +112,7 @@ export function AdminUserStatsSection() {
         </div>
         <Button
           variant="secondary"
-          className="shrink-0 gap-2"
+          className="w-full shrink-0 gap-2 sm:w-auto"
           loading={refreshing && state.status !== "loading"}
           onClick={() => void load()}
         >

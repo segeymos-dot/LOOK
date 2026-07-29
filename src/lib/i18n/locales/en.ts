@@ -534,9 +534,11 @@ export const en: TranslationDict = {
       registeredProviders: "Registered providers",
       registeredProvidersHint: "Unique users with the provider role",
       usersOnline: "Users online",
-      usersOnlineHint: "Unique users and visitors currently in the app",
+      usersOnlineHint:
+        "Unique users and visitors currently in the app. Platform admins are not counted.",
       providersOnline: "Providers online",
-      providersOnlineHint: "Registered providers currently active in the application.",
+      providersOnlineHint:
+        "Registered providers currently active in the application. Platform admins are not counted.",
       uniqueVisitors: "Total unique visitors",
       uniqueVisitorsHint: "Registered and anonymous visitors counted once",
       totalVisits: "Total visits",
