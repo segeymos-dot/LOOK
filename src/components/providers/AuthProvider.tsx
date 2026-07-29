@@ -143,6 +143,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState({ user: null, profile: null, ready: true, profileReady: true });
       return;
     }
+    try {
+      const { getAccessToken } = await import("@/lib/auth/client-fetch");
+      const token = await getAccessToken();
+      const visitorId =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem("look_visitor_id")
+          : null;
+      const sessionId =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem("look_session_id")
+          : null;
+      if (visitorId && visitorId.length >= 8) {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (token) headers.Authorization = `Bearer ${token}`;
+        await fetch("/api/presence/end", {
+          method: "POST",
+          headers,
+          credentials: "same-origin",
+          body: JSON.stringify({ visitorId, sessionId }),
+          keepalive: true,
+        });
+      }
+    } catch {
+      // best-effort presence cleanup
+    }
     const supabase = createClient();
     await supabase.auth.signOut();
     setState({ user: null, profile: null, ready: true, profileReady: true });
