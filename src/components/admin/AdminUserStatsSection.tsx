@@ -20,6 +20,7 @@ const METRICS: { key: MetricKey; online: boolean }[] = [
   { key: "registeredCustomers", online: false },
   { key: "registeredProviders", online: false },
   { key: "usersOnline", online: true },
+  { key: "providersOnline", online: true },
   { key: "uniqueVisitors", online: false },
   { key: "totalVisits", online: false },
 ];
