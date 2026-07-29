@@ -11,6 +11,7 @@ export type AdminUserStats = {
   registeredCustomers: number;
   registeredProviders: number;
   usersOnline: number;
+  customersOnline: number;
   providersOnline: number;
   uniqueVisitors: number;
   totalVisits: number;
@@ -23,6 +24,7 @@ type RpcStats = {
   registered_customers?: number;
   registered_providers?: number;
   users_online?: number;
+  customers_online?: number;
   providers_online?: number;
   unique_visitors?: number;
   total_visits?: number;
@@ -35,6 +37,7 @@ function mapStats(raw: RpcStats | null): AdminUserStats {
     registeredCustomers: Number(raw?.registered_customers ?? 0),
     registeredProviders: Number(raw?.registered_providers ?? 0),
     usersOnline: Number(raw?.users_online ?? 0),
+    customersOnline: Number(raw?.customers_online ?? 0),
     providersOnline: Number(raw?.providers_online ?? 0),
     uniqueVisitors: Number(raw?.unique_visitors ?? 0),
     totalVisits: Number(raw?.total_visits ?? 0),

@@ -3,6 +3,8 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AdminSectionNav } from "@/components/admin/AdminSectionNav";
 import { AdminUserStatsSection } from "@/components/admin/AdminUserStatsSection";
+import { AdminRoleAnalyticsSection } from "@/components/admin/AdminRoleAnalyticsSection";
+import { AdminOrderAnalyticsSection } from "@/components/admin/AdminOrderAnalyticsSection";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -70,7 +72,7 @@ export default function AdminStatsPage() {
         { label: t("admin.ordersCompleted"), value: stats.ordersCompleted },
       ]
     : [
-        { label: t("admin.pageViews"), value: null },
+        { label: t("admin.pageViews"), value: null as number | null },
         { label: t("admin.uniqueVisitors"), value: null },
         { label: t("admin.registrations"), value: null },
         { label: t("admin.ordersCreated"), value: null },
@@ -80,7 +82,7 @@ export default function AdminStatsPage() {
 
   return (
     <AppLayout hideNav title={t("admin.statsTitle")}>
-      <div className="space-y-5 p-4 pb-8">
+      <div className="space-y-8 p-4 pb-10">
         <PageHeader
           title={t("admin.statsTitle")}
           subtitle={t("admin.statsSubtitle")}
@@ -88,10 +90,27 @@ export default function AdminStatsPage() {
         />
         <AdminSectionNav activeHref="/admin/stats" />
 
-        <AdminUserStatsSection />
+        <section className="space-y-3">
+          <h2 className="text-base font-semibold text-text-primary">
+            {t("admin.sections.overview")}
+          </h2>
+          <AdminUserStatsSection />
+        </section>
+
+        <section>
+          <AdminRoleAnalyticsSection kind="customers" />
+        </section>
+
+        <section>
+          <AdminRoleAnalyticsSection kind="providers" />
+        </section>
+
+        <section>
+          <AdminOrderAnalyticsSection />
+        </section>
 
         <div className="space-y-3 pt-2">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-text-primary">
                 {t("admin.activityTitle")}
@@ -100,7 +119,7 @@ export default function AdminStatsPage() {
             </div>
             <Button
               variant="secondary"
-              className="shrink-0 gap-2"
+              className="w-full shrink-0 gap-2 sm:w-auto"
               loading={loading}
               onClick={load}
             >

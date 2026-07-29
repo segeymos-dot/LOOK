@@ -12,6 +12,7 @@ type MetricKey =
   | "registeredCustomers"
   | "registeredProviders"
   | "usersOnline"
+  | "customersOnline"
   | "providersOnline"
   | "uniqueVisitors"
   | "totalVisits";
@@ -20,6 +21,7 @@ const METRICS: { key: MetricKey; online: boolean }[] = [
   { key: "registeredCustomers", online: false },
   { key: "registeredProviders", online: false },
   { key: "usersOnline", online: true },
+  { key: "customersOnline", online: true },
   { key: "providersOnline", online: true },
   { key: "uniqueVisitors", online: false },
   { key: "totalVisits", online: false },
@@ -70,6 +72,7 @@ export function AdminUserStatsSection() {
             stats: {
               ...prev.stats,
               usersOnline: data.stats!.usersOnline,
+              customersOnline: data.stats!.customersOnline,
               providersOnline: data.stats!.providersOnline,
             },
           };
