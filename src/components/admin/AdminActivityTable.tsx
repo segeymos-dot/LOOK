@@ -6,10 +6,18 @@ import { Input } from "@/components/ui/Input";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { authFetch } from "@/lib/auth/client-fetch";
 import type { ActivityListItem } from "@/lib/admin/role-activity";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCancellableAdminLoad } from "@/hooks/useCancellableAdminLoad";
+import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 type Kind = "customers" | "providers";
+
+type ActivityPayload = {
+  items: ActivityListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
 
 function formatDate(value: string | null, locale: string) {
   if (!value) return "—";
@@ -25,11 +33,7 @@ function formatDate(value: string | null, locale: string) {
 
 export function AdminActivityTable({ kind }: { kind: Kind }) {
   const { t, locale } = useTranslation();
-  const [items, setItems] = useState<ActivityListItem[] | null>(null);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("newest");
   const [onlineOnly, setOnlineOnly] = useState(false);
@@ -39,97 +43,80 @@ export function AdminActivityTable({ kind }: { kind: Kind }) {
   const [registeredTo, setRegisteredTo] = useState("");
   const [activityFrom, setActivityFrom] = useState("");
   const [activityTo, setActivityTo] = useState("");
-  const mounted = useRef(true);
-  const inFlight = useRef(false);
-  const abortRef = useRef<AbortController | null>(null);
+  const [appliedQ, setAppliedQ] = useState("");
 
   const prefix = kind === "customers" ? "admin.customerActivity" : "admin.providerActivity";
   const endpoint =
     kind === "customers" ? "/api/admin/customers" : "/api/admin/providers";
 
-  const load = useCallback(
-    async (pageOverride?: number) => {
-      if (inFlight.current) return;
-      inFlight.current = true;
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      setState((prev) => (prev === "ready" ? prev : "loading"));
-      try {
-        const params = new URLSearchParams();
-        params.set("view", "activity");
-        params.set("page", String(pageOverride ?? page));
-        params.set("sort", sort);
-        if (q.trim()) params.set("q", q.trim());
-        if (onlineOnly) params.set("onlineOnly", "1");
-        if (kind === "customers" && neverOrdered) params.set("neverOrdered", "1");
-        if (kind === "customers" && hasActiveOrders) params.set("hasActiveOrders", "1");
-        if (registeredFrom) params.set("registeredFrom", registeredFrom);
-        if (registeredTo) params.set("registeredTo", registeredTo);
-        if (activityFrom) params.set("activityFrom", activityFrom);
-        if (activityTo) params.set("activityTo", activityTo);
+  const loadPage = useCallback(
+    async (signal: AbortSignal): Promise<ActivityPayload> => {
+      const params = new URLSearchParams();
+      params.set("view", "activity");
+      params.set("page", String(page));
+      params.set("sort", sort);
+      if (appliedQ.trim()) params.set("q", appliedQ.trim());
+      if (onlineOnly) params.set("onlineOnly", "1");
+      if (kind === "customers" && neverOrdered) params.set("neverOrdered", "1");
+      if (kind === "customers" && hasActiveOrders) params.set("hasActiveOrders", "1");
+      if (registeredFrom) params.set("registeredFrom", registeredFrom);
+      if (registeredTo) params.set("registeredTo", registeredTo);
+      if (activityFrom) params.set("activityFrom", activityFrom);
+      if (activityTo) params.set("activityTo", activityTo);
 
-        const res = await authFetch(`${endpoint}?${params.toString()}`, {
-          signal: controller.signal,
-        });
-        if (controller.signal.aborted) return;
-        const data = await res.json();
-        if (!mounted.current || controller.signal.aborted) return;
-        if (!res.ok) {
-          setState("error");
-          setItems(null);
-          return;
-        }
-        setItems(data.items ?? []);
-        setTotal(Number(data.total ?? 0));
-        setPage(Number(data.page ?? 1));
-        setPageSize(Number(data.pageSize ?? 20));
-        setState("ready");
-      } catch (error) {
-        if (!mounted.current) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setState("error");
-        setItems(null);
-      } finally {
-        inFlight.current = false;
+      const res = await authFetch(`${endpoint}?${params.toString()}`, { signal });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load activity");
       }
+      return {
+        items: data.items ?? [],
+        total: Number(data.total ?? 0),
+        page: Number(data.page ?? 1),
+        pageSize: Number(data.pageSize ?? 20),
+      };
     },
     [
       activityFrom,
       activityTo,
+      appliedQ,
       endpoint,
       hasActiveOrders,
       kind,
       neverOrdered,
       onlineOnly,
       page,
-      q,
       registeredFrom,
       registeredTo,
       sort,
     ]
   );
 
-  useEffect(() => {
-    mounted.current = true;
-    void load(1);
-    return () => {
-      mounted.current = false;
-      abortRef.current?.abort();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    kind,
-    sort,
-    onlineOnly,
-    neverOrdered,
-    hasActiveOrders,
-    registeredFrom,
-    registeredTo,
-    activityFrom,
-    activityTo,
-  ]);
+  const { state, data, reload } = useCancellableAdminLoad<ActivityPayload>({
+    load: loadPage,
+    deps: [
+      kind,
+      page,
+      sort,
+      onlineOnly,
+      neverOrdered,
+      hasActiveOrders,
+      registeredFrom,
+      registeredTo,
+      activityFrom,
+      activityTo,
+      appliedQ,
+    ],
+  });
 
+  // Keep page in sync with server response when filters reset page externally.
+  useEffect(() => {
+    if (data?.page && data.page !== page) setPage(data.page);
+  }, [data?.page, page]);
+
+  const items = data?.items ?? null;
+  const total = data?.total ?? 0;
+  const pageSize = data?.pageSize ?? 20;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
@@ -148,7 +135,10 @@ export function AdminActivityTable({ kind }: { kind: Kind }) {
         <select
           className="h-11 rounded-xl border border-border bg-surface px-3 text-sm text-text-primary"
           value={sort}
-          onChange={(e) => setSort(e.target.value)}
+          onChange={(e) => {
+            setPage(1);
+            setSort(e.target.value);
+          }}
         >
           <option value="newest">{t("admin.activityFilters.sortNewest")}</option>
           <option value="oldest">{t("admin.activityFilters.sortOldest")}</option>
@@ -158,25 +148,37 @@ export function AdminActivityTable({ kind }: { kind: Kind }) {
         <Input
           type="date"
           value={registeredFrom}
-          onChange={(e) => setRegisteredFrom(e.target.value)}
+          onChange={(e) => {
+            setPage(1);
+            setRegisteredFrom(e.target.value);
+          }}
           aria-label={t("admin.activityFilters.registeredFrom")}
         />
         <Input
           type="date"
           value={registeredTo}
-          onChange={(e) => setRegisteredTo(e.target.value)}
+          onChange={(e) => {
+            setPage(1);
+            setRegisteredTo(e.target.value);
+          }}
           aria-label={t("admin.activityFilters.registeredTo")}
         />
         <Input
           type="date"
           value={activityFrom}
-          onChange={(e) => setActivityFrom(e.target.value)}
+          onChange={(e) => {
+            setPage(1);
+            setActivityFrom(e.target.value);
+          }}
           aria-label={t("admin.activityFilters.activityFrom")}
         />
         <Input
           type="date"
           value={activityTo}
-          onChange={(e) => setActivityTo(e.target.value)}
+          onChange={(e) => {
+            setPage(1);
+            setActivityTo(e.target.value);
+          }}
           aria-label={t("admin.activityFilters.activityTo")}
         />
       </div>
@@ -186,7 +188,10 @@ export function AdminActivityTable({ kind }: { kind: Kind }) {
           <input
             type="checkbox"
             checked={onlineOnly}
-            onChange={(e) => setOnlineOnly(e.target.checked)}
+            onChange={(e) => {
+              setPage(1);
+              setOnlineOnly(e.target.checked);
+            }}
           />
           {t("admin.activityFilters.onlineOnly")}
         </label>
@@ -196,7 +201,10 @@ export function AdminActivityTable({ kind }: { kind: Kind }) {
               <input
                 type="checkbox"
                 checked={neverOrdered}
-                onChange={(e) => setNeverOrdered(e.target.checked)}
+                onChange={(e) => {
+                  setPage(1);
+                  setNeverOrdered(e.target.checked);
+                }}
               />
               {t("admin.activityFilters.neverOrdered")}
             </label>
@@ -204,7 +212,10 @@ export function AdminActivityTable({ kind }: { kind: Kind }) {
               <input
                 type="checkbox"
                 checked={hasActiveOrders}
-                onChange={(e) => setHasActiveOrders(e.target.checked)}
+                onChange={(e) => {
+                  setPage(1);
+                  setHasActiveOrders(e.target.checked);
+                }}
               />
               {t("admin.activityFilters.hasActiveOrders")}
             </label>
@@ -215,7 +226,8 @@ export function AdminActivityTable({ kind }: { kind: Kind }) {
           className="gap-2"
           onClick={() => {
             setPage(1);
-            void load(1);
+            setAppliedQ(q);
+            void reload();
           }}
         >
           <RefreshCw className="h-3.5 w-3.5" />
@@ -229,7 +241,7 @@ export function AdminActivityTable({ kind }: { kind: Kind }) {
       {state === "error" && (
         <div className="space-y-2">
           <p className="text-sm text-danger">{t("admin.userStats.loadError")}</p>
-          <Button variant="secondary" className="gap-2" onClick={() => void load()}>
+          <Button variant="secondary" className="gap-2" onClick={() => void reload()}>
             <RefreshCw className="h-3.5 w-3.5" />
             {t("admin.userStats.retry")}
           </Button>
@@ -326,22 +338,14 @@ export function AdminActivityTable({ kind }: { kind: Kind }) {
             <Button
               variant="secondary"
               disabled={page <= 1}
-              onClick={() => {
-                const next = page - 1;
-                setPage(next);
-                void load(next);
-              }}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
               {t("admin.activityFilters.prev")}
             </Button>
             <Button
               variant="secondary"
               disabled={page >= totalPages}
-              onClick={() => {
-                const next = page + 1;
-                setPage(next);
-                void load(next);
-              }}
+              onClick={() => setPage((p) => p + 1)}
             >
               {t("admin.activityFilters.next")}
             </Button>

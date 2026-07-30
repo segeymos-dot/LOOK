@@ -5,7 +5,8 @@ import { Card } from "@/components/ui/Card";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { authFetch } from "@/lib/auth/client-fetch";
 import type { AdminUserStats } from "@/lib/admin/user-stats";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCancellableAdminLoad } from "@/hooks/useCancellableAdminLoad";
+import { useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 
 type MetricKey =
@@ -29,80 +30,34 @@ const METRICS: { key: MetricKey; online: boolean }[] = [
 
 const ONLINE_POLL_MS = 30_000;
 
-type LoadState =
-  | { status: "loading" }
-  | { status: "ready"; stats: AdminUserStats }
-  | { status: "error" };
+async function fetchUserStats(signal: AbortSignal): Promise<AdminUserStats> {
+  const res = await authFetch("/api/admin/user-stats", { signal });
+  const data = (await res.json()) as { stats?: AdminUserStats; error?: string };
+  if (!res.ok || !data.stats) {
+    throw new Error(data.error || "Failed to load user statistics");
+  }
+  return data.stats;
+}
 
 export function AdminUserStatsSection() {
   const { t } = useTranslation();
-  const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [refreshing, setRefreshing] = useState(false);
-  const mounted = useRef(true);
-  const inFlight = useRef(false);
-  const abortRef = useRef<AbortController | null>(null);
-
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
-    if (inFlight.current) return;
-    inFlight.current = true;
-
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    if (!opts?.silent) {
-      setState((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
-      setRefreshing(true);
-    }
-    try {
-      const res = await authFetch("/api/admin/user-stats", {
-        signal: controller.signal,
-      });
-      if (controller.signal.aborted) return;
-      const data = (await res.json()) as { stats?: AdminUserStats; error?: string };
-      if (!mounted.current || controller.signal.aborted) return;
-      if (!res.ok || !data.stats) {
-        if (!opts?.silent) setState({ status: "error" });
-        return;
-      }
-      setState((prev) => {
-        if (opts?.silent && prev.status === "ready") {
-          return {
-            status: "ready",
-            stats: {
-              ...prev.stats,
-              usersOnline: data.stats!.usersOnline,
-              customersOnline: data.stats!.customersOnline,
-              providersOnline: data.stats!.providersOnline,
-            },
-          };
-        }
-        return { status: "ready", stats: data.stats! };
-      });
-    } catch (error) {
-      if (!mounted.current) return;
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      if (!opts?.silent) setState({ status: "error" });
-    } finally {
-      inFlight.current = false;
-      if (mounted.current) setRefreshing(false);
-    }
-  }, []);
+  const { state, data: stats, refreshing, reload } = useCancellableAdminLoad<AdminUserStats>({
+    load: fetchUserStats,
+  });
 
   useEffect(() => {
-    mounted.current = true;
-    void load();
-
     const onlineTimer = setInterval(() => {
-      void load({ silent: true });
+      void reload();
     }, ONLINE_POLL_MS);
+    return () => clearInterval(onlineTimer);
+  }, [reload]);
 
-    return () => {
-      mounted.current = false;
-      clearInterval(onlineTimer);
-      abortRef.current?.abort();
-    };
-  }, [load]);
+  const loadState =
+    state === "ready" && stats
+      ? ({ status: "ready", stats } as const)
+      : state === "error"
+        ? ({ status: "error" } as const)
+        : ({ status: "loading" } as const);
 
   return (
     <div className="space-y-3">
@@ -116,8 +71,8 @@ export function AdminUserStatsSection() {
         <Button
           variant="secondary"
           className="w-full shrink-0 gap-2 sm:w-auto"
-          loading={refreshing && state.status !== "loading"}
-          onClick={() => void load()}
+          loading={refreshing && state !== "loading"}
+          onClick={() => void reload()}
         >
           <RefreshCw className="h-4 w-4" />
           {t("admin.refresh")}
@@ -130,9 +85,9 @@ export function AdminUserStatsSection() {
             key={metric.key}
             title={t(`admin.userStats.${metric.key}`)}
             hint={t(`admin.userStats.${metric.key}Hint`)}
-            state={state}
+            state={loadState}
             valueKey={metric.key}
-            onRetry={() => void load()}
+            onRetry={() => void reload()}
           />
         ))}
       </div>
@@ -149,7 +104,10 @@ function StatCard({
 }: {
   title: string;
   hint: string;
-  state: LoadState;
+  state:
+    | { status: "loading" }
+    | { status: "ready"; stats: AdminUserStats }
+    | { status: "error" };
   valueKey: MetricKey;
   onRetry: () => void;
 }) {

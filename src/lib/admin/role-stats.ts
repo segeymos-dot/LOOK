@@ -84,7 +84,12 @@ export async function fetchAdminCustomerStats(
 ): Promise<AdminCustomerStats> {
   const { data, error } = await supabase.rpc("get_admin_customer_stats");
   if (error) throw new Error(error.message);
-  const raw = (data ?? {}) as Record<string, unknown>;
+  const raw = (
+    Array.isArray(data) ? data[0] : (data ?? {})
+  ) as Record<string, unknown>;
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Invalid customer stats payload");
+  }
   const ordersRaw =
     raw.orders && typeof raw.orders === "object"
       ? (raw.orders as Record<string, unknown>)
@@ -100,5 +105,11 @@ export async function fetchAdminProviderStats(
 ): Promise<AdminProviderStats> {
   const { data, error } = await supabase.rpc("get_admin_provider_stats");
   if (error) throw new Error(error.message);
-  return mapRolePeriod((data ?? {}) as Record<string, unknown>);
+  const raw = (
+    Array.isArray(data) ? data[0] : (data ?? {})
+  ) as Record<string, unknown>;
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Invalid provider stats payload");
+  }
+  return mapRolePeriod(raw);
 }

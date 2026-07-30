@@ -3,6 +3,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AdminSectionNav } from "@/components/admin/AdminSectionNav";
 import { AdminUserStatsSection } from "@/components/admin/AdminUserStatsSection";
+import { AdminCustomerStatsProvider } from "@/components/admin/AdminCustomerStatsProvider";
 import { AdminRoleAnalyticsSection } from "@/components/admin/AdminRoleAnalyticsSection";
 import { AdminOrderAnalyticsSection } from "@/components/admin/AdminOrderAnalyticsSection";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -97,17 +98,19 @@ export default function AdminStatsPage() {
           <AdminUserStatsSection />
         </section>
 
-        <section>
-          <AdminRoleAnalyticsSection kind="customers" />
-        </section>
+        <AdminCustomerStatsProvider>
+          <section>
+            <AdminRoleAnalyticsSection kind="customers" />
+          </section>
 
-        <section>
-          <AdminRoleAnalyticsSection kind="providers" />
-        </section>
+          <section>
+            <AdminRoleAnalyticsSection kind="providers" />
+          </section>
 
-        <section>
-          <AdminOrderAnalyticsSection />
-        </section>
+          <section>
+            <AdminOrderAnalyticsSection />
+          </section>
+        </AdminCustomerStatsProvider>
 
         <div className="space-y-3 pt-2">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

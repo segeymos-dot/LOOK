@@ -1,11 +1,9 @@
 "use client";
 
 import { AdminMetricCards } from "@/components/admin/AdminMetricCards";
+import { useAdminCustomerStats } from "@/components/admin/AdminCustomerStatsProvider";
 import { Button } from "@/components/ui/Button";
 import { useTranslation } from "@/components/providers/LocaleProvider";
-import { authFetch } from "@/lib/auth/client-fetch";
-import type { CustomerOrderStats } from "@/lib/admin/role-stats";
-import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 function formatHours(value: number | null, t: (k: string, v?: Record<string, string | number>) => string) {
@@ -15,55 +13,8 @@ function formatHours(value: number | null, t: (k: string, v?: Record<string, str
 
 export function AdminOrderAnalyticsSection() {
   const { t } = useTranslation();
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
-  const [orders, setOrders] = useState<CustomerOrderStats | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const mounted = useRef(true);
-  const inFlight = useRef(false);
-  const abortRef = useRef<AbortController | null>(null);
-
-  const load = useCallback(async () => {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setRefreshing(true);
-    setState((prev) => (prev === "ready" ? prev : "loading"));
-    try {
-      const res = await authFetch("/api/admin/customer-stats", {
-        signal: controller.signal,
-      });
-      if (controller.signal.aborted) return;
-      const data = await res.json();
-      if (!mounted.current || controller.signal.aborted) return;
-      if (!res.ok || !data.stats?.orders) {
-        setState("error");
-        setOrders(null);
-        return;
-      }
-      setOrders(data.stats.orders as CustomerOrderStats);
-      setState("ready");
-    } catch (error) {
-      if (!mounted.current) return;
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      setState("error");
-      setOrders(null);
-    } finally {
-      inFlight.current = false;
-      if (mounted.current) setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    mounted.current = true;
-    void load();
-    return () => {
-      mounted.current = false;
-      abortRef.current?.abort();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { state, stats, refreshing, reload } = useAdminCustomerStats();
+  const orders = stats?.orders ?? null;
 
   const o = orders;
   const items = [
@@ -147,13 +98,13 @@ export function AdminOrderAnalyticsSection() {
           variant="secondary"
           className="w-full shrink-0 gap-2 sm:w-auto"
           loading={refreshing && state !== "loading"}
-          onClick={() => void load()}
+          onClick={() => void reload()}
         >
           <RefreshCw className="h-4 w-4" />
           {t("admin.refresh")}
         </Button>
       </div>
-      <AdminMetricCards items={items} state={state} onRetry={() => void load()} />
+      <AdminMetricCards items={items} state={state} onRetry={() => void reload()} />
     </div>
   );
 }
