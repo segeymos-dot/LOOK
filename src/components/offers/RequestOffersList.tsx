@@ -319,17 +319,6 @@ export function RequestOffersList({
         </div>
       )}
 
-      {isAcceptedProvider && requestStatus === "completed" && (
-        <div className="mb-4">
-          <ReviewForm
-            revieweeId={customerId}
-            requestId={requestId}
-            title={t("review.rateCustomer")}
-            placeholder={t("offer.customerPlaceholder")}
-          />
-        </div>
-      )}
-
       {isRequestOwner &&
         providerCapable &&
         requestStatus === "open" &&
