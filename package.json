@@ -34,6 +34,7 @@
     "test:cancel-refund": "node scripts/verify-cancel-refund-flow.mjs",
     "test:ledger": "node scripts/verify-ledger-codes.mjs",
     "test:ledger-refund": "node scripts/verify-ledger-refund-flow.mjs",
+    "test:admin-disputes": "node scripts/verify-admin-dispute-resolution.mjs",
     "repair:cancelled-paid-refund": "node scripts/repair-cancelled-paid-refund.mjs",
     "repair:refund-ledger": "node scripts/repair-refund-ledger.mjs",
     "desktop": "npm run desktop:install",

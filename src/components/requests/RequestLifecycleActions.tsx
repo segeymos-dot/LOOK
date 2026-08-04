@@ -227,7 +227,7 @@ export function RequestLifecycleActions({
       )}
 
       {disputeStatus === "dispute_opened" && (
-        <p className="mb-3 rounded-xl bg-orange-50 px-4 py-2 text-sm text-orange-800">
+        <p className="mb-3 text-sm text-text-secondary">
           {t("request.cancelFlow.disputeOpenHint")}
         </p>
       )}

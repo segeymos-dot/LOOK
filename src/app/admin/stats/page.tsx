@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { authFetch } from "@/lib/auth/client-fetch";
 import { isDemoMode } from "@/lib/config";
 import type { PlatformStats } from "@/lib/analytics/platform-stats";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
@@ -90,6 +91,12 @@ export default function AdminStatsPage() {
           backHref="/profile"
         />
         <AdminSectionNav activeHref="/admin/stats" />
+
+        <Link href="/admin/disputes">
+          <Button variant="outline" className="w-full sm:w-auto">
+            {t("admin.nav.disputes")}
+          </Button>
+        </Link>
 
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-text-primary">

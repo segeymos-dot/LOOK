@@ -1,5 +1,5 @@
-import { getWorkLifecycleState } from "@/lib/data/work-lifecycle-state";
 import { getOrderDisputeForRequest } from "@/lib/data/order-disputes";
+import { isPlatformAdmin } from "@/lib/data/finance-actions";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -18,46 +18,36 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [{ data: request }, lifecycle, dispute] = await Promise.all([
+  const [{ data: request }, { data: acceptedOffer }, admin] = await Promise.all([
     supabase
       .from("requests")
-      .select(
-        "id, customer_id, status, currency, order_payment_status, refund_dispute_status, refund_reason, cancellation_reason"
-      )
+      .select("id, customer_id, refund_dispute_status, refund_reason, cancellation_reason")
       .eq("id", requestId)
       .maybeSingle(),
-    getWorkLifecycleState(supabase, requestId),
-    getOrderDisputeForRequest(supabase, requestId),
+    supabase
+      .from("offers")
+      .select("provider_id")
+      .eq("request_id", requestId)
+      .eq("status", "accepted")
+      .maybeSingle(),
+    isPlatformAdmin(supabase, user.id),
   ]);
 
   if (!request) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { data: acceptedOffer } = await supabase
-    .from("offers")
-    .select("provider_id, price, currency")
-    .eq("request_id", requestId)
-    .eq("status", "accepted")
-    .maybeSingle();
-
   const isParty =
     user.id === request.customer_id || user.id === acceptedOffer?.provider_id;
 
-  if (!isParty) {
+  if (!isParty && !admin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const dispute = await getOrderDisputeForRequest(supabase, requestId);
+
   return NextResponse.json({
-    requestId,
-    customerId: request.customer_id,
-    dbStatus: request.status,
-    effectiveStatus: lifecycle?.effectiveStatus ?? request.status,
-    revisionFeedback: lifecycle?.revisionFeedback ?? null,
-    acceptedProviderId: acceptedOffer?.provider_id ?? null,
-    grossAmount: Number(acceptedOffer?.price ?? 0),
-    currency: acceptedOffer?.currency ?? request.currency,
-    orderPaymentStatus: request.order_payment_status ?? "unpaid",
+    success: true,
     refundDisputeStatus: request.refund_dispute_status ?? "none",
     dispute,
     disputeFallbackReason: request.refund_reason ?? request.cancellation_reason ?? null,

@@ -10,6 +10,7 @@ export const WORK_ACCEPTED_PREFIX = "LOOK:WORK_ACCEPTED:";
 export const ORDER_CANCELLED_PREFIX = "LOOK:ORDER_CANCELLED:";
 export const ORDER_REFUNDED_PREFIX = "LOOK:ORDER_REFUNDED:";
 export const ORDER_DISPUTE_PREFIX = "LOOK:ORDER_DISPUTE:";
+export const ORDER_DISPUTE_RESOLVED_PREFIX = "LOOK:ORDER_DISPUTE_RESOLVED:";
 
 /** Exact system texts historically written by SQL RPC / older app code. */
 export const LEGACY_WORK_SUBMIT_MESSAGES = [
@@ -52,6 +53,14 @@ export type OrderDisputePayload = {
   reason: string;
 };
 
+export type OrderDisputeResolvedPayload = {
+  decision: string;
+  note: string;
+  customerRefund: number;
+  providerRelease: number;
+  currency: string;
+};
+
 export type SystemChatLabels = {
   workSubmitted: string;
   workRevision: string;
@@ -60,6 +69,7 @@ export type SystemChatLabels = {
   orderCancelled: string;
   orderRefunded: string;
   orderDispute: string;
+  orderDisputeResolved: string;
 };
 
 function chatLabels(locale: Locale): SystemChatLabels {
@@ -86,6 +96,12 @@ function chatLabels(locale: Locale): SystemChatLabels {
         ? "⚠️ Dispute opened. Refund is pending review."
         : "⚠️ Открыт спор. Возврат ожидает рассмотрения."
     ),
+    orderDisputeResolved: pick(
+      "chat.orderDisputeResolved",
+      locale === "en"
+        ? "✅ Dispute resolved by LOOK admin."
+        : "✅ Спор закрыт администратором LOOK."
+    ),
   };
 }
 
@@ -111,6 +127,10 @@ export function encodeOrderRefunded(payload: OrderRefundedPayload): string {
 
 export function encodeOrderDispute(payload: OrderDisputePayload): string {
   return `${ORDER_DISPUTE_PREFIX}${JSON.stringify(payload)}`;
+}
+
+export function encodeOrderDisputeResolved(payload: OrderDisputeResolvedPayload): string {
+  return `${ORDER_DISPUTE_RESOLVED_PREFIX}${JSON.stringify(payload)}`;
 }
 
 function parseLifecycleJson<T>(content: string, prefix: string): T | null {
@@ -151,6 +171,7 @@ export function isWorkLifecycleMessage(content: string): boolean {
     content.startsWith(ORDER_CANCELLED_PREFIX) ||
     content.startsWith(ORDER_REFUNDED_PREFIX) ||
     content.startsWith(ORDER_DISPUTE_PREFIX) ||
+    content.startsWith(ORDER_DISPUTE_RESOLVED_PREFIX) ||
     matchesLegacy(content, LEGACY_WORK_SUBMIT_MESSAGES) ||
     matchesLegacy(content, LEGACY_WORK_REVISION_MESSAGES) ||
     matchesLegacy(content, LEGACY_WORK_ACCEPTED_MESSAGES)
@@ -232,6 +253,19 @@ export function localizeChatMessageContent(content: string, locale: Locale): str
     return isUserEnteredReason(dispute.reason)
       ? `${labels.orderDispute}\n\n${dispute.reason.trim()}`
       : labels.orderDispute;
+  }
+
+  const resolved = parseLifecycleJson<OrderDisputeResolvedPayload>(
+    content,
+    ORDER_DISPUTE_RESOLVED_PREFIX
+  );
+  if (resolved) {
+    const parts = [labels.orderDisputeResolved];
+    if (resolved.customerRefund > 0) {
+      parts.push(`${resolved.customerRefund} ${resolved.currency}`.trim());
+    }
+    if (isUserEnteredReason(resolved.note)) parts.push(resolved.note.trim());
+    return parts.join("\n\n");
   }
 
   const normalized = normalizeSystemLine(content);

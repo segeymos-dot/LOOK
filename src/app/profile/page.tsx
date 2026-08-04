@@ -42,6 +42,7 @@ import {
   MapPin,
   Phone,
   Pencil,
+  Scale,
   Search,
   Users,
   UserRound,
@@ -303,6 +304,12 @@ export default function ProfilePage() {
                     <Button variant="outline" className="w-full justify-start gap-2" size="sm">
                       <Building2 className="h-4 w-4" />
                       {t("profile.adminPlatform")}
+                    </Button>
+                  </Link>
+                  <Link href="/admin/disputes">
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <Scale className="h-4 w-4" />
+                      {t("profile.adminDisputes")}
                     </Button>
                   </Link>
                   <Link href="/admin/customers">

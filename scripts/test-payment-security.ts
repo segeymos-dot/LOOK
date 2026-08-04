@@ -219,6 +219,32 @@ test("8b. ledger refund migration keeps test refunds service_role-only and idemp
   );
 });
 
+test("8c. admin dispute resolution is service_role-only and test-settlement gated", () => {
+  const migration = readFileSync(
+    resolve(root, "supabase/migrations/037_admin_dispute_resolution.sql"),
+    "utf8"
+  );
+  assert.match(migration, /resolve_order_dispute/);
+  assert.match(migration, /preview_dispute_settlement/);
+  assert.match(migration, /TEST_SETTLEMENT_ONLY/);
+  assert.match(migration, /Admin authorization required/);
+  assert.match(migration, /amounts_before/);
+  assert.match(migration, /amounts_after/);
+  assert.match(migration, /GRANT EXECUTE ON FUNCTION resolve_order_dispute[\s\S]*TO service_role/);
+  assert.match(migration, /REVOKE ALL ON FUNCTION resolve_order_dispute[\s\S]*FROM authenticated/);
+  assert.doesNotMatch(
+    migration,
+    /GRANT EXECUTE ON FUNCTION resolve_order_dispute[\s\S]*TO (anon|authenticated)/
+  );
+
+  const resolveRoute = readFileSync(
+    resolve(root, "src/app/api/admin/disputes/[id]/resolve/route.ts"),
+    "utf8"
+  );
+  assert.match(resolveRoute, /requireAdminContext/);
+  assert.match(resolveRoute, /areTestPaymentsEnabled|TEST_PAYMENTS_DISABLED|resolveDisputeAsAdmin/);
+});
+
 test("route source fails closed without ENABLE_TEST_PAYMENTS and hard-denies production", () => {
   const paymentRoute = readFileSync(
     resolve(root, "src/app/api/finance/payments/[id]/route.ts"),

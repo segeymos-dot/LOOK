@@ -19,6 +19,46 @@ export type RefundDisputeStatus =
   | "dispute_opened"
   | "refund_rejected";
 
+export type OrderDisputeStatus = "opened" | "refunded" | "rejected" | "closed";
+
+export type DisputeResolutionDecision =
+  | "full_refund_customer"
+  | "partial_refund"
+  | "release_full_payout"
+  | "split_settlement"
+  | "reject";
+
+export interface OrderDispute {
+  id: string;
+  request_id: string;
+  payment_id: string | null;
+  opened_by: string;
+  /** Exact user-entered reason (immutable after open). */
+  reason: string;
+  status: OrderDisputeStatus;
+  resolution_note: string | null;
+  resolution_decision?: DisputeResolutionDecision | null;
+  resolved_by?: string | null;
+  resolved_at: string | null;
+  customer_refund_amount?: number | null;
+  provider_release_amount?: number | null;
+  platform_fee_retained?: number | null;
+  amounts_before?: Record<string, unknown> | null;
+  amounts_after?: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  opener?: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+    role?: UserRole | null;
+  } | null;
+  resolver?: {
+    id: string;
+    full_name: string;
+  } | null;
+}
+
 export type OrderPayoutStatus =
   | "pending"
   | "processing"

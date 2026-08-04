@@ -4,6 +4,7 @@ import { RequestDetailCard } from "@/components/requests/RequestDetailCard";
 import { RequestDetailPageHeader } from "@/components/requests/RequestDetailPageHeader";
 import { getWorkLifecycleState } from "@/lib/data/work-lifecycle-state";
 import { getRequestOffersForPage } from "@/lib/data/request-offers-server";
+import { getOrderDisputeForRequest } from "@/lib/data/order-disputes";
 import { getReviewForRequest } from "@/lib/data/reviews-server";
 import { getServerLocale } from "@/lib/i18n/server";
 import { localizeOffers, localizeRequest } from "@/lib/i18n/localize-data";
@@ -117,6 +118,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const lifecycle = await getWorkLifecycleState(supabase, id);
   const effectiveStatus = lifecycle?.effectiveStatus ?? request.status;
   const revisionFeedback = lifecycle?.revisionFeedback ?? null;
+  const dispute = await getOrderDisputeForRequest(supabase, id);
   const review = await getReviewForRequest(id);
   const initialReview =
     review && user && review.reviewer_id === user.id
@@ -172,6 +174,10 @@ export default async function RequestDetailPage({ params }: PageProps) {
               : request.order_amount != null
                 ? Number(request.order_amount)
                 : null
+          }
+          initialDispute={dispute}
+          disputeFallbackReason={
+            request.refund_reason ?? request.cancellation_reason ?? null
           }
         />
       </div>
