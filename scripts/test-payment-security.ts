@@ -6,7 +6,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { areTestPaymentsEnabled } from "../src/lib/payments/test-payments-guard.ts";
+import {
+  areTestPaymentsEnabled,
+  isProductionRuntime,
+  isTestPaymentActor,
+} from "../src/lib/payments/test-payments-guard.ts";
 import {
   authorizeTestOrderPayment,
   authorizeTestPayout,
@@ -33,17 +37,27 @@ test("2. false flag → denied", () => {
   assert.equal(areTestPaymentsEnabled({ ENABLE_TEST_PAYMENTS: " true " }), false);
 });
 
-test("3. production with false flag → denied", () => {
+test("3. production always denied (even with true flag)", () => {
+  assert.equal(isProductionRuntime({ NODE_ENV: "production" }), true);
+  assert.equal(isProductionRuntime({ VERCEL_ENV: "production" }), true);
   assert.equal(
     areTestPaymentsEnabled({
       NODE_ENV: "production",
-      ENABLE_TEST_PAYMENTS: "false",
+      ENABLE_TEST_PAYMENTS: "true",
+    }),
+    false
+  );
+  assert.equal(
+    areTestPaymentsEnabled({
+      VERCEL_ENV: "production",
+      ENABLE_TEST_PAYMENTS: "true",
     }),
     false
   );
   assert.equal(
     areTestPaymentsEnabled({
       NODE_ENV: "production",
+      ENABLE_TEST_PAYMENTS: "false",
     }),
     false
   );
@@ -74,6 +88,19 @@ test("5. explicit true flag + unauthorized user/order → denied", () => {
   });
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.status, 403);
+});
+
+test("5b. platform admin may authorize non-owned order", () => {
+  const result = authorizeTestOrderPayment({
+    authenticatedUserId: "admin-1",
+    orderCustomerId: "cust-1",
+    orderStatus: "in_progress",
+    orderPaymentStatus: "unpaid",
+    existingPaymentStatus: null,
+    expectedGrossAmount: 100,
+    isPlatformAdmin: true,
+  });
+  assert.equal(result.ok, true);
 });
 
 test("6. explicit true flag + already-paid order → denied", () => {
@@ -125,6 +152,16 @@ test("7. explicit true flag + valid authorized test scenario → allowed", () =>
   assert.equal(payoutDenied.ok, false);
 });
 
+test("7b. test payment actors are limited to test emails / admins", () => {
+  assert.equal(isTestPaymentActor({ email: "customer@test.look" }), true);
+  assert.equal(isTestPaymentActor({ email: "admin@test.look" }), true);
+  assert.equal(isTestPaymentActor({ email: "someone@example.com" }), false);
+  assert.equal(
+    isTestPaymentActor({ email: "someone@example.com", isPlatformAdmin: true }),
+    true
+  );
+});
+
 test("8. migration revokes browser-role RPC execution", () => {
   const migration = readFileSync(
     resolve(root, "supabase/migrations/027_revoke_simulate_test_grants.sql"),
@@ -160,7 +197,29 @@ test("8. migration revokes browser-role RPC execution", () => {
   assert.match(migration, /auth\.role\(\) = 'service_role'/);
 });
 
-test("route source fails closed without ENABLE_TEST_PAYMENTS", () => {
+test("8b. ledger refund migration keeps test refunds service_role-only and idempotent", () => {
+  const migration = readFileSync(
+    resolve(root, "supabase/migrations/034_ledger_refund_dispute.sql"),
+    "utf8"
+  );
+
+  assert.match(migration, /customer_refund/);
+  assert.match(migration, /provider_earning_reversal/);
+  assert.match(migration, /platform_commission_reversal/);
+  assert.match(migration, /insert_ledger_entry/);
+  assert.match(migration, /transactions_idempotency_key_uidx/);
+  assert.match(migration, /transactions_payment_ledger_code_uidx/);
+  assert.match(migration, /TEST_REFUND_ONLY/);
+  assert.match(migration, /GRANT EXECUTE ON FUNCTION apply_test_refund\(UUID, TEXT\) TO service_role/);
+  assert.match(migration, /REVOKE ALL ON FUNCTION apply_test_refund\(UUID, TEXT\) FROM authenticated/);
+  assert.match(migration, /GRANT EXECUTE ON FUNCTION insert_ledger_entry[\s\S]*TO service_role/);
+  assert.doesNotMatch(
+    migration,
+    /GRANT EXECUTE ON FUNCTION apply_test_refund\(UUID, TEXT\) TO (anon|authenticated)/
+  );
+});
+
+test("route source fails closed without ENABLE_TEST_PAYMENTS and hard-denies production", () => {
   const paymentRoute = readFileSync(
     resolve(root, "src/app/api/finance/payments/[id]/route.ts"),
     "utf8"
@@ -175,8 +234,11 @@ test("route source fails closed without ENABLE_TEST_PAYMENTS", () => {
   );
 
   assert.match(guard, /ENABLE_TEST_PAYMENTS === "true"/);
+  assert.match(guard, /isProductionRuntime/);
+  assert.match(guard, /VERCEL_ENV/);
   assert.doesNotMatch(guard, /NEXT_PUBLIC_ENABLE_TEST_PAYMENTS/);
   assert.match(paymentRoute, /areTestPaymentsEnabled\(\)/);
+  assert.match(paymentRoute, /isTestPaymentActor/);
   assert.match(paymentRoute, /status: 403/);
   assert.match(payoutRoute, /areTestPaymentsEnabled\(\)/);
   assert.match(payoutRoute, /status: 403/);

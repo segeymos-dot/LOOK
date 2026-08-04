@@ -11,6 +11,8 @@ export type TestPaymentAuthzInput = {
   existingPaymentStatus: string | null | undefined;
   /** Server-loaded expected gross (order_amount ?? accepted offer price). */
   expectedGrossAmount: number | null | undefined;
+  /** Local/dev only: platform admin may simulate payment for any in-progress order. */
+  isPlatformAdmin?: boolean;
 };
 
 export type TestPaymentAuthzResult =
@@ -28,7 +30,8 @@ export function authorizeTestOrderPayment(
     return { ok: false, status: 400, error: "Request not found" };
   }
 
-  if (input.orderCustomerId !== input.authenticatedUserId) {
+  const isOwner = input.orderCustomerId === input.authenticatedUserId;
+  if (!isOwner && !input.isPlatformAdmin) {
     return { ok: false, status: 403, error: "Not authorized" };
   }
 

@@ -5,7 +5,11 @@ import { getMockOrderPayment, initDemoOrderPayment } from "@/lib/mock/order-paym
 import { getMockOffers, getMockRequest } from "@/lib/mock/data";
 import { getServerLocale } from "@/lib/i18n/server";
 import { localizeRequest } from "@/lib/i18n/localize-data";
-import { areTestPaymentsEnabled } from "@/lib/payments/test-payments-guard";
+import { isPlatformAdmin } from "@/lib/data/finance-actions";
+import {
+  areTestPaymentsEnabled,
+  isTestPaymentActor,
+} from "@/lib/payments/test-payments-guard";
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -77,7 +81,15 @@ export default async function RequestPaymentPage({ params }: PageProps) {
 
   if (!request) notFound();
 
-  if (!user || user.id !== request.customer_id) {
+  const platformAdmin = user ? await isPlatformAdmin(supabase, user.id) : false;
+  const canUseTestPayments =
+    allowTestPayments &&
+    isTestPaymentActor({ email: user?.email, isPlatformAdmin: platformAdmin });
+  const canAccessPayment =
+    !!user &&
+    (user.id === request.customer_id || (canUseTestPayments && platformAdmin));
+
+  if (!canAccessPayment) {
     redirect(`/requests/${id}`);
   }
 
@@ -111,7 +123,7 @@ export default async function RequestPaymentPage({ params }: PageProps) {
             grossAmount={grossAmount}
             currency={currency}
             initialOrderPaymentStatus={request.order_payment_status ?? "unpaid"}
-            allowTestPayments={allowTestPayments}
+            allowTestPayments={canUseTestPayments}
           />
         </Suspense>
       </div>

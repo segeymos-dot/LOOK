@@ -58,21 +58,39 @@ export async function getProviderBalance(
 export async function getPlatformSummary(
   supabase: SupabaseClient
 ): Promise<PlatformSummary> {
-  const [{ data: commissions }, { data: payments }, { data: rateRow }] = await Promise.all([
-    supabase.from("platform_commissions").select("commission_amount, currency"),
-    supabase.from("payments").select("amount_gross, currency").eq("status", "paid"),
+  const [{ data: payments }, { data: rateRow }, { data: ledger }] = await Promise.all([
+    supabase.from("payments").select("amount_gross, currency, status"),
     supabase.from("platform_settings").select("value").eq("key", "commission_rate").maybeSingle(),
+    supabase
+      .from("transactions")
+      .select("ledger_code, type, amount, amount_signed, currency, status")
+      .eq("status", "completed")
+      .in("ledger_code", [
+        "platform_commission",
+        "platform_commission_reversal",
+      ]),
   ]);
 
-  const commissionList = commissions ?? [];
   const paymentList = payments ?? [];
-  const currency = commissionList[0]?.currency ?? paymentList[0]?.currency ?? "USD";
+  const activePaid = paymentList.filter((p) => p.status === "paid");
+  const ledgerRows = ledger ?? [];
+  const currency =
+    ledgerRows[0]?.currency ?? activePaid[0]?.currency ?? paymentList[0]?.currency ?? "USD";
+
+  // Net LOOK revenue from immutable ledger (commission − reversals).
+  const totalCommission = ledgerRows.reduce((sum, row) => {
+    const code = row.ledger_code || row.type;
+    const abs = Math.abs(Number(row.amount) || 0);
+    if (code === "platform_commission") return sum + abs;
+    if (code === "platform_commission_reversal") return sum - abs;
+    return sum;
+  }, 0);
 
   return {
     commission_rate: Number(rateRow?.value ?? 0.10),
-    total_commission: commissionList.reduce((s, c) => s + Number(c.commission_amount), 0),
-    paid_orders_count: paymentList.length,
-    gross_volume: paymentList.reduce((s, p) => s + Number(p.amount_gross), 0),
+    total_commission: Math.round(totalCommission * 100) / 100,
+    paid_orders_count: activePaid.length,
+    gross_volume: activePaid.reduce((s, p) => s + Number(p.amount_gross), 0),
     currency,
   };
 }

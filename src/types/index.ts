@@ -216,7 +216,13 @@ export type TransactionType =
   | "platform_commission"
   | "provider_earning"
   | "provider_payout"
-  | "refund";
+  | "refund"
+  | "customer_refund"
+  | "provider_earning_reversal"
+  | "platform_commission_reversal"
+  | "provider_payout_reversal"
+  | "dispute_opened"
+  | "dispute_resolved";
 export type TransactionStatus = "pending" | "completed" | "failed" | "reversed";
 export type PayoutStatus = "pending" | "processing" | "completed" | "failed" | "cancelled";
 
@@ -262,10 +268,15 @@ export interface FinanceTransaction {
   user_id: string | null;
   provider_id: string | null;
   type: TransactionType;
+  ledger_code?: string | null;
   amount: number;
+  amount_signed?: number | null;
+  account_scope?: "customer" | "provider" | "platform" | "system" | null;
   currency: string;
   status: TransactionStatus;
+  /** Stable ledger code (not localized prose). */
   description: string;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
 }
 

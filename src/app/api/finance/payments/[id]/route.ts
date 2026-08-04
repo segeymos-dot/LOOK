@@ -2,11 +2,17 @@ import { getMockOffers, getMockRequest } from "@/lib/mock/data";
 import { getDemoPaymentForRequest, simulateDemoPayment } from "@/lib/mock/finance";
 import { getMockOrderPayment, initDemoOrderPayment, markMockOrderPaid } from "@/lib/mock/order-payments";
 import { isDemoMode } from "@/lib/config";
-import { getPaymentForRequest, simulateTestPayment } from "@/lib/data/finance-actions";
+import {
+  getPaymentForRequest,
+  isPlatformAdmin,
+  simulateTestPayment,
+} from "@/lib/data/finance-actions";
 import { getOrderPaymentSnapshot } from "@/lib/payments/order-payment";
 import { authorizeTestOrderPayment } from "@/lib/payments/test-payment-authorization";
 import {
   areTestPaymentsEnabled,
+  isTestPaymentActor,
+  testPaymentsActorDeniedJson,
   testPaymentsDisabledJson,
 } from "@/lib/payments/test-payments-guard";
 import { getFinanceApiUser } from "@/lib/api/finance-auth";
@@ -72,6 +78,16 @@ export async function POST(
   const auth = await getFinanceApiUser(request);
   if ("error" in auth) return auth.error;
 
+  const admin = await isPlatformAdmin(auth.supabase, auth.user.id);
+  if (
+    !isTestPaymentActor({
+      email: auth.user.email,
+      isPlatformAdmin: admin,
+    })
+  ) {
+    return NextResponse.json(testPaymentsActorDeniedJson(), { status: 403 });
+  }
+
   let externalReference: string | undefined;
   try {
     const body = (await request.json()) as { external_reference?: string };
@@ -108,6 +124,7 @@ export async function POST(
     orderPaymentStatus: order.order_payment_status,
     existingPaymentStatus: existingPayment?.status ?? null,
     expectedGrossAmount: Number(order.order_amount ?? offer?.price),
+    isPlatformAdmin: admin,
   });
 
   if (!authz.ok) {

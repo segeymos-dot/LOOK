@@ -57,9 +57,24 @@ export function PaymentHistoryList() {
               >
                 {entry.request_title}
               </Link>
-              <span className="text-xs text-text-muted">
-                {t(`finance.paymentHistory.role.${entry.role}`)}
-              </span>
+              <div className="flex flex-col items-end gap-1">
+                <span className="text-xs text-text-muted">
+                  {t(`finance.paymentHistory.role.${entry.role}`)}
+                </span>
+                <span className="text-xs font-medium text-text-secondary">
+                  {t(
+                    `finance.paymentStatus.${
+                      entry.payment_status === "paid"
+                        ? "paid"
+                        : entry.payment_status === "refunded"
+                          ? "refunded"
+                          : entry.payment_status === "failed"
+                            ? "failed"
+                            : "pending"
+                    }`
+                  )}
+                </span>
+              </div>
             </div>
             <p className="font-bold text-text-primary">
               {formatPrice(entry.amount_gross, entry.currency)}

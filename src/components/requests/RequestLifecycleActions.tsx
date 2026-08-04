@@ -1,10 +1,8 @@
 "use client";
 
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
-import { OrderPaymentStatusBadge } from "@/components/finance/OrderPaymentStatusBadge";
-import { RefundDisputeStatusBadge } from "@/components/finance/RefundDisputeStatusBadge";
+import { OrderFinanceStatusBadge } from "@/components/finance/OrderFinanceStatusBadge";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { authFetch } from "@/lib/auth/client-fetch";
@@ -178,11 +176,14 @@ export function RequestLifecycleActions({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // Stable system codes when user leaves reason empty; free-text kept as entered.
           reason:
             reason.trim() ||
             (outcome === "refunded"
-              ? t("request.cancelFlow.defaultRefundReason")
-              : t("request.cancelFlow.defaultCancelReason")),
+              ? "customer_cancel_before_work_submission"
+              : outcome === "dispute_opened"
+                ? "customer_cancel_after_work_submission"
+                : "customer_cancel_unpaid"),
         }),
       });
       const result = await response.json();
@@ -209,11 +210,11 @@ export function RequestLifecycleActions({
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm font-semibold text-text-primary">{t("request.manageTitle")}</p>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge status={status} />
-          {paymentStatus && paymentStatus !== "unpaid" && (
-            <OrderPaymentStatusBadge status={paymentStatus} />
-          )}
-          <RefundDisputeStatusBadge status={disputeStatus} />
+          {/* Order lifecycle status lives on RequestDetailCard; here only finance status. */}
+          <OrderFinanceStatusBadge
+            orderPaymentStatus={paymentStatus}
+            refundDisputeStatus={disputeStatus}
+          />
         </div>
       </div>
 

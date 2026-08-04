@@ -45,11 +45,12 @@ export function OrderPaymentScreen({
 }: OrderPaymentScreenProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, isPlatformAdmin } = useAuth();
   const { t } = useTranslation();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
+  const [testPaying, setTestPaying] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [localOrderPaymentStatus, setLocalOrderPaymentStatus] =
     useState<OrderPaymentStatus>(initialOrderPaymentStatus);
@@ -70,6 +71,7 @@ export function OrderPaymentScreen({
   const rate = getPlatformCommissionRate();
   const split = calculatePaymentSplit(grossAmount, rate);
   const isOwner = user?.id === customerId;
+  const canPay = isOwner || (allowTestPayments && isPlatformAdmin);
   const orderPaymentStatus = liveOrderPaymentStatus ?? localOrderPaymentStatus;
   const paid =
     isPaid || orderPaymentStatus === "paid" || orderPaymentStatus === "completed";
@@ -110,7 +112,7 @@ export function OrderPaymentScreen({
       .finally(() => setConfirming(false));
   }, [searchParams, confirmStripeSession, refresh, requestId, router, t]);
 
-  if (!isOwner) {
+  if (!canPay) {
     return (
       <Card padding="md">
         <p className="text-sm text-text-secondary">{t("finance.payment.unauthorized")}</p>
@@ -159,6 +161,27 @@ export function OrderPaymentScreen({
     router.refresh();
   };
 
+  const handleTestPay = async () => {
+    if (!allowTestPayments) return;
+    setError(null);
+    setTestPaying(true);
+    try {
+      // begin_order_payment is owner-only; admins skip straight to simulate_test_payment.
+      if (isOwner) {
+        const begun = await beginPayment();
+        if (begun) setLocalOrderPaymentStatus("payment_pending");
+      }
+      await pay(`test_one_click_${Date.now()}`);
+      setLocalOrderPaymentStatus("paid");
+      router.push(`/requests/${requestId}?paid=1`);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("finance.payment.error"));
+    } finally {
+      setTestPaying(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader title={t("finance.paymentPage.title")} backHref={`/requests/${requestId}`} />
@@ -184,7 +207,6 @@ export function OrderPaymentScreen({
               <ShieldCheck className="h-5 w-5" />
               <span className="font-semibold">{t("finance.orderPaymentStatus.completed")}</span>
             </div>
-            <OrderPaymentStatusBadge status="completed" />
             <Link href={`/requests/${requestId}`}>
               <Button variant="secondary" className="w-full">
                 {t("finance.paymentPage.backToOrder")}
@@ -259,6 +281,23 @@ export function OrderPaymentScreen({
               <CreditCard className="h-5 w-5" />
               {t("finance.paymentPage.payNow", { amount: formatPrice(split.gross, currency) })}
             </Button>
+
+            {allowTestPayments ? (
+              <div className="mt-3 space-y-2">
+                <Button
+                  variant="secondary"
+                  className="w-full gap-2"
+                  size="lg"
+                  loading={testPaying}
+                  disabled={paying}
+                  onClick={() => void handleTestPay()}
+                >
+                  <ShieldCheck className="h-5 w-5" />
+                  {t("finance.paymentPage.testPay")}
+                </Button>
+                <p className="text-xs text-text-muted">{t("finance.paymentPage.testPayHint")}</p>
+              </div>
+            ) : null}
           </>
         )}
       </Card>

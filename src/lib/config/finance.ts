@@ -19,17 +19,25 @@ export function calculatePaymentSplit(grossAmount: number, rate = getPlatformCom
   return { gross, platformFee, providerAmount, rate };
 }
 
+/** @deprecated Use i18n finance.transactionType.* via ledger codes. */
 export const TRANSACTION_TYPE_LABELS: Record<string, string> = {
-  order_payment: "Оплата заказа",
-  platform_commission: "Комиссия LOOK",
-  provider_earning: "Начисление исполнителю",
-  provider_payout: "Выплата исполнителю",
-  refund: "Возврат средств",
+  order_payment: "order_payment",
+  platform_commission: "platform_commission",
+  provider_earning: "provider_earning",
+  provider_payout: "provider_payout",
+  refund: "customer_refund",
+  customer_refund: "customer_refund",
+  provider_earning_reversal: "provider_earning_reversal",
+  platform_commission_reversal: "platform_commission_reversal",
+  provider_payout_reversal: "provider_payout_reversal",
+  dispute_opened: "dispute_opened",
+  dispute_resolved: "dispute_resolved",
 };
 
+/** @deprecated Use i18n finance.paymentStatus.* */
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  pending: "Ожидает",
-  paid: "Оплачен",
-  failed: "Ошибка",
-  refunded: "Возвращён",
+  pending: "pending",
+  paid: "paid",
+  failed: "failed",
+  refunded: "refunded",
 };

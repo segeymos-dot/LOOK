@@ -90,6 +90,7 @@ export function RequestDetailSections({
           viewerUserId={viewerUserId}
           viewerIsCustomer={viewerIsCustomer}
           isDemo={isDemo}
+          refundDisputeStatus={refundDisputeStatus}
         />
       )}
       {acceptedOffer && (

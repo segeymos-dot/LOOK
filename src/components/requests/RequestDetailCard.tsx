@@ -31,6 +31,7 @@ export function RequestDetailCard({ request }: RequestDetailCardProps) {
             requestId={request.id}
             requestStatus={request.status}
             orderPaymentStatus={request.order_payment_status}
+            refundDisputeStatus={request.refund_dispute_status ?? "none"}
           />
         </div>
       </div>

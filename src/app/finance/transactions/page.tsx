@@ -12,6 +12,9 @@ export default function FinanceTransactionsPage() {
   const { t } = useTranslation();
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewer, setViewer] = useState<"customer" | "provider" | "platform" | "admin">(
+    "customer"
+  );
 
   useEffect(() => {
     const load = async () => {
@@ -19,6 +22,7 @@ export default function FinanceTransactionsPage() {
         const res = await authFetch("/api/finance/transactions?limit=50");
         const data = await res.json();
         if (data.transactions) setTransactions(data.transactions);
+        if (data.isAdmin) setViewer("admin");
       } finally {
         setLoading(false);
       }
@@ -37,7 +41,7 @@ export default function FinanceTransactionsPage() {
         {loading ? (
           <p className="text-sm text-text-muted">{t("common.loading")}</p>
         ) : (
-          <FinanceTransactionList transactions={transactions} />
+          <FinanceTransactionList transactions={transactions} viewer={viewer} />
         )}
       </div>
     </AppLayout>

@@ -380,6 +380,10 @@ export function getMockReviewsForProvider(providerId: string): Review[] {
   return mockReviews.filter((r) => r.provider_id === providerId);
 }
 
+export function getMockReviewForRequest(requestId: string): Review | null {
+  return mockReviews.find((r) => r.request_id === requestId) ?? null;
+}
+
 export function getMockCategoriesForProvider(slugs: string[]): Category[] {
   return mockCategories.filter((c) => slugs.includes(c.slug));
 }

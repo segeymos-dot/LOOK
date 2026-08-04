@@ -77,8 +77,8 @@ function chatLabels(locale: Locale): SystemChatLabels {
     orderRefunded: pick(
       "chat.orderRefunded",
       locale === "en"
-        ? "💸 Test refund issued. Payment marked as refunded."
-        : "💸 Тестовый возврат выполнен. Платёж отмечен как возвращённый."
+        ? "💸 Customer refund issued. Payment marked as refunded."
+        : "💸 Возврат заказчику выполнен. Платёж отмечен как возвращённый."
     ),
     orderDispute: pick(
       "chat.orderDispute",
@@ -201,9 +201,16 @@ export function localizeChatMessageContent(content: string, locale: Locale): str
     return formatWorkAcceptedDisplay(labels);
   }
 
+  const isUserEnteredReason = (reason?: string | null) => {
+    const r = reason?.trim();
+    if (!r) return false;
+    // Stable system codes stay out of chat UI; free-text reasons stay verbatim.
+    return !/^[a-z][a-z0-9_]*$/i.test(r);
+  };
+
   const cancelled = parseLifecycleJson<OrderCancelledPayload>(content, ORDER_CANCELLED_PREFIX);
   if (cancelled) {
-    return cancelled.reason?.trim()
+    return isUserEnteredReason(cancelled.reason)
       ? `${labels.orderCancelled}\n\n${cancelled.reason.trim()}`
       : labels.orderCancelled;
   }
@@ -216,13 +223,13 @@ export function localizeChatMessageContent(content: string, locale: Locale): str
         : "";
     const parts = [labels.orderRefunded];
     if (amountLine) parts.push(amountLine);
-    if (refunded.reason?.trim()) parts.push(refunded.reason.trim());
+    if (isUserEnteredReason(refunded.reason)) parts.push(refunded.reason.trim());
     return parts.join("\n\n");
   }
 
   const dispute = parseLifecycleJson<OrderDisputePayload>(content, ORDER_DISPUTE_PREFIX);
   if (dispute) {
-    return dispute.reason?.trim()
+    return isUserEnteredReason(dispute.reason)
       ? `${labels.orderDispute}\n\n${dispute.reason.trim()}`
       : labels.orderDispute;
   }

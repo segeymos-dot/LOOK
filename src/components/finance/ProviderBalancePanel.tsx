@@ -114,7 +114,10 @@ export function ProviderBalancePanel() {
         <h2 className="mb-3 text-lg font-bold text-text-primary">
           {t("finance.provider.recentTransactions")}
         </h2>
-        <FinanceTransactionList transactions={transactions.slice(0, 5)} />
+        <FinanceTransactionList
+          transactions={transactions.slice(0, 5)}
+          viewer="provider"
+        />
       </section>
 
       <p className="text-xs text-text-muted">

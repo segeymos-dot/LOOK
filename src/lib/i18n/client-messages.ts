@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ledgerCodeI18nKey, resolveLedgerCode } from "@/lib/finance/ledger";
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -157,16 +158,13 @@ export function mapUserFacingErrorT(message: string, t: TFn): string {
   return message;
 }
 
-export function getTransactionTypeLabelT(type: string, t: TFn): string {
-  const map: Record<string, string> = {
-    order_payment: "finance.transactionType.orderPayment",
-    platform_commission: "finance.transactionType.platformCommission",
-    provider_earning: "finance.transactionType.providerEarning",
-    provider_payout: "finance.transactionType.providerPayout",
-    refund: "finance.transactionType.refund",
-  };
-  const key = map[type];
-  return key ? t(key) : type;
+export function getTransactionTypeLabelT(
+  type: string,
+  t: TFn,
+  ledgerCode?: string | null
+): string {
+  const code = resolveLedgerCode(type, ledgerCode);
+  return t(ledgerCodeI18nKey(String(code)));
 }
 
 export function getRoleLabelT(role: string | null | undefined, t: TFn): string {
