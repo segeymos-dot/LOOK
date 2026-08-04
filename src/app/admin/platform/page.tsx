@@ -38,7 +38,7 @@ export default function PlatformBalancePage() {
         />
         <AdminSectionNav activeHref="/admin/platform" />
         <PlatformBalancePanel />
-        <Link href="/finance/transactions">
+        <Link href="/finance/transactions?scope=admin">
           <Button variant="outline" className="w-full">
             {t("finance.transactions.title")}
           </Button>

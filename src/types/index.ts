@@ -56,6 +56,8 @@ export interface OrderDispute {
   resolver?: {
     id: string;
     full_name: string;
+    role?: UserRole | null;
+    is_platform_admin?: boolean;
   } | null;
 }
 
@@ -92,6 +94,21 @@ export interface Profile {
   completed_orders_count: number;
   phone_verified: boolean;
   is_platform_admin?: boolean;
+  availability_status?: "available" | "busy" | "away" | "offline";
+  service_locations?: string[];
+  public_profile_visible?: boolean;
+  default_location?: string | null;
+  payout_details_note?: string | null;
+  notification_preferences?: {
+    orderUpdates?: boolean;
+    messages?: boolean;
+    marketing?: boolean;
+    disputeUpdates?: boolean;
+  } | null;
+  privacy_preferences?: {
+    showCity?: boolean;
+    showPhoneToClients?: boolean;
+  } | null;
   created_at: string;
   updated_at: string;
 }

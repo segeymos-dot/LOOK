@@ -66,7 +66,9 @@ export default async function OfferDetailPage({ params }: PageProps) {
     getOrderDisputeForRequest(supabase, requestId),
     supabase
       .from("requests")
-      .select("refund_dispute_status, refund_reason, cancellation_reason")
+      .select(
+        "order_payment_status, refund_dispute_status, refund_reason, cancellation_reason"
+      )
       .eq("id", requestId)
       .maybeSingle(),
   ]);
@@ -82,6 +84,7 @@ export default async function OfferDetailPage({ params }: PageProps) {
       viewerUserId={userId}
       viewerIsCustomer={userId === offer.request.customer_id}
       revisionFeedback={lifecycle?.revisionFeedback ?? null}
+      orderPaymentStatus={requestRes.data?.order_payment_status ?? null}
       refundDisputeStatus={requestRes.data?.refund_dispute_status ?? "none"}
       initialDispute={dispute}
       disputeFallbackReason={

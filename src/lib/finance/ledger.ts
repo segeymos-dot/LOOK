@@ -16,6 +16,54 @@ export const LEDGER_CODES = [
 
 export type LedgerCode = (typeof LEDGER_CODES)[number];
 
+/** Who is viewing a balance / transaction list. */
+export type TransactionViewerScope =
+  | "customer"
+  | "provider"
+  | "platform"
+  | "admin"
+  /** Customer+provider legs for dual-role users — never platform/system. */
+  | "party";
+
+/** Ledger codes visible on each non-admin balance surface. */
+export const LEDGER_CODES_BY_SCOPE: Record<
+  Exclude<TransactionViewerScope, "admin">,
+  readonly LedgerCode[]
+> = {
+  customer: ["order_payment", "customer_refund"],
+  provider: [
+    "provider_earning",
+    "provider_earning_reversal",
+    "provider_payout",
+    "provider_payout_reversal",
+  ],
+  platform: ["platform_commission", "platform_commission_reversal"],
+  party: [
+    "order_payment",
+    "customer_refund",
+    "provider_earning",
+    "provider_earning_reversal",
+    "provider_payout",
+    "provider_payout_reversal",
+  ],
+};
+
+export function ledgerCodesForScope(
+  scope: TransactionViewerScope
+): readonly LedgerCode[] | null {
+  if (scope === "admin") return null; // full audit trail
+  return LEDGER_CODES_BY_SCOPE[scope];
+}
+
+export function isLedgerVisibleToScope(
+  code: string,
+  scope: TransactionViewerScope
+): boolean {
+  if (scope === "admin") return true;
+  const allowed = LEDGER_CODES_BY_SCOPE[scope];
+  return allowed.includes(code as LedgerCode);
+}
+
 const LEGACY_TYPE_TO_CODE: Record<string, LedgerCode> = {
   order_payment: "order_payment",
   provider_earning: "provider_earning",
@@ -58,6 +106,27 @@ export function ledgerCodeI18nKey(code: string): string {
   return I18N_KEY[code as LedgerCode] ?? "finance.transactionType.unknown";
 }
 
+export type AmountViewer =
+  | "customer"
+  | "provider"
+  | "platform"
+  | "admin"
+  | "party";
+
+/**
+ * Pick the sign perspective for a ledger row.
+ * Dual-role ("party") lists use the owning party's sign per row.
+ */
+export function amountViewerForLedgerCode(
+  code: string,
+  viewer: AmountViewer
+): Exclude<AmountViewer, "party"> {
+  if (viewer !== "party") return viewer;
+  if (LEDGER_CODES_BY_SCOPE.provider.includes(code as LedgerCode)) return "provider";
+  if (LEDGER_CODES_BY_SCOPE.platform.includes(code as LedgerCode)) return "platform";
+  return "customer";
+}
+
 /**
  * Signed amount for a viewer role.
  * Positive = inflow to that party; negative = outflow.
@@ -66,30 +135,36 @@ export function signedAmountForViewer(
   code: string,
   amount: number,
   amountSigned: number | null | undefined,
-  viewer: "customer" | "provider" | "platform" | "admin"
+  viewer: AmountViewer
 ): number {
   const abs = Math.abs(Number(amount) || 0);
-  if (amountSigned != null && Number.isFinite(Number(amountSigned)) && viewer === "admin") {
+  const effective = amountViewerForLedgerCode(code, viewer);
+
+  if (
+    amountSigned != null &&
+    Number.isFinite(Number(amountSigned)) &&
+    effective === "admin"
+  ) {
     return Number(amountSigned);
   }
 
   switch (code) {
     case "order_payment":
-      return viewer === "customer" || viewer === "admin" ? -abs : 0;
+      return effective === "customer" || effective === "admin" ? -abs : 0;
     case "customer_refund":
-      return viewer === "customer" || viewer === "admin" ? abs : 0;
+      return effective === "customer" || effective === "admin" ? abs : 0;
     case "provider_earning":
-      return viewer === "provider" || viewer === "admin" ? abs : 0;
+      return effective === "provider" || effective === "admin" ? abs : 0;
     case "provider_earning_reversal":
-      return viewer === "provider" || viewer === "admin" ? -abs : 0;
+      return effective === "provider" || effective === "admin" ? -abs : 0;
     case "platform_commission":
-      return viewer === "platform" || viewer === "admin" ? abs : 0;
+      return effective === "platform" || effective === "admin" ? abs : 0;
     case "platform_commission_reversal":
-      return viewer === "platform" || viewer === "admin" ? -abs : 0;
+      return effective === "platform" || effective === "admin" ? -abs : 0;
     case "provider_payout":
-      return viewer === "provider" || viewer === "admin" ? -abs : 0;
+      return effective === "provider" || effective === "admin" ? -abs : 0;
     case "provider_payout_reversal":
-      return viewer === "provider" || viewer === "admin" ? abs : 0;
+      return effective === "provider" || effective === "admin" ? abs : 0;
     default:
       return 0;
   }

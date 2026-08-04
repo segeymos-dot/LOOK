@@ -5,7 +5,12 @@ import { ProviderWorkSubmit } from "@/components/requests/ProviderWorkSubmit";
 import { OrderPaymentPanel } from "@/components/finance/OrderPaymentPanel";
 import { OrderDisputeDetails } from "@/components/requests/OrderDisputeDetails";
 import { RevisionRequestNotice } from "@/components/requests/RevisionRequestNotice";
-import type { OrderDispute, RefundDisputeStatus, RequestStatus } from "@/types";
+import type {
+  OrderDispute,
+  OrderPaymentStatus,
+  RefundDisputeStatus,
+  RequestStatus,
+} from "@/types";
 
 interface OrderWorkLifecyclePanelProps {
   requestId: string;
@@ -15,6 +20,7 @@ interface OrderWorkLifecyclePanelProps {
   currency: string;
   acceptedProviderId?: string | null;
   revisionFeedback?: string | null;
+  orderPaymentStatus?: OrderPaymentStatus | null;
   refundDisputeStatus?: RefundDisputeStatus | null;
   initialDispute?: OrderDispute | null;
   disputeFallbackReason?: string | null;
@@ -33,6 +39,7 @@ export function OrderWorkLifecyclePanel({
   currency,
   acceptedProviderId,
   revisionFeedback,
+  orderPaymentStatus = null,
   refundDisputeStatus = "none",
   initialDispute = null,
   disputeFallbackReason = null,
@@ -43,7 +50,9 @@ export function OrderWorkLifecyclePanel({
   onSuccess,
 }: OrderWorkLifecyclePanelProps) {
   const showDispute =
-    refundDisputeStatus === "dispute_opened" || Boolean(initialDispute);
+    refundDisputeStatus === "dispute_opened" ||
+    refundDisputeStatus === "refund_rejected" ||
+    Boolean(initialDispute);
 
   if (
     requestStatus === "open" ||
@@ -65,6 +74,8 @@ export function OrderWorkLifecyclePanel({
         <OrderDisputeDetails
           requestId={requestId}
           refundDisputeStatus={refundDisputeStatus}
+          orderPaymentStatus={orderPaymentStatus}
+          currency={currency}
           initialDispute={initialDispute}
           fallbackReason={disputeFallbackReason}
         />

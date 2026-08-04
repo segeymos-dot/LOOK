@@ -44,6 +44,7 @@ import {
   Pencil,
   Scale,
   Search,
+  Settings,
   Users,
   UserRound,
   Wallet,
@@ -509,6 +510,12 @@ export default function ProfilePage() {
                   </Link>
                 </>
               )}
+              <Link href="/settings">
+                <Button variant="outline" className="w-full gap-2">
+                  <Settings className="h-4 w-4" />
+                  {t("profile.settings")}
+                </Button>
+              </Link>
               <Button
                 variant="outline"
                 className="w-full gap-2"
@@ -526,8 +533,9 @@ export default function ProfilePage() {
                 disabled={!user}
                 onClick={async () => {
                   if (!user) return;
-                  await signOut();
-                  router.push("/");
+                  await signOut({ scope: "local" });
+                  router.replace("/login");
+                  router.refresh();
                 }}
               >
                 <LogOut className="h-4 w-4" />

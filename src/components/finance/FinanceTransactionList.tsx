@@ -7,9 +7,12 @@ import {
   getTransactionTypeLabelT,
 } from "@/lib/i18n/client-messages";
 import {
+  isLedgerVisibleToScope,
   isMoneyLedgerCode,
   resolveLedgerCode,
   signedAmountForViewer,
+  type AmountViewer,
+  type TransactionViewerScope,
 } from "@/lib/finance/ledger";
 import { formatPrice } from "@/lib/utils";
 import type { FinanceTransaction } from "@/types";
@@ -19,7 +22,9 @@ interface FinanceTransactionListProps {
   transactions: FinanceTransaction[];
   emptyMessage?: string;
   /** Controls sign presentation for the same ledger event. */
-  viewer?: "customer" | "provider" | "platform" | "admin";
+  viewer?: AmountViewer;
+  /** Optional visibility scope; defaults to viewer (party→party, admin→admin). */
+  scope?: TransactionViewerScope;
 }
 
 function directionIcon(code: string, signed: number) {
@@ -31,11 +36,30 @@ export function FinanceTransactionList({
   transactions,
   emptyMessage,
   viewer = "admin",
+  scope,
 }: FinanceTransactionListProps) {
   const { t, locale } = useTranslation();
   const empty = emptyMessage ?? t("finance.transactions.empty");
+  const visibilityScope: TransactionViewerScope =
+    scope ?? (viewer === "party" ? "party" : viewer);
 
-  if (!transactions.length) {
+  const visible = transactions.filter((tx) => {
+    const code = String(resolveLedgerCode(tx.type, tx.ledger_code));
+    if (!isLedgerVisibleToScope(code, visibilityScope)) return false;
+    if (!isMoneyLedgerCode(code)) {
+      // System audit memos only on the admin trail.
+      return visibilityScope === "admin";
+    }
+    const signed = signedAmountForViewer(
+      code,
+      tx.amount,
+      tx.amount_signed,
+      viewer
+    );
+    return signed !== 0 || visibilityScope === "admin";
+  });
+
+  if (!visible.length) {
     return (
       <Card padding="md" className="text-center">
         <p className="text-sm text-text-muted">{empty}</p>
@@ -45,7 +69,7 @@ export function FinanceTransactionList({
 
   return (
     <div className="space-y-2">
-      {transactions.map((tx) => {
+      {visible.map((tx) => {
         const code = String(resolveLedgerCode(tx.type, tx.ledger_code));
         const signed = signedAmountForViewer(
           code,
@@ -77,7 +101,7 @@ export function FinanceTransactionList({
                 </div>
                 <p className="shrink-0 text-sm font-bold text-text-primary">
                   {isMoneyLedgerCode(code)
-                    ? `${signed > 0 ? "+" : signed < 0 ? "−" : ""}${formatPrice(Math.abs(signed || tx.amount), tx.currency)}`
+                    ? `${signed > 0 ? "+" : signed < 0 ? "−" : ""}${formatPrice(Math.abs(signed), tx.currency)}`
                     : "—"}
                 </p>
               </div>

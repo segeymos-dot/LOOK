@@ -25,7 +25,7 @@ export function ProviderBalancePanel() {
     try {
       const [balRes, txRes] = await Promise.all([
         authFetch("/api/finance/provider-balance"),
-        authFetch("/api/finance/transactions?limit=10"),
+        authFetch("/api/finance/transactions?limit=10&scope=provider"),
       ]);
       const balData = await balRes.json();
       const txData = await txRes.json();

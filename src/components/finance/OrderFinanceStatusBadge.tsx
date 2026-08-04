@@ -7,11 +7,12 @@ import { cn } from "@/lib/utils";
 /**
  * Payment/refund badge for an order.
  * An open dispute does NOT replace payment status — payment stays Paid until resolved.
- * Refund outcomes still take precedence over payment status.
+ * After resolution, show the final payment outcome (Refunded / Completed), not open-dispute copy.
+ * Provider-win (`refund_rejected`) defers to order payment status (typically Completed / Paid out).
  */
 export type OrderFinanceDisplayStatus =
   | OrderPaymentStatus
-  | Exclude<RefundDisputeStatus, "none" | "dispute_opened">;
+  | Exclude<RefundDisputeStatus, "none" | "dispute_opened" | "refund_rejected">;
 
 export function resolveOrderFinanceStatus(
   orderPaymentStatus?: OrderPaymentStatus | null,
@@ -19,10 +20,13 @@ export function resolveOrderFinanceStatus(
 ): OrderFinanceDisplayStatus {
   if (
     refundDisputeStatus === "refunded" ||
-    refundDisputeStatus === "refund_pending" ||
-    refundDisputeStatus === "refund_rejected"
+    refundDisputeStatus === "refund_pending"
   ) {
     return refundDisputeStatus;
+  }
+  // Provider win / reject: payment was released — show payment status, not "Refund rejected".
+  if (refundDisputeStatus === "refund_rejected") {
+    return orderPaymentStatus ?? "completed";
   }
   return orderPaymentStatus ?? "unpaid";
 }
@@ -35,7 +39,6 @@ const styles: Record<OrderFinanceDisplayStatus | "dispute_opened", string> = {
   refunded: "bg-purple-100 text-purple-800",
   failed: "bg-red-100 text-red-800",
   refund_pending: "bg-amber-100 text-amber-800",
-  refund_rejected: "bg-red-100 text-red-800",
   dispute_opened: "bg-orange-100 text-orange-800",
 };
 
@@ -47,7 +50,6 @@ const i18nKey: Record<OrderFinanceDisplayStatus | "dispute_opened", string> = {
   refunded: "finance.orderPaymentStatus.refunded",
   failed: "finance.orderPaymentStatus.failed",
   refund_pending: "finance.refundDisputeStatus.refund_pending",
-  refund_rejected: "finance.refundDisputeStatus.refund_rejected",
   dispute_opened: "finance.refundDisputeStatus.dispute_opened",
 };
 

@@ -1,4 +1,9 @@
 import { calculatePaymentSplit, getPlatformCommissionRate } from "@/lib/config/finance";
+import {
+  isLedgerVisibleToScope,
+  resolveLedgerCode,
+  type TransactionViewerScope,
+} from "@/lib/finance/ledger";
 import type {
   FinanceTransaction,
   Payment,
@@ -174,11 +179,22 @@ export function getDemoPlatformSummary(): PlatformSummary {
   };
 }
 
-export function getDemoTransactionsForUser(userId: string, isAdmin: boolean): FinanceTransaction[] {
-  if (isAdmin) return [...demoTransactions];
-  return demoTransactions.filter(
-    (t) => t.user_id === userId || t.provider_id === userId
-  );
+export function getDemoTransactionsForUser(
+  userId: string,
+  isAdmin: boolean,
+  scope: TransactionViewerScope = isAdmin ? "admin" : "party"
+): FinanceTransaction[] {
+  const base =
+    scope === "admin"
+      ? [...demoTransactions]
+      : demoTransactions.filter(
+          (t) => t.user_id === userId || t.provider_id === userId
+        );
+
+  return base.filter((t) => {
+    const code = String(resolveLedgerCode(t.type, t.ledger_code));
+    return isLedgerVisibleToScope(code, scope);
+  });
 }
 
 export function simulateDemoPayout(providerId: string, amount?: number) {

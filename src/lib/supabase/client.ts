@@ -12,3 +12,8 @@ export function createClient() {
   }
   return browserClient;
 }
+
+/** Drop the singleton so the next login cannot reuse a dirty auth client. */
+export function resetBrowserClient() {
+  browserClient = undefined;
+}

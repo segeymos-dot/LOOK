@@ -21,12 +21,14 @@ export async function GET(
   const [{ data: request }, { data: acceptedOffer }, admin] = await Promise.all([
     supabase
       .from("requests")
-      .select("id, customer_id, refund_dispute_status, refund_reason, cancellation_reason")
+      .select(
+        "id, customer_id, currency, order_payment_status, refund_dispute_status, refund_reason, cancellation_reason"
+      )
       .eq("id", requestId)
       .maybeSingle(),
     supabase
       .from("offers")
-      .select("provider_id")
+      .select("provider_id, currency")
       .eq("request_id", requestId)
       .eq("status", "accepted")
       .maybeSingle(),
@@ -49,6 +51,8 @@ export async function GET(
   return NextResponse.json({
     success: true,
     refundDisputeStatus: request.refund_dispute_status ?? "none",
+    orderPaymentStatus: request.order_payment_status ?? "unpaid",
+    currency: acceptedOffer?.currency ?? request.currency ?? null,
     dispute,
     disputeFallbackReason: request.refund_reason ?? request.cancellation_reason ?? null,
   });

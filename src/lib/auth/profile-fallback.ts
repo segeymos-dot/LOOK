@@ -54,5 +54,25 @@ export function normalizeProfile(raw: Record<string, unknown>): Profile {
     completed_orders_count: Number(raw.completed_orders_count ?? 0),
     phone_verified: Boolean(raw.phone_verified),
     is_platform_admin: Boolean(raw.is_platform_admin),
+    availability_status:
+      raw.availability_status === "busy" ||
+      raw.availability_status === "away" ||
+      raw.availability_status === "offline" ||
+      raw.availability_status === "available"
+        ? raw.availability_status
+        : "available",
+    service_locations: Array.isArray(raw.service_locations)
+      ? (raw.service_locations as string[])
+      : [],
+    public_profile_visible:
+      raw.public_profile_visible === undefined
+        ? true
+        : Boolean(raw.public_profile_visible),
+    default_location: (raw.default_location as string | null) ?? null,
+    payout_details_note: (raw.payout_details_note as string | null) ?? null,
+    notification_preferences:
+      (raw.notification_preferences as Profile["notification_preferences"]) ?? {},
+    privacy_preferences:
+      (raw.privacy_preferences as Profile["privacy_preferences"]) ?? {},
   };
 }

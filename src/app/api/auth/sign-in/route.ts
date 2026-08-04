@@ -1,3 +1,4 @@
+import { registerCurrentSession } from "@/lib/auth/account-sessions";
 import { getClientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { mapAuthError } from "@/lib/test-auth";
@@ -31,6 +32,15 @@ export async function POST(request: Request) {
       { success: false, error: mapAuthError(error.message) },
       { status: 401 }
     );
+  }
+
+  if (data.user && data.session?.access_token) {
+    await registerCurrentSession(supabase, {
+      userId: data.user.id,
+      accessToken: data.session.access_token,
+      userAgent: request.headers.get("user-agent"),
+      ip,
+    });
   }
 
   return NextResponse.json({

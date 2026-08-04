@@ -2,9 +2,16 @@
 
 import { buildProfileFromUser, normalizeProfile } from "@/lib/auth/profile-fallback";
 import { canActAsCustomer, canActAsProvider } from "@/lib/auth/roles";
+import {
+  LOOK_AUTH_BROADCAST,
+  broadcastAuthEvent,
+  clearPrivateClientStorage,
+  hardenPostSignOutNavigation,
+  type AuthBroadcastMessage,
+} from "@/lib/auth/sign-out-cleanup";
 import { isDemoMode } from "@/lib/config";
 import { mockCurrentUser } from "@/lib/mock/data";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, resetBrowserClient } from "@/lib/supabase/client";
 import type { Profile } from "@/types";
 import {
   createContext,
@@ -25,14 +32,23 @@ interface AuthState {
   profileReady: boolean;
 }
 
+export type SignOutOptions = {
+  /** local = this device; global = all devices (Auth refresh tokens). */
+  scope?: "local" | "global";
+  /** Clear interface language from this device (default: keep). */
+  clearLocale?: boolean;
+};
+
 export interface AuthContextValue extends AuthState {
   /** @deprecated use `ready` — kept for existing call sites */
   loading: boolean;
-  signOut: () => Promise<void>;
+  signOut: (options?: SignOutOptions) => Promise<void>;
   refreshProfile: () => Promise<void>;
   /** Re-read session from storage after server-side sign-in */
   syncSession: () => Promise<void>;
   setProfile: (profile: Profile | null) => void;
+  /** Wipe in-memory private auth state immediately (account switch). */
+  clearPrivateAuthState: () => void;
   isProvider: boolean;
   isCustomer: boolean;
   isPlatformAdmin: boolean;
@@ -77,6 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       : { user: null, profile: null, ready: false, profileReady: true }
   );
 
+  const clearPrivateAuthState = useCallback(() => {
+    setState({ user: null, profile: null, ready: true, profileReady: true });
+  }, []);
+
   useEffect(() => {
     if (isDemoMode()) {
       setState({ user: demoUser, profile: mockCurrentUser, ready: true, profileReady: true });
@@ -102,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Never keep previous account profile while the new user loads.
       setState((current) => ({
         user,
         profile: current.user?.id === user.id ? current.profile : null,
@@ -127,53 +148,102 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!initialLoadDone) return;
+      if (event === "SIGNED_OUT") {
+        clearPrivateClientStorage();
+        resetBrowserClient();
+        applySession(null);
+        return;
+      }
+      if (event === "SIGNED_IN" && session?.user) {
+        broadcastAuthEvent({
+          type: "SIGNED_IN",
+          userId: session.user.id,
+          at: Date.now(),
+        });
+      }
       applySession(session?.user ?? null);
     });
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel(LOOK_AUTH_BROADCAST);
+      channel.onmessage = (ev: MessageEvent<AuthBroadcastMessage>) => {
+        const msg = ev.data;
+        if (!msg || typeof msg !== "object") return;
+        if (msg.type === "SIGNED_OUT") {
+          clearPrivateClientStorage();
+          resetBrowserClient();
+          clearPrivateAuthState();
+        }
+        if (msg.type === "SIGNED_IN") {
+          // Another tab signed in as a (possibly different) user — resync.
+          void supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user?.id !== msg.userId) {
+              clearPrivateAuthState();
+            }
+            applySession(session?.user ?? null);
+          });
+        }
+      };
+    } catch {
+      // ignore
+    }
 
     return () => {
       active = false;
       subscription.unsubscribe();
+      channel?.close();
     };
-  }, []);
+  }, [clearPrivateAuthState]);
 
-  const signOut = useCallback(async () => {
-    if (isDemoMode()) {
-      setState({ user: null, profile: null, ready: true, profileReady: true });
-      return;
-    }
-    try {
-      const { getAccessToken } = await import("@/lib/auth/client-fetch");
-      const token = await getAccessToken();
-      const visitorId =
-        typeof window !== "undefined"
-          ? window.localStorage.getItem("look_visitor_id")
-          : null;
-      const sessionId =
-        typeof window !== "undefined"
-          ? window.localStorage.getItem("look_session_id")
-          : null;
-      if (visitorId && visitorId.length >= 8) {
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        if (token) headers.Authorization = `Bearer ${token}`;
-        await fetch("/api/presence/end", {
+  const signOut = useCallback(
+    async (options?: SignOutOptions) => {
+      const scope = options?.scope ?? "local";
+
+      if (isDemoMode()) {
+        clearPrivateAuthState();
+        clearPrivateClientStorage({ clearLocale: options?.clearLocale });
+        return;
+      }
+
+      try {
+        const { getAccessToken } = await import("@/lib/auth/client-fetch");
+        const token = await getAccessToken();
+        await fetch("/api/auth/sign-out", {
           method: "POST",
-          headers,
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           credentials: "same-origin",
-          body: JSON.stringify({ visitorId, sessionId }),
+          body: JSON.stringify({ scope }),
           keepalive: true,
         });
+      } catch {
+        // fall through to local sign-out
       }
-    } catch {
-      // best-effort presence cleanup
-    }
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    setState({ user: null, profile: null, ready: true, profileReady: true });
-  }, []);
+
+      try {
+        const supabase = createClient();
+        await supabase.auth.signOut({ scope });
+      } catch {
+        try {
+          await createClient().auth.signOut();
+        } catch {
+          // ignore
+        }
+      }
+
+      clearPrivateClientStorage({ clearLocale: options?.clearLocale });
+      resetBrowserClient();
+      clearPrivateAuthState();
+      broadcastAuthEvent({ type: "SIGNED_OUT", at: Date.now() });
+      hardenPostSignOutNavigation();
+    },
+    [clearPrivateAuthState]
+  );
 
   const setProfile = useCallback((profile: Profile | null) => {
     setState((current) => ({ ...current, profile }));
@@ -252,12 +322,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshProfile,
       syncSession,
       setProfile,
+      clearPrivateAuthState,
       displayProfile,
       isProvider: canActAsProvider(displayProfile?.role),
       isCustomer: canActAsCustomer(displayProfile?.role),
       isPlatformAdmin: Boolean(displayProfile?.is_platform_admin),
     }),
-    [state, signOut, refreshProfile, syncSession, setProfile, displayProfile]
+    [
+      state,
+      signOut,
+      refreshProfile,
+      syncSession,
+      setProfile,
+      clearPrivateAuthState,
+      displayProfile,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

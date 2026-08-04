@@ -12,7 +12,13 @@ import { authFetch } from "@/lib/auth/session";
 import { isDemoMode } from "@/lib/config";
 import { getMockConversation } from "@/lib/mock/data";
 import { localizeText } from "@/lib/i18n/localize-data";
-import type { OrderDispute, RefundDisputeStatus, RequestStatus, WorkAttachment } from "@/types";
+import type {
+  OrderDispute,
+  OrderPaymentStatus,
+  RefundDisputeStatus,
+  RequestStatus,
+  WorkAttachment,
+} from "@/types";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -26,7 +32,7 @@ type LifecycleInfo = {
   acceptedProviderId: string | null;
   grossAmount: number;
   currency: string;
-  orderPaymentStatus?: string;
+  orderPaymentStatus?: OrderPaymentStatus;
   refundDisputeStatus?: RefundDisputeStatus;
   dispute?: OrderDispute | null;
   disputeFallbackReason?: string | null;
@@ -139,7 +145,8 @@ export default function ChatDetailPage() {
       {lifecycle &&
         lifecycle.effectiveStatus !== "open" &&
         (lifecycle.effectiveStatus !== "cancelled" ||
-          lifecycle.refundDisputeStatus === "dispute_opened") && (
+          lifecycle.refundDisputeStatus === "dispute_opened" ||
+          Boolean(lifecycle.dispute)) && (
           <div className="border-b border-border-subtle bg-surface p-3">
             <OrderWorkLifecyclePanel
               requestId={lifecycle.requestId}
@@ -149,6 +156,7 @@ export default function ChatDetailPage() {
               currency={lifecycle.currency}
               acceptedProviderId={lifecycle.acceptedProviderId}
               revisionFeedback={lifecycle.revisionFeedback}
+              orderPaymentStatus={lifecycle.orderPaymentStatus ?? null}
               refundDisputeStatus={lifecycle.refundDisputeStatus ?? "none"}
               initialDispute={lifecycle.dispute ?? null}
               disputeFallbackReason={lifecycle.disputeFallbackReason ?? null}

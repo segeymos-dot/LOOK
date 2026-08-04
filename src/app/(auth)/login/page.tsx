@@ -18,7 +18,7 @@ import { FormEvent, Suspense, useMemo, useState } from "react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { syncSession } = useAuth();
+  const { syncSession, clearPrivateAuthState } = useAuth();
   const { t } = useTranslation();
   const loginSchema = useMemo(() => createLoginSchema(t), [t]);
   const redirect = safeRedirectPath(searchParams.get("redirect"));
@@ -34,9 +34,17 @@ function LoginForm() {
       data: { user },
     } = await supabase.auth.getUser();
     if (user?.email && user.email !== email) {
-      await supabase.auth.signOut();
+      // Drop previous account state before authenticating the next user.
+      clearPrivateAuthState();
+      const { clearPrivateClientStorage } = await import(
+        "@/lib/auth/sign-out-cleanup"
+      );
+      const { resetBrowserClient } = await import("@/lib/supabase/client");
+      clearPrivateClientStorage();
+      await supabase.auth.signOut({ scope: "local" });
+      resetBrowserClient();
     }
-    return supabase.auth.signInWithPassword({ email, password });
+    return createClient().auth.signInWithPassword({ email, password });
   };
 
   const handleSubmit = async (e: FormEvent) => {

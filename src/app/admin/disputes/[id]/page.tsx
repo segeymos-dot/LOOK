@@ -259,34 +259,116 @@ export default function AdminDisputeDetailPage() {
             </Card>
 
             {!open && (
-              <Card padding="md" className="space-y-2">
+              <Card padding="md" className="space-y-3">
                 <h2 className="font-semibold text-text-primary">
-                  {t("admin.disputes.resolutionAudit")}
+                  {t("request.disputeDetails.resolvedTitle")}
                 </h2>
                 <p className="text-sm">
-                  {t("admin.disputes.decisionLabel")}:{" "}
+                  <span className="text-text-muted">
+                    {t("request.disputeDetails.decisionLabel")}:{" "}
+                  </span>
                   {dispute.resolution_decision
                     ? t(`admin.disputes.decisions.${dispute.resolution_decision}`)
                     : "—"}
                 </p>
                 <p className="text-sm">
-                  {t("admin.disputes.resolvedBy")}: {dispute.resolver_name ?? "—"}
+                  <span className="text-text-muted">
+                    {t("admin.disputes.resolvedBy")}:{" "}
+                  </span>
+                  {dispute.resolver_name ?? t("role.admin")}
                   {dispute.resolved_at
                     ? ` · ${new Date(dispute.resolved_at).toLocaleString(
                         locale === "en" ? "en-US" : "ru-RU"
                       )}`
                     : ""}
                 </p>
-                <p className="whitespace-pre-wrap text-sm">{dispute.resolution_note}</p>
-                {dispute.amounts_before && (
-                  <pre className="overflow-x-auto rounded-xl bg-surface-muted p-3 text-xs">
-                    {JSON.stringify(
-                      { before: dispute.amounts_before, after: dispute.amounts_after },
-                      null,
-                      2
-                    )}
-                  </pre>
-                )}
+                <div className="rounded-xl border border-border-subtle bg-surface-muted px-3 py-3">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                    {t("request.disputeDetails.resolutionNoteLabel")}
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm text-text-primary">
+                    {dispute.resolution_note?.trim() || "—"}
+                  </p>
+                  <p className="mt-2 text-xs text-text-muted">
+                    {t("request.disputeDetails.resolutionNoteImmutable")}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-muted px-3 py-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                    {t("request.disputeDetails.settlementLabel")}
+                  </p>
+                  <ul className="space-y-1 text-sm">
+                    <li className="flex justify-between gap-3">
+                      <span className="text-text-secondary">
+                        {t("request.disputeDetails.settlement.customerRefund")}
+                      </span>
+                      <span className="font-medium tabular-nums">
+                        {formatPrice(dispute.customer_refund_amount ?? 0, dispute.currency)}
+                      </span>
+                    </li>
+                    <li className="flex justify-between gap-3">
+                      <span className="text-text-secondary">
+                        {t("request.disputeDetails.settlement.providerRetained")}
+                      </span>
+                      <span className="font-medium tabular-nums">
+                        {formatPrice(dispute.provider_release_amount ?? 0, dispute.currency)}
+                      </span>
+                    </li>
+                    <li className="flex justify-between gap-3">
+                      <span className="text-text-secondary">
+                        {t("request.disputeDetails.settlement.providerReversed")}
+                      </span>
+                      <span className="font-medium tabular-nums">
+                        {formatPrice(
+                          Math.max(
+                            0,
+                            Number(dispute.amounts_before?.provider_amount ?? 0) -
+                              (dispute.provider_release_amount ?? 0)
+                          ),
+                          dispute.currency
+                        )}
+                      </span>
+                    </li>
+                    <li className="flex justify-between gap-3">
+                      <span className="text-text-secondary">
+                        {t("request.disputeDetails.settlement.commissionRetained")}
+                      </span>
+                      <span className="font-medium tabular-nums">
+                        {formatPrice(dispute.platform_fee_retained ?? 0, dispute.currency)}
+                      </span>
+                    </li>
+                    <li className="flex justify-between gap-3">
+                      <span className="text-text-secondary">
+                        {t("request.disputeDetails.settlement.commissionReversed")}
+                      </span>
+                      <span className="font-medium tabular-nums">
+                        {formatPrice(
+                          Math.max(
+                            0,
+                            Number(dispute.amounts_before?.platform_fee ?? 0) -
+                              (dispute.platform_fee_retained ?? 0)
+                          ),
+                          dispute.currency
+                        )}
+                      </span>
+                    </li>
+                  </ul>
+                  <p className="mt-3 text-sm">
+                    <span className="text-text-muted">
+                      {t("request.disputeDetails.finalPaymentStatus")}:{" "}
+                    </span>
+                    <span className="font-semibold text-text-primary">
+                      {dispute.order_payment_status === "refunded"
+                        ? t("request.disputeDetails.paymentStatus.refunded")
+                        : dispute.order_payment_status === "completed" ||
+                            dispute.refund_dispute_status === "refund_rejected"
+                          ? t("request.disputeDetails.paymentStatus.paid_out")
+                          : dispute.order_payment_status
+                            ? t(`finance.orderPaymentStatus.${dispute.order_payment_status}`)
+                            : "—"}
+                    </span>
+                  </p>
+                </div>
               </Card>
             )}
 

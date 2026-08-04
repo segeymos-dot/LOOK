@@ -72,7 +72,9 @@ export function RequestDetailSections({
   };
 
   const showDispute =
-    refundDisputeStatus === "dispute_opened" || Boolean(initialDispute);
+    refundDisputeStatus === "dispute_opened" ||
+    refundDisputeStatus === "refund_rejected" ||
+    Boolean(initialDispute);
 
   return (
     <>
@@ -94,6 +96,8 @@ export function RequestDetailSections({
         <OrderDisputeDetails
           requestId={requestId}
           refundDisputeStatus={refundDisputeStatus}
+          orderPaymentStatus={orderPaymentStatus}
+          currency={acceptedOffer?.currency ?? requestCurrency}
           initialDispute={initialDispute}
           fallbackReason={disputeFallbackReason}
         />
