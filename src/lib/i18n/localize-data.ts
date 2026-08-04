@@ -4,6 +4,7 @@ import {
   CATEGORY_LABEL_LINES,
   translateDemoString,
 } from "@/lib/i18n/demo-data-translations";
+import { localizeChatMessageContent } from "@/lib/data/work-lifecycle-messages";
 import type {
   Category,
   Conversation,
@@ -135,7 +136,7 @@ export function localizeConversation(
 export function localizeMessage(message: Message, locale: Locale): Message {
   return {
     ...message,
-    content: localizeText(message.content, locale),
+    content: localizeChatMessageContent(message.content, locale),
     sender: message.sender ? localizeProfile(message.sender, locale) : message.sender,
   };
 }

@@ -1,4 +1,5 @@
-import { cancelRequest } from "@/lib/data/request-actions";
+import { cancelOrderSafe } from "@/lib/data/cancel-refund-actions";
+import { isPlatformAdmin } from "@/lib/data/finance-actions";
 import { createAuthenticatedClient } from "@/lib/supabase/authenticated-client";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
@@ -31,16 +32,30 @@ export async function POST(
     );
   }
 
-  const result = await cancelRequest(supabase, id);
+  const body = (await request.json().catch(() => ({}))) as { reason?: string };
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+
+  const admin = await isPlatformAdmin(supabase, user.id);
+  const result = await cancelOrderSafe(supabase, id, user, {
+    reason: reason || undefined,
+    isPlatformAdmin: admin,
+  });
 
   if (!result.success) {
-    return NextResponse.json(result, { status: 400 });
+    const status =
+      result.code === "TEST_PAYMENTS_DISABLED" || result.code === "TEST_ACTOR_DENIED"
+        ? 403
+        : 400;
+    return NextResponse.json(result, { status });
   }
 
   revalidatePath("/");
   revalidatePath("/search");
   revalidatePath("/my/requests");
   revalidatePath(`/requests/${id}`);
+  revalidatePath("/finance/transactions");
+  revalidatePath("/my/balance");
+  revalidatePath("/admin/stats");
 
   return NextResponse.json(result);
 }

@@ -11,6 +11,14 @@ export type OrderPaymentStatus =
   | "refunded"
   | "failed";
 
+/** Customer cancel / refund / dispute state on the order. */
+export type RefundDisputeStatus =
+  | "none"
+  | "refund_pending"
+  | "refunded"
+  | "dispute_opened"
+  | "refund_rejected";
+
 export type OrderPayoutStatus =
   | "pending"
   | "processing"
@@ -91,6 +99,11 @@ export interface Request {
   payment_transaction_id?: string | null;
   payout_status?: OrderPayoutStatus | null;
   paid_at?: string | null;
+  refund_dispute_status?: RefundDisputeStatus;
+  refund_amount?: number | null;
+  refund_reason?: string | null;
+  refunded_at?: string | null;
+  cancellation_reason?: string | null;
   created_at: string;
   updated_at: string;
   // Joined fields

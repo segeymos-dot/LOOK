@@ -2,7 +2,7 @@ import {
   encodeWorkAccepted,
   encodeWorkRevision,
   encodeWorkSubmit,
-  formatWorkSubmitDisplay,
+  LEGACY_WORK_SUBMIT_MESSAGES,
 } from "@/lib/data/work-lifecycle-messages";
 import { getWorkLifecycleState } from "@/lib/data/work-lifecycle-state";
 import {
@@ -105,7 +105,7 @@ async function submitWorkFallback(
   const { error } = await supabase.from("messages").insert({
     conversation_id: context.conversationId,
     sender_id: user.id,
-    content: `${encodeWorkSubmit(payload)}\n\n${formatWorkSubmitDisplay(payload)}`,
+    content: encodeWorkSubmit(payload),
   });
 
   if (error) return { success: false, error: error.message };
@@ -149,7 +149,7 @@ async function requestRevisionFallback(
   const { error } = await supabase.from("messages").insert({
     conversation_id: context.conversationId,
     sender_id: user.id,
-    content: `${encodeWorkRevision(payload)}\n\n🔄 Заказ отправлен на доработку.\n\n${payload.feedback}`,
+    content: encodeWorkRevision(payload),
   });
 
   if (error) return { success: false, error: error.message };
@@ -262,7 +262,7 @@ async function acceptWorkFallback(
     await supabase.from("messages").insert({
       conversation_id: context.conversationId,
       sender_id: user.id,
-      content: `${encodeWorkAccepted()}\n\n✅ Заказчик принял работу. Заказ завершён.`,
+      content: encodeWorkAccepted(),
     });
     await supabase
       .from("conversations")
@@ -277,6 +277,56 @@ async function acceptWorkFallback(
     orderPaymentStatus: "completed",
     paymentId: paymentRow?.id,
   };
+}
+
+async function rewriteLegacySubmitSystemMessage(
+  supabase: SupabaseClient,
+  requestId: string,
+  summary: string,
+  attachments: WorkAttachment[],
+  revision: number
+): Promise<void> {
+  const context = await getAcceptedOfferContext(supabase, requestId);
+  if (!context?.conversationId) return;
+
+  const encoded = encodeWorkSubmit({
+    summary: summary.trim(),
+    attachments,
+    revision,
+  });
+
+  for (const legacy of LEGACY_WORK_SUBMIT_MESSAGES) {
+    const { data: latest } = await supabase
+      .from("messages")
+      .select("id")
+      .eq("conversation_id", context.conversationId)
+      .eq("content", legacy)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latest?.id) {
+      await supabase.from("messages").update({ content: encoded }).eq("id", latest.id);
+      return;
+    }
+  }
+}
+
+async function insertSystemChatMessage(
+  supabase: SupabaseClient,
+  conversationId: string,
+  senderId: string,
+  content: string
+): Promise<void> {
+  await supabase.from("messages").insert({
+    conversation_id: conversationId,
+    sender_id: senderId,
+    content,
+  });
+  await supabase
+    .from("conversations")
+    .update({ last_message_at: new Date().toISOString() })
+    .eq("id", conversationId);
 }
 
 export async function submitWork(
@@ -298,7 +348,18 @@ export async function submitWork(
   });
 
   if (!error) {
-    const result = data as { request_id: string; status: RequestStatus };
+    const result = data as {
+      request_id: string;
+      status: RequestStatus;
+      revision_number?: number;
+    };
+    await rewriteLegacySubmitSystemMessage(
+      supabase,
+      requestId,
+      summary,
+      attachments,
+      result.revision_number ?? 1
+    );
     return { success: true, requestId: result.request_id, status: result.status };
   }
 
@@ -329,6 +390,18 @@ export async function requestRevision(
 
   if (!error) {
     const result = data as { request_id: string; status: RequestStatus };
+    const context = await getAcceptedOfferContext(supabase, requestId);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (context?.conversationId && user) {
+      await insertSystemChatMessage(
+        supabase,
+        context.conversationId,
+        user.id,
+        encodeWorkRevision({ feedback: feedback.trim() })
+      );
+    }
     return { success: true, requestId: result.request_id, status: result.status };
   }
 
@@ -355,6 +428,22 @@ export async function acceptWork(
       order_payment_status?: OrderPaymentStatus;
       already_completed?: boolean;
     };
+
+    if (!result.already_completed) {
+      const context = await getAcceptedOfferContext(supabase, requestId);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (context?.conversationId && user) {
+        await insertSystemChatMessage(
+          supabase,
+          context.conversationId,
+          user.id,
+          encodeWorkAccepted()
+        );
+      }
+    }
+
     return {
       success: true,
       requestId: result.request_id,

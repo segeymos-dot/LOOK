@@ -6,7 +6,13 @@ import { ProviderWorkSubmit } from "@/components/requests/ProviderWorkSubmit";
 import { CustomerWorkReview } from "@/components/requests/CustomerWorkReview";
 import { RequestLifecycleActions } from "@/components/requests/RequestLifecycleActions";
 import { OrderPaymentPanel } from "@/components/finance/OrderPaymentPanel";
-import type { Offer, RequestStatus } from "@/types";
+import type { SubmittedReviewView } from "@/components/profile/ReviewForm";
+import type {
+  Offer,
+  OrderPaymentStatus,
+  RefundDisputeStatus,
+  RequestStatus,
+} from "@/types";
 import { useState } from "react";
 
 export type RequestDetailSectionsProps = {
@@ -20,6 +26,12 @@ export type RequestDetailSectionsProps = {
   viewerIsCustomer?: boolean;
   viewerCanActAsProvider?: boolean;
   isDemo?: boolean;
+  initialReview?: SubmittedReviewView | null;
+  orderPaymentStatus?: OrderPaymentStatus | null;
+  refundDisputeStatus?: RefundDisputeStatus | null;
+  workSubmittedAt?: string | null;
+  hasWorkSubmission?: boolean;
+  paidAmount?: number | null;
 };
 
 export function RequestDetailSections({
@@ -34,6 +46,12 @@ export function RequestDetailSections({
   viewerCanActAsProvider = false,
   isDemo = false,
   revisionFeedback = null,
+  initialReview = null,
+  orderPaymentStatus = "unpaid",
+  refundDisputeStatus = "none",
+  workSubmittedAt = null,
+  hasWorkSubmission = false,
+  paidAmount = null,
 }: RequestDetailSectionsProps & { revisionFeedback?: string | null }) {
   const [offers, setOffers] = useState(initialOffers);
   const acceptedOffer = offers.find((o) => o.status === "accepted");
@@ -51,6 +69,12 @@ export function RequestDetailSections({
         requestId={requestId}
         customerId={customerId}
         initialStatus={requestStatus}
+        orderPaymentStatus={orderPaymentStatus}
+        refundDisputeStatus={refundDisputeStatus}
+        workSubmittedAt={workSubmittedAt}
+        hasWorkSubmission={hasWorkSubmission}
+        paidAmount={paidAmount ?? (acceptedOffer ? Number(acceptedOffer.price) : null)}
+        currency={acceptedOffer?.currency ?? requestCurrency}
         viewerUserId={viewerUserId}
         viewerIsCustomer={viewerIsCustomer}
         isDemo={isDemo}
@@ -115,6 +139,7 @@ export function RequestDetailSections({
         isDemo={isDemo}
         conversationByOfferId={conversationByOfferId}
         hideProviderRespond
+        initialReview={initialReview}
         onOffersChange={setOffers}
       />
     </>

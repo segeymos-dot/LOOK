@@ -31,6 +31,8 @@
     "test:registration": "node scripts/verify-registration.mjs",
     "test:audit-migrations": "node scripts/audit-migrations.mjs",
     "test:cancel-request": "node scripts/verify-cancel-request.mjs",
+    "test:cancel-refund": "node scripts/verify-cancel-refund-flow.mjs",
+    "repair:cancelled-paid-refund": "node scripts/repair-cancelled-paid-refund.mjs",
     "desktop": "npm run desktop:install",
     "desktop:build": "bash desktop/scripts/build-mac-app.sh",
     "desktop:install": "bash desktop/scripts/install-to-desktop.sh",

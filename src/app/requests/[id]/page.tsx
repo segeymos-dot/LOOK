@@ -4,6 +4,7 @@ import { RequestDetailCard } from "@/components/requests/RequestDetailCard";
 import { RequestDetailPageHeader } from "@/components/requests/RequestDetailPageHeader";
 import { getWorkLifecycleState } from "@/lib/data/work-lifecycle-state";
 import { getRequestOffersForPage } from "@/lib/data/request-offers-server";
+import { getReviewForRequest } from "@/lib/data/reviews-server";
 import { getServerLocale } from "@/lib/i18n/server";
 import { localizeOffers, localizeRequest } from "@/lib/i18n/localize-data";
 import { RequestDetailSections } from "@/components/requests/RequestDetailSections";
@@ -13,6 +14,7 @@ import {
   getMockConversationForOffer,
   getMockOffers,
   getMockRequest,
+  getMockReviewForRequest,
   mockCurrentUser,
 } from "@/lib/mock/data";
 import { getMockOrderPayment, initDemoOrderPayment } from "@/lib/mock/order-payments";
@@ -59,6 +61,10 @@ export default async function RequestDetailPage({ params }: PageProps) {
       },
       {}
     );
+    const mockReview = getMockReviewForRequest(id);
+    const initialReview = mockReview
+      ? { rating: mockReview.rating, comment: mockReview.comment }
+      : null;
 
     return (
       <AppLayout activePath="/search" hideNav>
@@ -76,6 +82,7 @@ export default async function RequestDetailPage({ params }: PageProps) {
             viewerIsCustomer={mockCurrentUser.id === localizedRequest.customer_id}
             viewerCanActAsProvider={mockCurrentUser.role !== "customer"}
             isDemo
+            initialReview={initialReview}
           />
         </div>
       </AppLayout>
@@ -110,6 +117,25 @@ export default async function RequestDetailPage({ params }: PageProps) {
   const lifecycle = await getWorkLifecycleState(supabase, id);
   const effectiveStatus = lifecycle?.effectiveStatus ?? request.status;
   const revisionFeedback = lifecycle?.revisionFeedback ?? null;
+  const review = await getReviewForRequest(id);
+  const initialReview =
+    review && user && review.reviewer_id === user.id
+      ? { rating: review.rating, comment: review.comment }
+      : null;
+
+  const { count: workSubmissionCount } = await supabase
+    .from("work_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("request_id", id);
+
+  const { data: paymentRow } = await supabase
+    .from("payments")
+    .select("amount_gross, status")
+    .eq("request_id", id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const localizedRequest = localizeRequest(
     { ...request, status: effectiveStatus, offers_count: offers.length },
     locale
@@ -135,6 +161,18 @@ export default async function RequestDetailPage({ params }: PageProps) {
           viewerIsCustomer={user ? user.id === request.customer_id : undefined}
           viewerCanActAsProvider={viewerCanActAsProvider}
           revisionFeedback={revisionFeedback}
+          initialReview={initialReview}
+          orderPaymentStatus={request.order_payment_status ?? "unpaid"}
+          refundDisputeStatus={request.refund_dispute_status ?? "none"}
+          workSubmittedAt={request.work_submitted_at ?? null}
+          hasWorkSubmission={(workSubmissionCount ?? 0) > 0}
+          paidAmount={
+            paymentRow?.amount_gross != null
+              ? Number(paymentRow.amount_gross)
+              : request.order_amount != null
+                ? Number(request.order_amount)
+                : null
+          }
         />
       </div>
     </AppLayout>
