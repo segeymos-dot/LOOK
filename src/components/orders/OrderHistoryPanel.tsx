@@ -146,11 +146,13 @@ export function OrderHistoryPanel({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("orderHistory.tabs.all")}>
         {TABS.map((key) => (
           <button
             key={key}
             type="button"
+            role="tab"
+            aria-selected={tab === key}
             onClick={() => {
               setTab(key);
               setPage(1);
