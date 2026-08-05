@@ -119,9 +119,17 @@ export async function GET(request: Request) {
       ? await listProviderOrderHistory(auth.supabase, auth.user.id, filters)
       : await listCustomerOrderHistory(auth.supabase, auth.user.id, filters);
 
+  if (result.error) {
+    return NextResponse.json(
+      { success: false, error: result.error, viewer: resolved },
+      { status: 500 }
+    );
+  }
+
   return NextResponse.json({
     success: true,
     viewer: resolved,
+    userId: auth.user.id,
     ...result,
   });
 }

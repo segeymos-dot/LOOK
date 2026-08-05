@@ -17,10 +17,22 @@ import type {
 
 type RawRequest = Record<string, unknown>;
 
+export type OrderHistoryListResult = {
+  items: OrderHistoryItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  error?: string;
+};
+
 function num(v: unknown): number | null {
   if (v == null || v === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function isMissingArchiveColumnError(message: string): boolean {
+  return /archived_at|trashed_at/i.test(message);
 }
 
 type TabSortableQuery = {
@@ -35,17 +47,53 @@ type TabSortableQuery = {
   ) => TabSortableQuery;
 };
 
+/**
+ * Tab filters.
+ * - archived: only archived, never trashed
+ * - all: every non-trashed order (active/completed/cancelled/refunded/disputed/archived)
+ * - other tabs: non-trashed, non-archived, then status group
+ *
+ * When `archiveColumnsAvailable` is false (legacy DB), skip archive/trash SQL filters.
+ */
 function applyTabFilter<T extends TabSortableQuery>(
   query: T,
-  tab: OrderHistoryTab | undefined
+  tab: OrderHistoryTab | undefined,
+  archiveColumnsAvailable: boolean
 ): T {
   const t = tab ?? "all";
+
+  if (!archiveColumnsAvailable) {
+    if (t === "archived") {
+      // Cannot express archived without columns — return empty via impossible filter.
+      return query.eq("id", "00000000-0000-0000-0000-000000000000") as T;
+    }
+    if (t === "active") {
+      return query.in("status", ["open", "in_progress", "pending_review"]) as T;
+    }
+    if (t === "completed") return query.eq("status", "completed") as T;
+    if (t === "cancelled_refunded") {
+      return query.or(
+        "status.eq.cancelled,order_payment_status.eq.refunded,refund_dispute_status.eq.refunded"
+      ) as T;
+    }
+    if (t === "disputed") {
+      return query.eq("refund_dispute_status", "dispute_opened") as T;
+    }
+    return query;
+  }
+
   if (t === "archived") {
     return query.not("archived_at", "is", null).is("trashed_at", null) as T;
   }
-  // Normal tabs exclude trashed and archived rows (except "all").
+
+  // All + status tabs: never show trashed.
   let next = query.is("trashed_at", null) as T;
-  if (t === "all") return next;
+  if (t === "all") {
+    // All = active + completed + cancelled/refunded + disputed (+ archived if not trashed).
+    return next;
+  }
+
+  // Non-All status tabs hide archived rows (they live under Archived).
   next = next.is("archived_at", null) as T;
   if (t === "active") {
     return next.in("status", ["open", "in_progress", "pending_review"]) as T;
@@ -186,7 +234,9 @@ async function enrichOrders(
   ] = await Promise.all([
     supabase
       .from("offers")
-      .select("id, request_id, provider_id, price, status, updated_at, provider:profiles(id, full_name)")
+      .select(
+        "id, request_id, provider_id, price, status, updated_at, provider:profiles(id, full_name)"
+      )
       .in("request_id", ids)
       .eq("status", "accepted"),
     supabase
@@ -268,6 +318,20 @@ async function enrichOrders(
       method.startsWith("test") ||
       method.startsWith("look_test");
 
+    // Prefer conversation matching assigned provider when available.
+    let conversationId = item.conversation_id;
+    if (!conversationId && conv) {
+      conversationId = conv.id as string;
+    }
+    if (providerId && conversations?.length) {
+      const match = conversations.find(
+        (c) =>
+          c.request_id === item.id &&
+          (c.provider_id === providerId || !providerId)
+      );
+      if (match) conversationId = match.id as string;
+    }
+
     return {
       ...item,
       provider_id: providerId,
@@ -275,7 +339,7 @@ async function enrichOrders(
       offer_id: item.offer_id ?? offer?.id ?? null,
       offer_status: item.offer_status ?? (offer ? "accepted" : null),
       accepted_at: item.accepted_at ?? offer?.updated_at ?? null,
-      conversation_id: item.conversation_id ?? (conv?.id as string) ?? null,
+      conversation_id: conversationId ?? null,
       dispute_id: item.dispute_id ?? (dispute?.id as string) ?? null,
       agreed_amount: agreed,
       review_status: reviewStatus,
@@ -292,88 +356,179 @@ async function enrichOrders(
   });
 }
 
-function baseRequestSelect() {
+/** Same join style as /my/requests (works for legacy + new schemas). */
+function baseRequestSelect(includeArchiveColumns: boolean) {
+  const archiveCols = includeArchiveColumns
+    ? "archived_at, trashed_at, "
+    : "";
   return `id, customer_id, category_id, title, description, budget_max, currency, location,
     status, revision_feedback, work_submitted_at, order_payment_status, order_amount,
     payout_status, paid_at, refund_dispute_status, refunded_at, cancellation_reason,
-    archived_at, trashed_at, created_at, updated_at,
+    ${archiveCols}created_at, updated_at,
     customer:profiles!requests_customer_id_fkey(id, full_name, avatar_url),
     category:categories(id, name, slug)`;
+}
+
+function pageParams(filters: OrderHistoryFilters) {
+  const page = Math.max(1, filters.page ?? 1);
+  const pageSize = Math.min(
+    Math.max(filters.pageSize ?? ORDER_HISTORY_PAGE_SIZE, 1),
+    50
+  );
+  return { page, pageSize, from: (page - 1) * pageSize, to: (page - 1) * pageSize + pageSize - 1 };
+}
+
+function applyCommonFilters<T extends {
+  eq: (column: string, value: string) => T;
+  ilike: (column: string, pattern: string) => T;
+  gte: (column: string, value: string | number) => T;
+  lte: (column: string, value: string | number) => T;
+  or: (filters: string) => T;
+}>(query: T, filters: OrderHistoryFilters, opts?: { includeLocationInQ?: boolean }): T {
+  let next = query;
+  if (filters.status && filters.status !== "all") {
+    next = next.eq("status", filters.status);
+  }
+  if (filters.paymentStatus && filters.paymentStatus !== "all") {
+    next = next.eq("order_payment_status", filters.paymentStatus);
+  }
+  if (filters.refundDisputeStatus && filters.refundDisputeStatus !== "all") {
+    next = next.eq("refund_dispute_status", filters.refundDisputeStatus);
+  }
+  if (filters.categoryId) next = next.eq("category_id", filters.categoryId);
+  if (filters.location?.trim()) {
+    next = next.ilike("location", `%${filters.location.trim()}%`);
+  }
+  if (filters.from) next = next.gte("created_at", filters.from);
+  if (filters.to) next = next.lte("created_at", `${filters.to}T23:59:59.999Z`);
+  if (filters.q?.trim()) {
+    const q = filters.q.trim();
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (uuidRe.test(q)) {
+      next = next.or(`title.ilike.%${q}%,id.eq.${q}`);
+    } else if (opts?.includeLocationInQ) {
+      next = next.or(`title.ilike.%${q}%,location.ilike.%${q}%`);
+    } else {
+      next = next.ilike("title", `%${q}%`);
+    }
+  }
+  if (filters.amountMin != null) {
+    next = next.gte("order_amount", filters.amountMin);
+  }
+  if (filters.amountMax != null) {
+    next = next.lte("order_amount", filters.amountMax);
+  }
+  return next;
+}
+
+function matchesProviderTab(
+  item: OrderHistoryItem,
+  filters: OrderHistoryFilters
+): boolean {
+  if (item.trashed_at) return false;
+  const tab = filters.tab ?? "all";
+  if (tab === "archived") return Boolean(item.archived_at);
+  if (tab !== "all" && item.archived_at) return false;
+  if (tab === "active") {
+    return ["open", "in_progress", "pending_review"].includes(item.status);
+  }
+  if (tab === "completed") return item.status === "completed";
+  if (tab === "cancelled_refunded") {
+    return (
+      item.status === "cancelled" ||
+      item.order_payment_status === "refunded" ||
+      item.refund_dispute_status === "refunded"
+    );
+  }
+  if (tab === "disputed") {
+    return item.refund_dispute_status === "dispute_opened";
+  }
+  if (filters.status && filters.status !== "all" && item.status !== filters.status) {
+    return false;
+  }
+  if (
+    filters.paymentStatus &&
+    filters.paymentStatus !== "all" &&
+    item.order_payment_status !== filters.paymentStatus
+  ) {
+    return false;
+  }
+  if (filters.q?.trim()) {
+    const q = filters.q.trim().toLowerCase();
+    if (!item.title.toLowerCase().includes(q) && item.id.toLowerCase() !== q) {
+      return false;
+    }
+  }
+  return true;
+}
+
+async function runCustomerQuery(
+  supabase: SupabaseClient,
+  customerId: string,
+  filters: OrderHistoryFilters,
+  includeArchiveColumns: boolean
+) {
+  const { page, pageSize, from, to } = pageParams(filters);
+
+  let query = supabase
+    .from("requests")
+    .select(baseRequestSelect(includeArchiveColumns), { count: "exact" })
+    .eq("customer_id", customerId);
+
+  query = applyTabFilter(query, filters.tab, includeArchiveColumns);
+  query = applyCommonFilters(query, filters);
+  query = applySort(query, filters.sort).range(from, to);
+
+  return { ...(await query), page, pageSize };
 }
 
 export async function listCustomerOrderHistory(
   supabase: SupabaseClient,
   customerId: string,
   filters: OrderHistoryFilters = {}
-): Promise<{ items: OrderHistoryItem[]; total: number; page: number; pageSize: number }> {
-  const page = Math.max(1, filters.page ?? 1);
-  const pageSize = Math.min(
-    Math.max(filters.pageSize ?? ORDER_HISTORY_PAGE_SIZE, 1),
-    50
-  );
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
+): Promise<OrderHistoryListResult> {
+  const { page, pageSize } = pageParams(filters);
 
-  let query = supabase
-    .from("requests")
-    .select(baseRequestSelect(), { count: "exact" })
-    .eq("customer_id", customerId);
-
-  query = applyTabFilter(query, filters.tab);
-  if (filters.status && filters.status !== "all") {
-    query = query.eq("status", filters.status);
-  }
-  if (filters.paymentStatus && filters.paymentStatus !== "all") {
-    query = query.eq("order_payment_status", filters.paymentStatus);
-  }
-  if (filters.refundDisputeStatus && filters.refundDisputeStatus !== "all") {
-    query = query.eq("refund_dispute_status", filters.refundDisputeStatus);
-  }
-  if (filters.categoryId) query = query.eq("category_id", filters.categoryId);
-  if (filters.location?.trim()) {
-    query = query.ilike("location", `%${filters.location.trim()}%`);
-  }
-  if (filters.from) query = query.gte("created_at", filters.from);
-  if (filters.to) query = query.lte("created_at", `${filters.to}T23:59:59.999Z`);
-  if (filters.q?.trim()) {
-    const q = filters.q.trim();
-    query = query.or(`title.ilike.%${q}%,id.eq.${q}`);
-  }
-  if (filters.amountMin != null) {
-    query = query.gte("order_amount", filters.amountMin);
-  }
-  if (filters.amountMax != null) {
-    query = query.lte("order_amount", filters.amountMax);
+  let result = await runCustomerQuery(supabase, customerId, filters, true);
+  if (result.error && isMissingArchiveColumnError(result.error.message)) {
+    console.warn(
+      "[order-history] archive columns missing; retrying legacy customer query"
+    );
+    result = await runCustomerQuery(supabase, customerId, filters, false);
   }
 
-  query = applySort(query, filters.sort).range(from, to);
-
-  const { data, error, count } = await query;
-  if (error) {
-    console.error("[order-history] customer list failed", error.message);
-    return { items: [], total: 0, page, pageSize };
+  if (result.error) {
+    console.error("[order-history] customer list failed", result.error.message);
+    return {
+      items: [],
+      total: 0,
+      page,
+      pageSize,
+      error: result.error.message,
+    };
   }
 
-  const mapped = ((data ?? []) as unknown as RawRequest[]).map((row) =>
+  const mapped = ((result.data ?? []) as unknown as RawRequest[]).map((row) =>
     mapItem(row)
   );
   const items = await enrichOrders(supabase, mapped);
-  return { items, total: count ?? items.length, page, pageSize };
+  return {
+    items,
+    total: result.count ?? items.length,
+    page: result.page,
+    pageSize: result.pageSize,
+  };
 }
 
 export async function listProviderOrderHistory(
   supabase: SupabaseClient,
   providerId: string,
   filters: OrderHistoryFilters = {}
-): Promise<{ items: OrderHistoryItem[]; total: number; page: number; pageSize: number }> {
-  const page = Math.max(1, filters.page ?? 1);
-  const pageSize = Math.min(
-    Math.max(filters.pageSize ?? ORDER_HISTORY_PAGE_SIZE, 1),
-    50
-  );
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
+): Promise<OrderHistoryListResult> {
+  const { page, pageSize, from, to } = pageParams(filters);
 
+  // Connected via any offer (pending/accepted/rejected) = assignment path.
   let offerQuery = supabase
     .from("offers")
     .select(
@@ -393,7 +548,7 @@ export async function listProviderOrderHistory(
   const { data: offers, error, count } = await offerQuery;
   if (error) {
     console.error("[order-history] provider list failed", error.message);
-    return { items: [], total: 0, page, pageSize };
+    return { items: [], total: 0, page, pageSize, error: error.message };
   }
 
   const offerRows = (offers ?? []) as Array<{
@@ -411,18 +566,42 @@ export async function listProviderOrderHistory(
     return { items: [], total: count ?? 0, page, pageSize };
   }
 
-  const { data: requests, error: reqError } = await supabase
-    .from("requests")
-    .select(baseRequestSelect())
-    .in("id", requestIds);
+  const loadRequests = async (includeArchiveColumns: boolean) =>
+    supabase
+      .from("requests")
+      .select(baseRequestSelect(includeArchiveColumns))
+      .in("id", requestIds);
 
-  if (reqError) {
-    console.error("[order-history] provider requests failed", reqError.message);
-    return { items: [], total: 0, page, pageSize };
+  let reqResult = await loadRequests(true);
+  if (
+    reqResult.error &&
+    isMissingArchiveColumnError(reqResult.error.message)
+  ) {
+    console.warn(
+      "[order-history] archive columns missing; retrying legacy provider query"
+    );
+    reqResult = await loadRequests(false);
+  }
+
+  if (reqResult.error) {
+    console.error(
+      "[order-history] provider requests failed",
+      reqResult.error.message
+    );
+    return {
+      items: [],
+      total: 0,
+      page,
+      pageSize,
+      error: reqResult.error.message,
+    };
   }
 
   const requestById = new Map(
-    ((requests ?? []) as unknown as RawRequest[]).map((r) => [String(r.id), r])
+    ((reqResult.data ?? []) as unknown as RawRequest[]).map((r) => [
+      String(r.id),
+      r,
+    ])
   );
 
   let mapped = offerRows
@@ -442,116 +621,88 @@ export async function listProviderOrderHistory(
     })
     .filter((x): x is OrderHistoryItem => Boolean(x));
 
-  mapped = mapped.filter((item) => {
-    if (item.trashed_at) return false;
-    const tab = filters.tab ?? "all";
-    if (tab === "archived") return Boolean(item.archived_at);
-    if (tab !== "all" && item.archived_at) return false;
-    if (tab === "active") {
-      return ["open", "in_progress", "pending_review"].includes(item.status);
-    }
-    if (tab === "completed") return item.status === "completed";
-    if (tab === "cancelled_refunded") {
-      return (
-        item.status === "cancelled" ||
-        item.order_payment_status === "refunded" ||
-        item.refund_dispute_status === "refunded"
-      );
-    }
-    if (tab === "disputed") {
-      return item.refund_dispute_status === "dispute_opened";
-    }
-    if (filters.status && filters.status !== "all" && item.status !== filters.status) {
-      return false;
-    }
-    if (
-      filters.paymentStatus &&
-      filters.paymentStatus !== "all" &&
-      item.order_payment_status !== filters.paymentStatus
-    ) {
-      return false;
-    }
-    if (filters.q?.trim()) {
-      const q = filters.q.trim().toLowerCase();
-      if (
-        !item.title.toLowerCase().includes(q) &&
-        item.id.toLowerCase() !== q
-      ) {
-        return false;
-      }
-    }
-    return true;
-  });
+  mapped = mapped.filter((item) => matchesProviderTab(item, filters));
 
   const items = await enrichOrders(supabase, mapped);
   return { items, total: count ?? items.length, page, pageSize };
 }
 
-export async function listAdminOrderHistory(
+async function runAdminQuery(
   admin: SupabaseClient,
-  filters: OrderHistoryFilters = {}
-): Promise<{ items: OrderHistoryItem[]; total: number; page: number; pageSize: number }> {
-  const page = Math.max(1, filters.page ?? 1);
-  const pageSize = Math.min(
-    Math.max(filters.pageSize ?? ORDER_HISTORY_PAGE_SIZE, 1),
-    50
-  );
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
+  filters: OrderHistoryFilters,
+  includeArchiveColumns: boolean,
+  requestIds?: string[] | null
+) {
+  const { page, pageSize, from, to } = pageParams(filters);
 
   let query = admin
     .from("requests")
-    .select(baseRequestSelect(), { count: "exact" });
+    .select(baseRequestSelect(includeArchiveColumns), { count: "exact" });
 
-  query = applyTabFilter(query, filters.tab);
+  query = applyTabFilter(query, filters.tab, includeArchiveColumns);
 
   if (filters.customerId) query = query.eq("customer_id", filters.customerId);
-  if (filters.status && filters.status !== "all") {
-    query = query.eq("status", filters.status);
+  if (requestIds) {
+    if (!requestIds.length) {
+      return {
+        data: [],
+        error: null,
+        count: 0,
+        page,
+        pageSize,
+      };
+    }
+    query = query.in("id", requestIds);
   }
-  if (filters.paymentStatus && filters.paymentStatus !== "all") {
-    query = query.eq("order_payment_status", filters.paymentStatus);
-  }
-  if (filters.refundDisputeStatus && filters.refundDisputeStatus !== "all") {
-    query = query.eq("refund_dispute_status", filters.refundDisputeStatus);
-  }
-  if (filters.categoryId) query = query.eq("category_id", filters.categoryId);
-  if (filters.location?.trim()) {
-    query = query.ilike("location", `%${filters.location.trim()}%`);
-  }
-  if (filters.from) query = query.gte("created_at", filters.from);
-  if (filters.to) query = query.lte("created_at", `${filters.to}T23:59:59.999Z`);
-  if (filters.q?.trim()) {
-    const q = filters.q.trim();
-    query = query.or(`title.ilike.%${q}%,id.eq.${q},location.ilike.%${q}%`);
-  }
-  if (filters.amountMin != null) query = query.gte("order_amount", filters.amountMin);
-  if (filters.amountMax != null) query = query.lte("order_amount", filters.amountMax);
 
-  // Provider filter: restrict to request ids with accepted offer from provider.
+  query = applyCommonFilters(query, filters, { includeLocationInQ: true });
+
+  query = applySort(query, filters.sort).range(from, to);
+  return { ...(await query), page, pageSize };
+}
+
+export async function listAdminOrderHistory(
+  admin: SupabaseClient,
+  filters: OrderHistoryFilters = {}
+): Promise<OrderHistoryListResult> {
+  const { page, pageSize } = pageParams(filters);
+
+  let providerRequestIds: string[] | null = null;
   if (filters.providerId) {
     const { data: offers } = await admin
       .from("offers")
       .select("request_id")
-      .eq("provider_id", filters.providerId)
-      .eq("status", "accepted");
-    const ids = (offers ?? []).map((o) => o.request_id as string);
-    if (!ids.length) {
+      .eq("provider_id", filters.providerId);
+    providerRequestIds = [
+      ...new Set((offers ?? []).map((o) => o.request_id as string)),
+    ];
+    if (!providerRequestIds.length) {
       return { items: [], total: 0, page, pageSize };
     }
-    query = query.in("id", ids);
   }
 
-  query = applySort(query, filters.sort).range(from, to);
-  const { data, error, count } = await query;
-  if (error) {
-    console.error("[order-history] admin list failed", error.message);
-    return { items: [], total: 0, page, pageSize };
+  let result = await runAdminQuery(admin, filters, true, providerRequestIds);
+  if (result.error && isMissingArchiveColumnError(result.error.message)) {
+    console.warn(
+      "[order-history] archive columns missing; retrying legacy admin query"
+    );
+    result = await runAdminQuery(admin, filters, false, providerRequestIds);
+  }
+
+  if (result.error) {
+    console.error("[order-history] admin list failed", result.error.message);
+    return {
+      items: [],
+      total: 0,
+      page,
+      pageSize,
+      error: result.error.message,
+    };
   }
 
   let items = await enrichOrders(
     admin,
-    ((data ?? []) as unknown as RawRequest[]).map((row) => mapItem(row))
+    ((result.data ?? []) as unknown as RawRequest[]).map((row) => mapItem(row))
   );
 
   if (filters.testOnly === true) {
@@ -560,7 +711,12 @@ export async function listAdminOrderHistory(
     items = items.filter((i) => !i.is_test);
   }
 
-  return { items, total: count ?? items.length, page, pageSize };
+  return {
+    items,
+    total: result.count ?? items.length,
+    page: result.page,
+    pageSize: result.pageSize,
+  };
 }
 
 export async function setRequestArchived(

@@ -38,7 +38,7 @@ export function OrderHistoryPanel({
   allowExport = false,
 }: Props) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<OrderHistoryTab>("active");
+  const [tab, setTab] = useState<OrderHistoryTab>("all");
   const [sort, setSort] = useState<OrderHistorySort>("newest");
   const [q, setQ] = useState("");
   const [from, setFrom] = useState("");

@@ -87,6 +87,12 @@ export async function GET(request: Request) {
     }
 
     const result = await listAdminOrderHistory(admin, filters);
+    if (result.error) {
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ success: true, ...result });
   } catch (e) {
     return NextResponse.json(
