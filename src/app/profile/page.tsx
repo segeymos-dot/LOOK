@@ -307,6 +307,12 @@ export default function ProfilePage() {
                       {t("profile.adminPlatform")}
                     </Button>
                   </Link>
+                  <Link href="/admin/orders">
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <ClipboardList className="h-4 w-4" />
+                      {t("profile.allOrderHistory")}
+                    </Button>
+                  </Link>
                   <Link href="/admin/disputes">
                     <Button variant="outline" className="w-full justify-start gap-2" size="sm">
                       <Scale className="h-4 w-4" />
@@ -487,15 +493,29 @@ export default function ProfilePage() {
 
             <div className="space-y-2">
               {canActAsCustomer(resolvedProfile?.role) && (
-                <Link href="/my/requests">
-                  <Button variant="secondary" className="w-full gap-2">
-                    <ClipboardList className="h-5 w-5" />
-                    {t("profile.myRequests")}
-                  </Button>
-                </Link>
+                <>
+                  <Link href="/my/orders">
+                    <Button variant="secondary" className="w-full gap-2">
+                      <History className="h-5 w-5" />
+                      {t("profile.orderHistory")}
+                    </Button>
+                  </Link>
+                  <Link href="/my/requests">
+                    <Button variant="secondary" className="w-full gap-2">
+                      <ClipboardList className="h-5 w-5" />
+                      {t("profile.myRequests")}
+                    </Button>
+                  </Link>
+                </>
               )}
               {canActAsProvider(resolvedProfile?.role) && (
                 <>
+                  <Link href="/my/work">
+                    <Button variant="secondary" className="w-full gap-2">
+                      <History className="h-5 w-5" />
+                      {t("profile.workHistory")}
+                    </Button>
+                  </Link>
                   <Link href="/search">
                     <Button variant="secondary" className="w-full gap-2">
                       <Search className="h-5 w-5" />

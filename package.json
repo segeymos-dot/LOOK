@@ -35,6 +35,7 @@
     "test:ledger": "node scripts/verify-ledger-codes.mjs",
     "test:transaction-visibility": "node scripts/verify-transaction-visibility.mjs",
     "test:account-settings": "node scripts/verify-account-settings-auth.mjs",
+    "test:order-history": "node scripts/verify-order-history.mjs",
     "test:ledger-refund": "node scripts/verify-ledger-refund-flow.mjs",
     "test:admin-disputes": "node scripts/verify-admin-dispute-resolution.mjs",
     "repair:cancelled-paid-refund": "node scripts/repair-cancelled-paid-refund.mjs",

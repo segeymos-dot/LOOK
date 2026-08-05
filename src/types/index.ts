@@ -161,6 +161,8 @@ export interface Request {
   refund_reason?: string | null;
   refunded_at?: string | null;
   cancellation_reason?: string | null;
+  archived_at?: string | null;
+  trashed_at?: string | null;
   created_at: string;
   updated_at: string;
   // Joined fields

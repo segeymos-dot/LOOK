@@ -92,11 +92,18 @@ export default function AdminStatsPage() {
         />
         <AdminSectionNav activeHref="/admin/stats" />
 
-        <Link href="/admin/disputes">
-          <Button variant="outline" className="w-full sm:w-auto">
-            {t("admin.nav.disputes")}
-          </Button>
-        </Link>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href="/admin/orders">
+            <Button variant="outline" className="w-full sm:w-auto">
+              {t("profile.allOrderHistory")}
+            </Button>
+          </Link>
+          <Link href="/admin/disputes">
+            <Button variant="outline" className="w-full sm:w-auto">
+              {t("admin.nav.disputes")}
+            </Button>
+          </Link>
+        </div>
 
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-text-primary">
