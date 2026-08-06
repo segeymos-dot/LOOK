@@ -15,6 +15,7 @@ import {
 } from "@/lib/mock/data";
 import { mapOfferActionError } from "@/lib/offers/offer-action-errors";
 import type { Offer, RequestStatus } from "@/types";
+import type { SubmittedReviewView } from "@/components/profile/ReviewForm";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -31,6 +32,7 @@ interface RequestOffersListProps {
   isDemo?: boolean;
   conversationByOfferId?: Record<string, string>;
   hideProviderRespond?: boolean;
+  initialReview?: SubmittedReviewView | null;
   onOffersChange?: (offers: Offer[]) => void;
 }
 
@@ -45,6 +47,7 @@ export function RequestOffersList({
   isDemo = false,
   conversationByOfferId = {},
   hideProviderRespond = false,
+  initialReview = null,
   onOffersChange,
 }: RequestOffersListProps) {
   const router = useRouter();
@@ -62,6 +65,13 @@ export function RequestOffersList({
   const [isOwnerFromApi, setIsOwnerFromApi] = useState<boolean | null>(null);
   const [ownOfferId, setOwnOfferId] = useState<string | null>(null);
   const [ownOfferStatus, setOwnOfferStatus] = useState<string | null>(null);
+  const [existingReview, setExistingReview] = useState<SubmittedReviewView | null>(
+    initialReview
+  );
+
+  useEffect(() => {
+    setExistingReview(initialReview);
+  }, [initialReview]);
 
   const activeUserId = user?.id ?? viewerUserId;
   const isRequestOwner =
@@ -313,8 +323,12 @@ export function RequestOffersList({
           <ReviewForm
             revieweeId={acceptedOffer.provider_id}
             requestId={requestId}
-            title={t("review.rateProvider")}
+            title={
+              existingReview ? t("review.yourReview") : t("review.rateProvider")
+            }
             placeholder={t("offer.providerPlaceholder")}
+            existingReview={existingReview}
+            onSuccess={setExistingReview}
           />
         </div>
       )}

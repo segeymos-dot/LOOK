@@ -31,6 +31,8 @@ yarn-error.log*
 # env files
 .env
 .env*.local
+.env.staging.pooler.uri.tmp
+*.staging.pooler.uri.tmp
 
 # vercel
 .vercel
@@ -55,3 +57,5 @@ supabase/migrations/LOOK.app/
 
 # keep tracked env templates
 !.env.example
+
+.env.vercel.prod

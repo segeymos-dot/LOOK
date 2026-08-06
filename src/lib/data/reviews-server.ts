@@ -16,6 +16,22 @@ export async function getReviewsForProvider(providerId: string): Promise<Review[
   return (data ?? []) as Review[];
 }
 
+export async function getReviewForRequest(
+  requestId: string
+): Promise<Pick<Review, "id" | "rating" | "comment" | "reviewer_id" | "request_id"> | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("id, rating, comment, reviewer_id, request_id")
+    .eq("request_id", requestId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return data;
+}
+
 export async function getConversationWithProvider(
   viewerId: string,
   providerId: string

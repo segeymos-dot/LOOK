@@ -62,11 +62,12 @@ CREATE POLICY "Customers can create reviews for completed requests"
       JOIN public.offers o
         ON o.request_id = r.id
        AND o.status = 'accepted'
-      WHERE r.id = request_id
+      -- Qualify reviews.* so subquery columns cannot shadow the inserted row.
+      WHERE r.id = reviews.request_id
         AND r.customer_id = auth.uid()
         AND r.status = 'completed'
-        AND o.provider_id = reviewee_id
-        AND o.provider_id = provider_id
+        AND o.provider_id = reviews.reviewee_id
+        AND o.provider_id = reviews.provider_id
     )
   );
 
