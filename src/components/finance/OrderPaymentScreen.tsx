@@ -3,10 +3,6 @@
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import {
-  OrderPaymentCheckout,
-  type CheckoutCardInput,
-} from "@/components/finance/OrderPaymentCheckout";
 import { OrderPaymentStatusBadge } from "@/components/finance/OrderPaymentStatusBadge";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
@@ -47,7 +43,6 @@ export function OrderPaymentScreen({
   const searchParams = useSearchParams();
   const { user, isPlatformAdmin } = useAuth();
   const { t } = useTranslation();
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [testPaying, setTestPaying] = useState(false);
@@ -123,29 +118,35 @@ export function OrderPaymentScreen({
     );
   }
 
+  const runSimulatedPayment = async () => {
+    // begin_order_payment is owner-only; admins skip straight to simulate_test_payment.
+    if (isOwner) {
+      const begun = await beginPayment();
+      if (begun) setLocalOrderPaymentStatus("payment_pending");
+    }
+    await pay(`test_pay_${Date.now()}`);
+    setLocalOrderPaymentStatus("paid");
+    router.push(`/requests/${requestId}?paid=1`);
+    router.refresh();
+  };
+
   const handlePayClick = async () => {
     setError(null);
     setPaying(true);
     try {
+      // Preview/Staging: ENABLE_TEST_PAYMENTS → mock flow (no Stripe keys required).
+      if (allowTestPayments) {
+        await runSimulatedPayment();
+        return;
+      }
+
       const checkout = await startStripeCheckout();
       if (checkout.ok) {
         window.location.href = checkout.url;
         return;
       }
 
-      if (!allowTestPayments || !checkout.useTestFallback) {
-        setError(checkout.error);
-        return;
-      }
-
-      // Fallback: local test checkout only when ENABLE_TEST_PAYMENTS=true.
-      const begun = await beginPayment();
-      if (!begun) {
-        setError(t("finance.payment.error"));
-        return;
-      }
-      setLocalOrderPaymentStatus("payment_pending");
-      setCheckoutOpen(true);
+      setError(checkout.error);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("finance.payment.error"));
     } finally {
@@ -153,28 +154,12 @@ export function OrderPaymentScreen({
     }
   };
 
-  const handlePay = async (card: CheckoutCardInput) => {
-    const txnId = `test_txn_${Date.now()}_${card.cardNumber.replace(/\D/g, "").slice(-4)}`;
-    await pay(txnId);
-    setLocalOrderPaymentStatus("paid");
-    router.push(`/requests/${requestId}?paid=1`);
-    router.refresh();
-  };
-
   const handleTestPay = async () => {
     if (!allowTestPayments) return;
     setError(null);
     setTestPaying(true);
     try {
-      // begin_order_payment is owner-only; admins skip straight to simulate_test_payment.
-      if (isOwner) {
-        const begun = await beginPayment();
-        if (begun) setLocalOrderPaymentStatus("payment_pending");
-      }
-      await pay(`test_one_click_${Date.now()}`);
-      setLocalOrderPaymentStatus("paid");
-      router.push(`/requests/${requestId}?paid=1`);
-      router.refresh();
+      await runSimulatedPayment();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("finance.payment.error"));
     } finally {
@@ -301,16 +286,6 @@ export function OrderPaymentScreen({
           </>
         )}
       </Card>
-
-      {allowTestPayments ? (
-        <OrderPaymentCheckout
-          open={checkoutOpen}
-          amount={split.gross}
-          currency={currency}
-          onClose={() => setCheckoutOpen(false)}
-          onPay={handlePay}
-        />
-      ) : null}
     </div>
   );
 }

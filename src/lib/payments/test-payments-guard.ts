@@ -3,19 +3,28 @@
  * Never read this from the browser via NEXT_PUBLIC_*.
  *
  * Production is always closed — even if ENABLE_TEST_PAYMENTS is mistakenly "true".
+ *
+ * On Vercel, trust VERCEL_ENV only: Preview builds use NODE_ENV=production but
+ * VERCEL_ENV=preview, so test payments can open there without opening Production.
+ * Off Vercel, NODE_ENV=production (e.g. `next start`) stays closed.
  */
 
 export function isProductionRuntime(
   env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
 ): boolean {
-  return env.NODE_ENV === "production" || env.VERCEL_ENV === "production";
+  const vercelEnv = env.VERCEL_ENV?.trim();
+  if (vercelEnv) {
+    return vercelEnv === "production";
+  }
+  return env.NODE_ENV === "production";
 }
 
 export function areTestPaymentsEnabled(
   env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
 ): boolean {
   if (isProductionRuntime(env)) return false;
-  return env.ENABLE_TEST_PAYMENTS === "true";
+  // Trim: Vercel UI pastes sometimes include trailing whitespace/newlines.
+  return env.ENABLE_TEST_PAYMENTS?.trim() === "true";
 }
 
 /**

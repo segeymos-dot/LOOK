@@ -34,10 +34,17 @@ test("2. false flag → denied", () => {
   assert.equal(areTestPaymentsEnabled({ ENABLE_TEST_PAYMENTS: "false" }), false);
   assert.equal(areTestPaymentsEnabled({ ENABLE_TEST_PAYMENTS: "0" }), false);
   assert.equal(areTestPaymentsEnabled({ ENABLE_TEST_PAYMENTS: "TRUE" }), false);
-  assert.equal(areTestPaymentsEnabled({ ENABLE_TEST_PAYMENTS: " true " }), false);
+  assert.equal(areTestPaymentsEnabled({ ENABLE_TEST_PAYMENTS: "yes" }), false);
+});
+
+test("2b. trimmed true flag is accepted", () => {
+  assert.equal(areTestPaymentsEnabled({ ENABLE_TEST_PAYMENTS: "true" }), true);
+  assert.equal(areTestPaymentsEnabled({ ENABLE_TEST_PAYMENTS: "true\n" }), true);
+  assert.equal(areTestPaymentsEnabled({ ENABLE_TEST_PAYMENTS: " true " }), true);
 });
 
 test("3. production always denied (even with true flag)", () => {
+  // Local/non-Vercel: NODE_ENV=production closes the gate.
   assert.equal(isProductionRuntime({ NODE_ENV: "production" }), true);
   assert.equal(isProductionRuntime({ VERCEL_ENV: "production" }), true);
   assert.equal(
@@ -54,9 +61,44 @@ test("3. production always denied (even with true flag)", () => {
     }),
     false
   );
+  // Vercel Production keeps denying even if NODE_ENV were non-production.
+  assert.equal(
+    areTestPaymentsEnabled({
+      NODE_ENV: "development",
+      VERCEL_ENV: "production",
+      ENABLE_TEST_PAYMENTS: "true",
+    }),
+    false
+  );
   assert.equal(
     areTestPaymentsEnabled({
       NODE_ENV: "production",
+      ENABLE_TEST_PAYMENTS: "false",
+    }),
+    false
+  );
+});
+
+test("3b. Vercel Preview may enable test payments (NODE_ENV=production is normal there)", () => {
+  assert.equal(
+    isProductionRuntime({
+      NODE_ENV: "production",
+      VERCEL_ENV: "preview",
+    }),
+    false
+  );
+  assert.equal(
+    areTestPaymentsEnabled({
+      NODE_ENV: "production",
+      VERCEL_ENV: "preview",
+      ENABLE_TEST_PAYMENTS: "true",
+    }),
+    true
+  );
+  assert.equal(
+    areTestPaymentsEnabled({
+      NODE_ENV: "production",
+      VERCEL_ENV: "preview",
       ENABLE_TEST_PAYMENTS: "false",
     }),
     false
@@ -259,7 +301,7 @@ test("route source fails closed without ENABLE_TEST_PAYMENTS and hard-denies pro
     "utf8"
   );
 
-  assert.match(guard, /ENABLE_TEST_PAYMENTS === "true"/);
+  assert.match(guard, /ENABLE_TEST_PAYMENTS\?\.trim\(\) === "true"/);
   assert.match(guard, /isProductionRuntime/);
   assert.match(guard, /VERCEL_ENV/);
   assert.doesNotMatch(guard, /NEXT_PUBLIC_ENABLE_TEST_PAYMENTS/);

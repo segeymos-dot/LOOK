@@ -37,10 +37,10 @@ export async function POST(
       {
         success: false,
         error: allowTestFallback
-          ? "Stripe is not configured"
+          ? "Stripe is not configured. Use test payment on this Preview."
           : "Stripe is not configured. Test payments are disabled.",
         missing_env: missingStripeEnvVars(),
-        // Only signal UI fake-card fallback when the private server flag is on.
+        // Only signal UI fake-card / test path when the private server flag is on.
         test_fallback: allowTestFallback,
       },
       { status: 503 }
