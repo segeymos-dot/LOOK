@@ -22,7 +22,12 @@ export default async function HomePage() {
       .from("categories")
       .select("*")
       .order("sort_order");
-    categories = categoriesRes.data ?? [];
+    // Keep the Supabase request; fall back so the home grid never renders empty.
+    if (categoriesRes.error || !categoriesRes.data?.length) {
+      categories = mockCategories;
+    } else {
+      categories = categoriesRes.data;
+    }
   }
 
   categories = localizeCategories(categories ?? [], locale);
