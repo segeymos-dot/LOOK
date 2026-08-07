@@ -1,6 +1,6 @@
 "use client";
 
-import { PaymentHistoryList } from "@/components/finance/PaymentHistoryList";
+import { ProfileFinanceBlock } from "@/components/finance/ProfileFinanceBlock";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CategoryMultiSelect } from "@/components/profile/CategoryMultiSelect";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
@@ -47,7 +47,6 @@ import {
   Settings,
   Users,
   UserRound,
-  Wallet,
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
@@ -185,6 +184,11 @@ export default function ProfilePage() {
     form.role === "provider" ||
     form.role === "both";
 
+  const showCustomerSection =
+    canActAsCustomer(resolvedProfile?.role) ||
+    form.role === "customer" ||
+    form.role === "both";
+
   const verification = resolvedProfile
     ? getProviderVerification(resolvedProfile, Boolean(user?.email_confirmed_at))
     : null;
@@ -281,19 +285,12 @@ export default function ProfilePage() {
           )}
         </Card>
 
-        {!editing && (
-          <Card padding="md" className="space-y-3">
-            <h2 className="text-sm font-semibold text-text-primary">{t("profile.financeTest")}</h2>
-            <div className="grid gap-2">
-              {showProviderSection && (
-                <Link href="/my/balance">
-                  <Button variant="outline" className="w-full justify-start gap-2" size="sm">
-                    <Wallet className="h-4 w-4" />
-                    {t("profile.providerBalance")}
-                  </Button>
-                </Link>
-              )}
-              {(isPlatformAdmin || isDemoMode()) && (
+        {!editing && (showProviderSection || showCustomerSection) && (
+          <ProfileFinanceBlock
+            showProvider={showProviderSection}
+            showCustomer={showCustomerSection}
+            adminLinks={
+              isPlatformAdmin || isDemoMode() ? (
                 <>
                   <Link href="/admin/stats">
                     <Button variant="outline" className="w-full justify-start gap-2" size="sm">
@@ -332,16 +329,9 @@ export default function ProfilePage() {
                     </Button>
                   </Link>
                 </>
-              )}
-              <Link href="/finance/transactions">
-                <Button variant="outline" className="w-full justify-start gap-2" size="sm">
-                  <History className="h-4 w-4" />
-                  {t("profile.transactions")}
-                </Button>
-              </Link>
-            </div>
-            <PaymentHistoryList />
-          </Card>
+              ) : undefined
+            }
+          />
         )}
 
         {editing ? (
