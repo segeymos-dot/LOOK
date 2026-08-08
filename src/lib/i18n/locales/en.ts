@@ -780,6 +780,13 @@ export const en: TranslationDict = {
     agreedAmount: "Agreed amount",
     location: "Location",
     payout: "Payout",
+    payoutStatus: {
+      credited: "Credited to balance",
+      processing: "Processing",
+      completed: "Paid out",
+      failed: "Failed",
+      cancelled: "Cancelled",
+    },
     testMarker: "Test",
     openOrder: "Open order",
     openChat: "Chat",

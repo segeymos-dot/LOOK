@@ -8,7 +8,8 @@ import { Chip } from "@/components/ui/Chip";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { formatRelativeTimeT } from "@/lib/i18n/client-messages";
 import type { OrderHistoryItem } from "@/lib/orders/history-types";
-import { formatPrice } from "@/lib/utils";
+import { resolveOrderPayoutDisplayStatus } from "@/lib/payments/order-payout-display";
+import { cn, formatPrice } from "@/lib/utils";
 import { MessageCircle, Star } from "lucide-react";
 import Link from "next/link";
 
@@ -38,6 +39,13 @@ export function OrderHistoryCard({
   const labelKey = `orderHistory.labels.${item.history_label}`;
   const label = t(labelKey);
   const displayLabel = label === labelKey ? item.history_label : label;
+  const payoutDisplay =
+    viewer !== "customer"
+      ? resolveOrderPayoutDisplayStatus({
+          orderPaymentStatus: item.order_payment_status,
+          payoutStatus: item.payout_status,
+        })
+      : null;
 
   return (
     <Card padding="md" className="space-y-3">
@@ -93,9 +101,18 @@ export function OrderHistoryCard({
           orderPaymentStatus={item.order_payment_status}
           refundDisputeStatus={item.refund_dispute_status}
         />
-        {item.payout_status && viewer !== "customer" ? (
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-            {t("orderHistory.payout")}: {item.payout_status}
+        {payoutDisplay ? (
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-1 text-xs font-semibold",
+              payoutDisplay === "credited" || payoutDisplay === "completed"
+                ? "bg-emerald-50 text-emerald-800"
+                : payoutDisplay === "failed" || payoutDisplay === "cancelled"
+                  ? "bg-danger-bg text-danger"
+                  : "bg-amber-50 text-amber-800"
+            )}
+          >
+            {t("orderHistory.payout")}: {t(`orderHistory.payoutStatus.${payoutDisplay}`)}
           </span>
         ) : null}
         {item.review_status !== "none" ? (

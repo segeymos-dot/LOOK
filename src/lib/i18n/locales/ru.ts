@@ -780,6 +780,13 @@ export const ru = {
     agreedAmount: "Согласованная сумма",
     location: "Локация",
     payout: "Выплата",
+    payoutStatus: {
+      credited: "Начислено на баланс",
+      processing: "В обработке",
+      completed: "Выплачено",
+      failed: "Ошибка",
+      cancelled: "Отменено",
+    },
     testMarker: "Тест",
     openOrder: "Открыть заказ",
     openChat: "Чат",
