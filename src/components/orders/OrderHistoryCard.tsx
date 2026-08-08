@@ -1,6 +1,7 @@
 "use client";
 
 import { OrderFinanceStatusBadge } from "@/components/finance/OrderFinanceStatusBadge";
+import { ProviderProfileLink } from "@/components/providers/ProviderProfileLink";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -76,7 +77,16 @@ export function OrderHistoryCard({
         </p>
         <p>
           <span className="text-text-muted">{t("orderHistory.provider")}: </span>
-          {item.provider_name ?? t("orderHistory.noProvider")}
+          {item.provider_id && item.provider_name ? (
+            <ProviderProfileLink
+              providerId={item.provider_id}
+              className="font-medium text-brand-600 hover:underline"
+            >
+              {item.provider_name}
+            </ProviderProfileLink>
+          ) : (
+            (item.provider_name ?? t("orderHistory.noProvider"))
+          )}
         </p>
         {item.offer_status && viewer === "provider" ? (
           <p>

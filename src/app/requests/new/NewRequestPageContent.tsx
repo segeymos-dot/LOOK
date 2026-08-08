@@ -215,16 +215,18 @@ export function NewRequestPageContent() {
           backHref={providerId ? `/providers/${providerId}` : "/"}
         />
 
-        {providerName && (
-          <Card padding="md" className="flex items-center gap-3 border-brand-100 bg-brand-50">
-            <Avatar src={providerAvatar} name={providerName} size="md" ring />
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-                {t("role.provider")}
-              </p>
-              <p className="font-semibold text-text-primary">{providerName}</p>
-            </div>
-          </Card>
+        {providerName && providerId && (
+          <Link href={`/providers/${providerId}`}>
+            <Card padding="md" className="flex items-center gap-3 border-brand-100 bg-brand-50 transition-opacity hover:opacity-95">
+              <Avatar src={providerAvatar} name={providerName} size="md" ring />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+                  {t("role.provider")}
+                </p>
+                <p className="font-semibold text-brand-700 hover:underline">{providerName}</p>
+              </div>
+            </Card>
+          </Link>
         )}
 
         <Card padding="md" className="space-y-4">

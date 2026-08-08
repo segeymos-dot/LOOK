@@ -2,6 +2,7 @@
 
 import { ProviderOfferRespond } from "@/components/offers/ProviderOfferRespond";
 import { RequestOffersList } from "@/components/offers/RequestOffersList";
+import { SelectedProviderCard } from "@/components/providers/SelectedProviderCard";
 import { ProviderWorkSubmit } from "@/components/requests/ProviderWorkSubmit";
 import { CustomerWorkReview } from "@/components/requests/CustomerWorkReview";
 import { RequestLifecycleActions } from "@/components/requests/RequestLifecycleActions";
@@ -103,6 +104,12 @@ export function RequestDetailSections({
         />
       )}
       {revisionFeedback ? <RevisionRequestNotice feedback={revisionFeedback} /> : null}
+      {acceptedOffer && viewerIsCustomer && (
+        <SelectedProviderCard
+          providerId={acceptedOffer.provider_id}
+          provider={acceptedOffer.provider}
+        />
+      )}
       {acceptedOffer && (
         <OrderPaymentPanel
           requestId={requestId}
