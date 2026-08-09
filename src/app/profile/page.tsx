@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "@/components/providers/LocaleProvider";
+import { authFetch } from "@/lib/auth/session";
 import { isDemoMode } from "@/lib/config";
 import {
   canActAsCustomer,
@@ -37,6 +38,7 @@ import {
   ClipboardList,
   ExternalLink,
   History,
+  Inbox,
   LogOut,
   Mail,
   MapPin,
@@ -61,6 +63,7 @@ export default function ProfilePage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [incomingPendingCount, setIncomingPendingCount] = useState(0);
   const [form, setForm] = useState({
     full_name: "",
     bio: "",
@@ -105,6 +108,29 @@ export default function ProfilePage() {
       .limit(10)
       .then(({ data }) => setReviews((data ?? []) as Review[]));
   }, [resolvedProfile]);
+
+  useEffect(() => {
+    if (!ready || !user || !resolvedProfile || !canActAsProvider(resolvedProfile.role)) {
+      setIncomingPendingCount(0);
+      return;
+    }
+    if (isDemoMode()) {
+      setIncomingPendingCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const res = await authFetch("/api/provider/incoming?countOnly=1");
+      if (!res.ok || cancelled) return;
+      const data = (await res.json()) as { pendingCount?: number };
+      if (!cancelled) setIncomingPendingCount(Number(data.pendingCount ?? 0));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user, resolvedProfile]);
 
   useEffect(() => {
     if (resolvedProfile) {
@@ -500,6 +526,23 @@ export default function ProfilePage() {
               )}
               {canActAsProvider(resolvedProfile?.role) && (
                 <>
+                  <Link href="/my/incoming">
+                    <Button variant="secondary" className="w-full gap-2">
+                      <Inbox className="h-5 w-5" />
+                      <span className="flex-1 text-left">
+                        {incomingPendingCount > 0
+                          ? t("profile.incomingOrdersCount", {
+                              count: incomingPendingCount,
+                            })
+                          : t("profile.incomingOrders")}
+                      </span>
+                      {incomingPendingCount > 0 && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1.5 text-xs font-bold text-white">
+                          {incomingPendingCount}
+                        </span>
+                      )}
+                    </Button>
+                  </Link>
                   <Link href="/my/work">
                     <Button variant="secondary" className="w-full gap-2">
                       <History className="h-5 w-5" />

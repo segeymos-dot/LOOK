@@ -60,16 +60,32 @@ export async function linkRequestToProvider(
     return { ok: false, error: "Cannot link request to yourself" };
   }
 
-  const { error } = await supabase.from("conversations").upsert(
-    {
-      request_id: input.requestId,
-      customer_id: input.customerId,
-      provider_id: input.providerId,
-      offer_id: null,
-      last_message_at: new Date().toISOString(),
-    },
-    { onConflict: "request_id,provider_id" }
-  );
+  const payload = {
+    request_id: input.requestId,
+    customer_id: input.customerId,
+    provider_id: input.providerId,
+    offer_id: null as string | null,
+    is_directed: true,
+    last_message_at: new Date().toISOString(),
+  };
+
+  let { error } = await supabase
+    .from("conversations")
+    .upsert(payload, { onConflict: "request_id,provider_id" });
+
+  // Staging may not have migration 040 yet — retry without the flag.
+  if (
+    error &&
+    (error.message?.includes("is_directed") ||
+      error.code === "PGRST204" ||
+      error.code === "42703")
+  ) {
+    const { is_directed: _flag, ...legacy } = payload;
+    void _flag;
+    ({ error } = await supabase
+      .from("conversations")
+      .upsert(legacy, { onConflict: "request_id,provider_id" }));
+  }
 
   if (error) {
     return { ok: false, error: error.message };
