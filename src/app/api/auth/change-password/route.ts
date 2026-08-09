@@ -1,5 +1,6 @@
 import { getFinanceApiUser } from "@/lib/api/finance-auth";
 import { getClientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -35,11 +36,9 @@ export async function POST(request: Request) {
   }
 
   // Verify current password with a short-lived client (no cookie pollution).
-  const verifier = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  );
+  const verifier = createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
   const { error: verifyError } = await verifier.auth.signInWithPassword({
     email,
     password: parsed.data.currentPassword,

@@ -4,6 +4,7 @@ import {
 } from "@/lib/auth/email-confirmation";
 import { PRODUCTION_SIGNUP_EMAIL_REDIRECT, getAuthEmailRedirectTo } from "@/lib/app-url";
 import { isDemoMode } from "@/lib/config";
+import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -14,8 +15,8 @@ export async function GET() {
     });
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = getSupabaseUrl();
+  const key = getSupabaseAnonKey();
 
   if (!url || !key) {
     return NextResponse.json({ requiresEmailConfirmation: false });

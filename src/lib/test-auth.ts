@@ -61,6 +61,9 @@ export function mapAuthError(message: string): string {
   if (lower.includes("already registered") || lower.includes("already been registered")) {
     return "Этот email уже зарегистрирован. Войдите или используйте другой адрес.";
   }
+  if (lower.includes("invalid api key") || lower.includes("no api key found")) {
+    return mapUserFacingError(message);
+  }
   if (lower.includes("invalid") && lower.includes("email")) {
     return "Некорректный email. Проверьте адрес и попробуйте снова.";
   }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ledgerCodeI18nKey, resolveLedgerCode } from "@/lib/finance/ledger";
+import { mapUserFacingError } from "@/lib/ui/user-facing-error";
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -114,6 +115,9 @@ export function mapAuthErrorT(message: string, t: TFn): string {
   }
   if (lower.includes("already registered") || lower.includes("already been registered")) {
     return t("auth.errors.alreadyRegistered");
+  }
+  if (lower.includes("invalid api key") || lower.includes("no api key found")) {
+    return mapUserFacingError(message);
   }
   if (lower.includes("invalid") && lower.includes("email")) {
     return t("auth.errors.invalidEmail");

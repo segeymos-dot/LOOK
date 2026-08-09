@@ -1,5 +1,6 @@
 import { fetchPlatformStats } from "@/lib/analytics/platform-stats";
 import { isPlatformAdmin } from "@/lib/data/finance-actions";
+import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
@@ -19,8 +20,8 @@ async function getAuthedSupabase(request: Request) {
 
   if (!token) return { supabase, user: null };
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = getSupabaseUrl();
+  const key = getSupabaseAnonKey();
   if (!url || !key) return { supabase, user: null };
 
   const bearerClient = createSupabaseClient(url, key, {
