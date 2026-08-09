@@ -1,61 +1,34 @@
 "use client";
 
-import { CategoryMultiSelect } from "@/components/profile/CategoryMultiSelect";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { Textarea } from "@/components/ui/Textarea";
-import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { syncClientSession } from "@/lib/auth/sync-client-session";
 import { isDemoMode } from "@/lib/config";
-import { mockCategories } from "@/lib/mock/data";
 import { createRegisterSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
-import { createClient } from "@/lib/supabase/client";
-import type { Category, UserRole } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Briefcase, ChevronLeft, UserCircle } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const roleIcons = {
-  customer: UserCircle,
-  provider: Briefcase,
-} as const;
 
 export default function RegisterPage() {
   const router = useRouter();
   const { syncSession } = useAuth();
   const { t, locale } = useTranslation();
   const demo = isDemoMode();
-  const registerSchema = useMemo(() => createRegisterSchema(t), [t, locale]);
+  const registerSchema = useMemo(() => createRegisterSchema(t), [t]);
 
   useEffect(() => {
     setErrors({});
   }, [locale]);
 
-  const roleOptions = [
-    {
-      value: "customer" as UserRole,
-      label: t("auth.register.customer"),
-      description: t("auth.register.customerDesc"),
-      icon: roleIcons.customer,
-    },
-    {
-      value: "provider" as UserRole,
-      label: t("auth.register.provider"),
-      description: t("auth.register.providerDesc"),
-      icon: roleIcons.provider,
-    },
-  ];
-
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [categories, setCategories] = useState<Category[]>([]);
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -64,7 +37,7 @@ export default function RegisterPage() {
     country: "",
     city: "",
     avatar_url: "",
-    role: "customer" as UserRole,
+    role: "customer" as const,
     bio: "",
     skills: "",
     portfolio: "",
@@ -72,21 +45,7 @@ export default function RegisterPage() {
     acceptedTerms: false,
   });
 
-  useEffect(() => {
-    if (isDemoMode()) {
-      setCategories(mockCategories);
-      return;
-    }
-    const supabase = createClient();
-    supabase
-      .from("categories")
-      .select("*")
-      .order("sort_order")
-      .then(({ data }) => setCategories(data ?? []));
-  }, []);
-
-  const showProviderFields = form.role === "provider";
-  const totalSteps = showProviderFields ? 3 : 2;
+  const totalSteps = 2;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -94,6 +53,7 @@ export default function RegisterPage() {
 
     const parsed = registerSchema.safeParse({
       ...form,
+      role: "customer",
       acceptedTerms: form.acceptedTerms ? true : undefined,
     });
     if (!parsed.success) {
@@ -118,6 +78,7 @@ export default function RegisterPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
+        role: "customer",
         acceptedTerms: form.acceptedTerms ? true : undefined,
       }),
     });
@@ -146,11 +107,7 @@ export default function RegisterPage() {
   };
 
   const nextStep = () => {
-    if (step === 0 && !form.role) {
-      setErrors({ role: t("auth.register.roleRequired") });
-      return;
-    }
-    if (step === 1) {
+    if (step === 0) {
       if (form.full_name.length < 2) {
         setErrors({ full_name: t("validation.minName") });
         return;
@@ -211,41 +168,10 @@ export default function RegisterPage() {
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {step === 0 && (
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-text-primary">{t("auth.register.roleQuestion")}</p>
-            {roleOptions.map(({ value, label, description, icon: Icon }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setForm({ ...form, role: value })}
-                className={cn(
-                  "flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-all",
-                  form.role === value
-                    ? "border-brand-500 bg-brand-50 shadow-card"
-                    : "border-border hover:border-brand-200"
-                )}
-              >
-                <div
-                  className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                    form.role === value ? "gradient-brand text-white" : "bg-slate-100 text-text-secondary"
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-semibold text-text-primary">{label}</p>
-                  <p className="text-sm text-text-secondary">{description}</p>
-                </div>
-              </button>
-            ))}
-            {errors.role && <p className="text-sm text-danger">{errors.role}</p>}
-          </div>
-        )}
+      <p className="mb-4 text-sm text-text-secondary">{t("auth.register.customerDefaultHint")}</p>
 
-        {step === 1 && (
+      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+        {step === 0 && (
           <div className="space-y-4">
             <Input
               id="full_name"
@@ -281,6 +207,11 @@ export default function RegisterPage() {
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               error={errors.phone}
             />
+          </div>
+        )}
+
+        {step === 1 && (
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <Input
                 id="country"
@@ -305,41 +236,6 @@ export default function RegisterPage() {
               onChange={(e) => setForm({ ...form, avatar_url: e.target.value })}
               error={errors.avatar_url}
               hint={t("auth.register.avatarHint")}
-            />
-          </div>
-        )}
-
-        {step === 2 && showProviderFields && (
-          <div className="space-y-4">
-            <Textarea
-              id="bio"
-              label={t("auth.register.bio")}
-              placeholder={t("auth.register.bioPlaceholder")}
-              rows={4}
-              value={form.bio}
-              onChange={(e) => setForm({ ...form, bio: e.target.value })}
-            />
-            <Input
-              id="skills"
-              label={t("auth.register.skills")}
-              placeholder={t("auth.register.skillsPlaceholder")}
-              value={form.skills}
-              onChange={(e) => setForm({ ...form, skills: e.target.value })}
-              hint={t("auth.register.skillsHint")}
-            />
-            <Textarea
-              id="portfolio"
-              label={t("auth.register.portfolio")}
-              placeholder={t("auth.register.portfolioPlaceholder")}
-              rows={3}
-              value={form.portfolio}
-              onChange={(e) => setForm({ ...form, portfolio: e.target.value })}
-            />
-            <CategoryMultiSelect
-              categories={categories}
-              selected={form.provider_category_slugs}
-              onChange={(slugs) => setForm({ ...form, provider_category_slugs: slugs })}
-              label={t("auth.register.categories")}
             />
           </div>
         )}
@@ -393,14 +289,6 @@ export default function RegisterPage() {
           )}
         </div>
       </form>
-
-      {step === 0 && form.role === "provider" && (
-        <Card variant="outline" padding="sm" className="mt-4 bg-brand-50/50">
-          <p className="text-xs leading-relaxed text-text-secondary">
-            {t("auth.register.providerHint")}
-          </p>
-        </Card>
-      )}
     </AuthLayout>
   );
 }

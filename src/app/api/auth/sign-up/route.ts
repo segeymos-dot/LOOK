@@ -6,6 +6,9 @@ import { mapAuthError } from "@/lib/test-auth";
 import { registerSchema } from "@/lib/validations";
 import { NextResponse } from "next/server";
 
+/** All new accounts start as customer; provider mode requires onboarding. */
+const SIGNUP_ROLE = "customer" as const;
+
 export async function POST(request: Request) {
   const ip = getClientIp(request);
   const limited = rateLimit(`sign-up:${ip}`, 5, 60 * 60 * 1000);
@@ -32,15 +35,15 @@ export async function POST(request: Request) {
       emailRedirectTo,
       data: {
         full_name: parsed.data.full_name,
-        role: parsed.data.role,
+        role: SIGNUP_ROLE,
         phone: parsed.data.phone || null,
         country: parsed.data.country || null,
         city: parsed.data.city || null,
         avatar_url: parsed.data.avatar_url || null,
         bio: parsed.data.bio || null,
-        skills: parsed.data.skills || null,
-        portfolio: parsed.data.portfolio || null,
-        provider_category_slugs: parsed.data.provider_category_slugs ?? [],
+        skills: null,
+        portfolio: null,
+        provider_category_slugs: [],
       },
     },
   });
@@ -68,18 +71,19 @@ export async function POST(request: Request) {
       .from("profiles")
       .update({
         full_name: parsed.data.full_name,
-        role: parsed.data.role,
+        role: SIGNUP_ROLE,
         phone: parsed.data.phone || null,
         country: parsed.data.country || null,
         city: parsed.data.city || null,
         avatar_url: parsed.data.avatar_url || null,
         bio: parsed.data.bio || null,
-        skills: parsed.data.skills || null,
-        portfolio: parsed.data.portfolio || null,
-        provider_category_slugs: parsed.data.provider_category_slugs ?? [],
+        skills: null,
+        portfolio: null,
+        provider_category_slugs: [],
       })
       .eq("id", data.user.id);
   }
+  // Without a session (email confirm required), handle_new_user uses metadata.role=customer.
 
   return NextResponse.json({
     success: true,

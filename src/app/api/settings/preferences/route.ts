@@ -76,11 +76,32 @@ export async function PATCH(request: Request) {
     );
   }
 
+  // Role elevation customer→both must go through /api/onboarding/provider.
+  // Free role edits via settings are not allowed (preserves provider-only).
+  if (parsed.data.role !== undefined) {
+    const { data: current } = await auth.supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", auth.user.id)
+      .maybeSingle();
+
+    if (!current || current.role !== parsed.data.role) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Role cannot be changed here. Customers become providers via onboarding.",
+        },
+        { status: 403 }
+      );
+    }
+  }
+
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
   for (const [key, value] of Object.entries(parsed.data)) {
-    if (value !== undefined) patch[key] = value;
+    if (value !== undefined && key !== "role") patch[key] = value;
   }
 
   const { data, error } = await auth.supabase
@@ -102,12 +123,9 @@ export async function PATCH(request: Request) {
     );
   }
 
-  if (parsed.data.full_name || parsed.data.role) {
+  if (parsed.data.full_name) {
     await auth.supabase.auth.updateUser({
-      data: {
-        ...(parsed.data.full_name ? { full_name: parsed.data.full_name } : {}),
-        ...(parsed.data.role ? { role: parsed.data.role } : {}),
-      },
+      data: { full_name: parsed.data.full_name },
     });
   }
 

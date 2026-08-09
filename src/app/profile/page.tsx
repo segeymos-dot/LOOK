@@ -1,5 +1,7 @@
 "use client";
 
+import { BecomeProviderCard } from "@/components/auth/BecomeProviderCard";
+import { UiModeSwitch } from "@/components/auth/UiModeSwitch";
 import { ProfileFinanceBlock } from "@/components/finance/ProfileFinanceBlock";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CategoryMultiSelect } from "@/components/profile/CategoryMultiSelect";
@@ -15,7 +17,6 @@ import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
-import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { authFetch } from "@/lib/auth/session";
@@ -53,7 +54,17 @@ import {
 import { FormEvent, useEffect, useState } from "react";
 
 export default function ProfilePage() {
-  const { user, profile, displayProfile, ready, signOut, setProfile, isPlatformAdmin } = useAuth();
+  const {
+    user,
+    profile,
+    displayProfile,
+    ready,
+    signOut,
+    setProfile,
+    isPlatformAdmin,
+    effectiveUiMode,
+    canSwitchUiMode,
+  } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
   const resolvedProfile = displayProfile ?? profile;
@@ -159,6 +170,7 @@ export default function ProfilePage() {
 
     if (!isDemoMode()) {
       const supabase = createClient();
+      // Role is never edited here — customer→both goes through provider onboarding.
       const payload = {
         full_name: form.full_name,
         bio: form.bio || null,
@@ -171,7 +183,6 @@ export default function ProfilePage() {
         portfolio: form.portfolio || null,
         portfolio_items: form.portfolio_items,
         provider_category_slugs: form.provider_category_slugs,
-        role: form.role,
       };
 
       const { data, error } = await supabase
@@ -190,13 +201,14 @@ export default function ProfilePage() {
       if (data) {
         setProfile(data);
         await supabase.auth.updateUser({
-          data: { role: data.role, full_name: data.full_name },
+          data: { full_name: data.full_name },
         });
       }
     } else if (resolvedProfile) {
       setProfile({
         ...resolvedProfile,
         ...form,
+        role: resolvedProfile.role,
         phone_verified: Boolean(form.phone?.trim()),
       });
     }
@@ -205,15 +217,13 @@ export default function ProfilePage() {
     setEditing(false);
   };
 
-  const showProviderSection =
-    canActAsProvider(resolvedProfile?.role) ||
-    form.role === "provider" ||
-    form.role === "both";
-
-  const showCustomerSection =
-    canActAsCustomer(resolvedProfile?.role) ||
-    form.role === "customer" ||
-    form.role === "both";
+  const showProviderSection = canActAsProvider(resolvedProfile?.role);
+  const showCustomerSection = canActAsCustomer(resolvedProfile?.role);
+  // Quick links follow local UI shell; deep links still work via direct URL.
+  const showCustomerLinks =
+    showCustomerSection && effectiveUiMode === "customer";
+  const showProviderLinks =
+    showProviderSection && effectiveUiMode === "provider";
 
   const verification = resolvedProfile
     ? getProviderVerification(resolvedProfile, Boolean(user?.email_confirmed_at))
@@ -311,6 +321,15 @@ export default function ProfilePage() {
           )}
         </Card>
 
+        {!editing && canSwitchUiMode && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-text-muted">{t("uiMode.hint")}</p>
+            <UiModeSwitch />
+          </div>
+        )}
+
+        {!editing && <BecomeProviderCard />}
+
         {!editing && (showProviderSection || showCustomerSection) && (
           <ProfileFinanceBlock
             showProvider={showProviderSection}
@@ -405,20 +424,17 @@ export default function ProfilePage() {
                 value={form.bio}
                 onChange={(e) => setForm({ ...form, bio: e.target.value })}
               />
-              <Select
-                id="role"
-                label={t("profile.role")}
-                value={form.role}
-                onChange={(e) =>
-                  setForm({ ...form, role: e.target.value as typeof form.role })
-                }
-              >
-                <option value="customer">{t("role.customer")}</option>
-                <option value="provider">{t("role.provider")}</option>
-                <option value="both">{t("role.both")}</option>
-              </Select>
+              <div>
+                <p className="mb-1 text-sm font-medium text-text-primary">
+                  {t("profile.role")}
+                </p>
+                <p className="rounded-xl border border-border-subtle bg-slate-50 px-3 py-2 text-sm text-text-secondary">
+                  {getRoleLabelT(resolvedProfile?.role, t)}
+                </p>
+                <p className="mt-1 text-xs text-text-muted">{t("profile.roleLockedHint")}</p>
+              </div>
 
-              {(form.role === "provider" || form.role === "both") && user && (
+              {showProviderSection && user && (
                 <>
                   <Input
                     id="skills"
@@ -508,7 +524,7 @@ export default function ProfilePage() {
             )}
 
             <div className="space-y-2">
-              {canActAsCustomer(resolvedProfile?.role) && (
+              {showCustomerLinks && (
                 <>
                   <Link href="/my/orders">
                     <Button variant="secondary" className="w-full gap-2">
@@ -524,7 +540,7 @@ export default function ProfilePage() {
                   </Link>
                 </>
               )}
-              {canActAsProvider(resolvedProfile?.role) && (
+              {showProviderLinks && (
                 <>
                   <Link href="/my/incoming">
                     <Button variant="secondary" className="w-full gap-2">

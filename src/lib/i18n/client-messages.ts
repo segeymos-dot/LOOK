@@ -26,7 +26,8 @@ export function createRegisterSchema(t: TFn) {
     full_name: z.string().min(2, t("validation.minName")),
     email: z.string().email(t("validation.emailInvalid")),
     password: z.string().min(6, t("validation.minPassword")),
-    role: z.enum(["customer", "provider"]),
+    /** Ignored by API — signup always creates customer. */
+    role: z.enum(["customer", "provider"]).optional().default("customer"),
     phone: optionalString(),
     country: optionalString(),
     city: optionalString(),

@@ -44,6 +44,39 @@ export const en: TranslationDict = {
     user: "User",
     admin: "LOOK admin",
   },
+  uiMode: {
+    label: "Interface mode",
+    hint: "Switches the interface only. Account permissions do not change.",
+    customer: "Customer",
+    provider: "Provider",
+  },
+  onboarding: {
+    becomeProvider: {
+      title: "Become a provider",
+      description:
+        "Complete a short provider profile to respond to jobs. Your customer account stays.",
+      cta: "Become a provider",
+    },
+    provider: {
+      title: "Provider onboarding",
+      subtitle:
+        "Add details for your public profile. After confirmation you can work as both customer and provider.",
+      displayName: "Display name",
+      city: "City",
+      region: "Region / country",
+      about: "About you",
+      aboutPlaceholder: "Tell us about your experience and specialization…",
+      categories: "Categories and skills",
+      confirm:
+        "I confirm switching into provider mode. My customer account will remain.",
+      submit: "Become a provider",
+      error: "Could not complete onboarding",
+      cityRequired: "Enter your city",
+      bioRequired: "Tell us about yourself (at least 10 characters)",
+      categoriesRequired: "Select at least one category",
+      confirmRequired: "Confirm switching into provider mode",
+    },
+  },
   legal: {
     termsLink: "Terms of Service",
     privacyLink: "Privacy Policy",
@@ -164,6 +197,8 @@ export const en: TranslationDict = {
       next: "Next",
       back: "Back",
       roleQuestion: "How will you use LOOK?",
+      customerDefaultHint:
+        "New accounts start as a customer. You can become a provider later in your profile.",
       hasAccount: "Already have an account?",
       login: "Sign in",
       customer: "Customer",
@@ -545,6 +580,8 @@ export const en: TranslationDict = {
     country: "Country",
     bio: "About",
     role: "Role",
+    roleLockedHint:
+      "Role changes via “Become a provider”. The Customer/Provider switch only changes the interface.",
     skills: "Skills",
     portfolio: "Portfolio",
     categories: "Categories",
@@ -597,7 +634,7 @@ export const en: TranslationDict = {
     saveError: "Could not save",
     sections: {
       personal: "Personal information",
-      personalDesc: "Name, photo, city and role",
+      personalDesc: "Name, photo, city and interface mode",
       contact: "Contact information",
       contactDesc: "Email, phone and verification",
       security: "Security",

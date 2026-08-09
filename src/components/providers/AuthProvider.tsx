@@ -9,6 +9,13 @@ import {
   hardenPostSignOutNavigation,
   type AuthBroadcastMessage,
 } from "@/lib/auth/sign-out-cleanup";
+import {
+  canSwitchUiMode,
+  readStoredUiMode,
+  resolveEffectiveUiMode,
+  writeStoredUiMode,
+  type UiMode,
+} from "@/lib/auth/ui-mode";
 import { isDemoMode } from "@/lib/config";
 import { mockCurrentUser } from "@/lib/mock/data";
 import { createClient, resetBrowserClient } from "@/lib/supabase/client";
@@ -49,10 +56,20 @@ export interface AuthContextValue extends AuthState {
   setProfile: (profile: Profile | null) => void;
   /** Wipe in-memory private auth state immediately (account switch). */
   clearPrivateAuthState: () => void;
+  /** Real capability: can act as provider (role provider|both). Never from uiMode. */
   isProvider: boolean;
+  /** Real capability: can act as customer (role customer|both). Never from uiMode. */
   isCustomer: boolean;
   isPlatformAdmin: boolean;
   displayProfile: Profile | null;
+  /** Stored UI preference for role=both; null when not applicable / not loaded. */
+  uiMode: UiMode | null;
+  /** Effective shell mode for nav/home (local preference only). */
+  effectiveUiMode: UiMode;
+  /** True when role=both and mode switch should be shown. */
+  canSwitchUiMode: boolean;
+  /** Persist UI mode locally; does not change profiles.role. */
+  setUiMode: (mode: UiMode) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -92,9 +109,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ? { user: demoUser, profile: mockCurrentUser, ready: true, profileReady: true }
       : { user: null, profile: null, ready: false, profileReady: true }
   );
+  const [storedUiMode, setStoredUiMode] = useState<UiMode | null>(null);
+
+  useEffect(() => {
+    setStoredUiMode(readStoredUiMode());
+  }, []);
 
   const clearPrivateAuthState = useCallback(() => {
     setState({ user: null, profile: null, ready: true, profileReady: true });
+    setStoredUiMode(null);
+  }, []);
+
+  const setUiMode = useCallback((mode: UiMode) => {
+    writeStoredUiMode(mode);
+    setStoredUiMode(mode);
   }, []);
 
   useEffect(() => {
@@ -314,6 +342,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [state.user, state.profile]
   );
 
+  const role = displayProfile?.role;
+  const effectiveUiMode = useMemo(
+    () => resolveEffectiveUiMode(role, storedUiMode),
+    [role, storedUiMode]
+  );
+  const switchAllowed = canSwitchUiMode(role);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ...state,
@@ -324,9 +359,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile,
       clearPrivateAuthState,
       displayProfile,
-      isProvider: canActAsProvider(displayProfile?.role),
-      isCustomer: canActAsCustomer(displayProfile?.role),
+      // Capabilities — always from real role, never uiMode.
+      isProvider: canActAsProvider(role),
+      isCustomer: canActAsCustomer(role),
       isPlatformAdmin: Boolean(displayProfile?.is_platform_admin),
+      uiMode: storedUiMode,
+      effectiveUiMode,
+      canSwitchUiMode: switchAllowed,
+      setUiMode,
     }),
     [
       state,
@@ -336,6 +376,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile,
       clearPrivateAuthState,
       displayProfile,
+      role,
+      storedUiMode,
+      effectiveUiMode,
+      switchAllowed,
+      setUiMode,
     ]
   );
 

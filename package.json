@@ -15,6 +15,8 @@
     "test:production": "node scripts/verify-production-features.mjs",
     "supabase:seed-test-users": "node scripts/seed-test-users.mjs",
     "test:roles": "node scripts/test-roles.mjs",
+    "test:ui-mode": "node scripts/test-ui-mode.mjs",
+    "test:dual-mode": "node scripts/verify-dual-mode-accounts.mjs",
     "test:both-role-offer": "node scripts/test-both-role-offer.mjs",
     "test:migration-010": "node scripts/verify-migration-010.mjs",
     "test:migration-010:seed": "node scripts/verify-migration-010.mjs --seed-provider",

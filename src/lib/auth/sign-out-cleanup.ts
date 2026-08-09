@@ -10,6 +10,7 @@ const PRIVATE_STORAGE_KEYS = [
   "look_visitor_id",
   "look_session_id",
   "look_presence_tabs",
+  "look_ui_mode",
 ] as const;
 
 export type AuthBroadcastMessage =
