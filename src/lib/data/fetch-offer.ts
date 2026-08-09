@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { PUBLIC_PROVIDER_CARD_SELECT } from "@/lib/profile/public-provider-profile";
 import type { Offer } from "@/types";
 
 export async function fetchOfferById(
@@ -8,11 +9,13 @@ export async function fetchOfferById(
 ): Promise<Offer | null> {
   const { data, error } = await supabase
     .from("offers")
-    .select("*, provider:profiles(*), request:requests(*)")
+    .select(
+      `*, provider:profiles(${PUBLIC_PROVIDER_CARD_SELECT}), request:requests(*)`
+    )
     .eq("id", offerId)
     .eq("request_id", requestId)
     .single();
 
   if (error || !data) return null;
-  return data;
+  return data as unknown as Offer;
 }

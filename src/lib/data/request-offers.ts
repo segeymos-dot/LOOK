@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { PUBLIC_PROVIDER_CARD_SELECT } from "@/lib/profile/public-provider-profile";
 import type { Offer } from "@/types";
 
 function buildConversationMap(
@@ -35,9 +36,12 @@ export async function fetchRequestOffers(
     await Promise.all([
       supabase
         .from("offers")
-        .select("*, provider:profiles(*)")
+        .select(`*, provider:profiles(${PUBLIC_PROVIDER_CARD_SELECT})`)
         .eq("request_id", requestId)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false }) as unknown as Promise<{
+        data: Offer[] | null;
+        error: { message: string } | null;
+      }>,
       supabase
         .from("conversations")
         .select("id, offer_id")

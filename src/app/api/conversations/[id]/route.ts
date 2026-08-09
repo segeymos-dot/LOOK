@@ -18,7 +18,7 @@ export async function GET(
   const { data, error } = await supabase
     .from("conversations")
     .select(
-      "*, customer:profiles!conversations_customer_id_fkey(*), provider:profiles!conversations_provider_id_fkey(*), request:requests(id, title, status, customer_id, currency)"
+      "*, customer:profiles!conversations_customer_id_fkey(id, full_name, avatar_url), provider:profiles!conversations_provider_id_fkey(id, full_name, avatar_url), request:requests(id, title, status, customer_id, currency)"
     )
     .eq("id", id)
     .single();

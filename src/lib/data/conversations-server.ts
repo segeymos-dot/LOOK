@@ -115,7 +115,7 @@ export async function fetchUserConversations(
   const { data, error } = await supabase
     .from("conversations")
     .select(
-      "*, customer:profiles!conversations_customer_id_fkey(*), provider:profiles!conversations_provider_id_fkey(*), request:requests(*)"
+      "*, customer:profiles!conversations_customer_id_fkey(id, full_name, avatar_url), provider:profiles!conversations_provider_id_fkey(id, full_name, avatar_url), request:requests(*)"
     )
     .or(`customer_id.eq.${userId},provider_id.eq.${userId}`)
     .order("last_message_at", { ascending: false });

@@ -24,15 +24,16 @@ export function getProviderVerification(
   profile: Profile,
   emailVerified = false
 ): ProviderVerification {
+  // Prefer phone_verified flag — do not require raw phone (kept off public payloads).
   const profileComplete = Boolean(
     profile.full_name?.trim() &&
       profile.bio?.trim() &&
-      profile.phone?.trim() &&
-      (profile.skills?.trim() || profile.portfolio_items.length > 0)
+      (profile.phone_verified || Boolean(profile.phone?.trim())) &&
+      (profile.skills?.trim() || (profile.portfolio_items?.length ?? 0) > 0)
   );
 
   return {
-    phoneVerified: profile.phone_verified || Boolean(profile.phone?.trim()),
+    phoneVerified: Boolean(profile.phone_verified),
     emailVerified,
     profileComplete,
   };
