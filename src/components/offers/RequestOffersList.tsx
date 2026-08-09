@@ -14,7 +14,8 @@ import {
   mockCurrentUser,
 } from "@/lib/mock/data";
 import { mapOfferActionError } from "@/lib/offers/offer-action-errors";
-import type { Offer, RequestStatus } from "@/types";
+import { getLifecycleBannerMessageKey } from "@/lib/requests/lifecycle-banner";
+import type { Offer, OrderPaymentStatus, RequestStatus } from "@/types";
 import type { SubmittedReviewView } from "@/components/profile/ReviewForm";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -33,6 +34,7 @@ interface RequestOffersListProps {
   conversationByOfferId?: Record<string, string>;
   hideProviderRespond?: boolean;
   initialReview?: SubmittedReviewView | null;
+  orderPaymentStatus?: OrderPaymentStatus | null;
   onOffersChange?: (offers: Offer[]) => void;
 }
 
@@ -48,6 +50,7 @@ export function RequestOffersList({
   conversationByOfferId = {},
   hideProviderRespond = false,
   initialReview = null,
+  orderPaymentStatus = null,
   onOffersChange,
 }: RequestOffersListProps) {
   const router = useRouter();
@@ -289,18 +292,19 @@ export function RequestOffersList({
     !!activeConversationId &&
     (isRequestOwner || isAcceptedProvider);
 
-  const chatStatusMessage = (() => {
-    if (requestStatus === "pending_review" && isRequestOwner) {
-      return t("request.pendingReviewCustomer");
-    }
-    if (isRequestOwner) {
-      return t("request.inProgressCustomer");
-    }
-    if (requestStatus === "pending_review") {
-      return t("request.pendingReviewProvider");
-    }
-    return t("request.inProgressProvider");
-  })();
+  const lifecycleBannerKey = getLifecycleBannerMessageKey({
+    requestStatus,
+    orderPaymentStatus,
+    viewer: isRequestOwner ? "customer" : "provider",
+  });
+  const chatStatusMessage = lifecycleBannerKey
+    ? t(lifecycleBannerKey)
+    : null;
+  // Completed already has a clear "Completed" badge — no green lifecycle plaque.
+  const showLifecycleBanner =
+    showChatLink && requestStatus !== "completed" && Boolean(chatStatusMessage);
+  const showCompletedChatOnly =
+    showChatLink && requestStatus === "completed";
 
   return (
     <section>
@@ -309,11 +313,21 @@ export function RequestOffersList({
         {t("offer.sectionTitle")} ({offersLoading ? "…" : offers.length})
       </h2>
 
-      {showChatLink && (
+      {showLifecycleBanner && (
         <div className="mb-4 rounded-2xl border border-green-200 bg-green-50 p-4">
           <p className="mb-2 text-sm text-green-800">{chatStatusMessage}</p>
           <Link href={`/chat/${activeConversationId}`}>
             <Button size="sm">{t("request.openChat")}</Button>
+          </Link>
+        </div>
+      )}
+
+      {showCompletedChatOnly && (
+        <div className="mb-4">
+          <Link href={`/chat/${activeConversationId}`}>
+            <Button size="sm" variant="secondary">
+              {t("request.openChat")}
+            </Button>
           </Link>
         </div>
       )}

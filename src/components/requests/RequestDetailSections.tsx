@@ -173,6 +173,7 @@ export function RequestDetailSections({
         conversationByOfferId={conversationByOfferId}
         hideProviderRespond
         initialReview={initialReview}
+        orderPaymentStatus={orderPaymentStatus}
         onOffersChange={setOffers}
       />
     </>

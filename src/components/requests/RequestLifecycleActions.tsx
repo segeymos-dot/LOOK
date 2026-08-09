@@ -10,6 +10,7 @@ import { mockCurrentUser } from "@/lib/mock/data";
 import { isRequestOwner as checkRequestOwner } from "@/lib/auth/viewer-role";
 import { previewCancelOutcome } from "@/lib/orders/cancel-outcome";
 import { mapUserFacingErrorT } from "@/lib/i18n/client-messages";
+import { getLifecycleBannerMessageKey } from "@/lib/requests/lifecycle-banner";
 import { formatPrice } from "@/lib/utils";
 import type {
   OrderPaymentStatus,
@@ -218,13 +219,16 @@ export function RequestLifecycleActions({
         </div>
       </div>
 
-      {status === "pending_review" && (
-        <p className="mb-3 text-sm text-text-secondary">{t("request.pendingReviewCustomer")}</p>
-      )}
-
-      {status === "in_progress" && (
-        <p className="mb-3 text-sm text-text-secondary">{t("request.inProgressCustomer")}</p>
-      )}
+      {(() => {
+        const key = getLifecycleBannerMessageKey({
+          requestStatus: status,
+          orderPaymentStatus: paymentStatus,
+          viewer: "customer",
+        });
+        return key ? (
+          <p className="mb-3 text-sm text-text-secondary">{t(key)}</p>
+        ) : null;
+      })()}
 
       {disputeStatus === "dispute_opened" && (
         <p className="mb-3 text-sm text-text-secondary">
