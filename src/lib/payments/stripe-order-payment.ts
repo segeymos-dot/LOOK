@@ -326,7 +326,7 @@ async function verifySessionAgainstOrder(input: {
 
   const { data: order, error } = await admin
     .from("requests")
-    .select("id, order_amount, currency, order_payment_status, customer_id, status")
+    .select("id, order_payment_status, customer_id, status")
     .eq("id", input.requestId)
     .maybeSingle();
 
@@ -340,22 +340,24 @@ async function verifySessionAgainstOrder(input: {
     return { ok: false, error: "Payment is only available for orders in progress" };
   }
 
-  let expectedAmount = Number(order.order_amount);
-  let expectedCurrency = String(order.currency ?? "");
+  let expectedAmount = Number.NaN;
+  let expectedCurrency = "";
 
-  if (!Number.isFinite(expectedAmount) || expectedAmount <= 0 || !expectedCurrency) {
-    const { data: offer } = await admin
-      .from("offers")
-      .select("price, currency")
-      .eq("request_id", input.requestId)
-      .eq("status", "accepted")
-      .maybeSingle();
+  const { data: offer } = await admin
+    .from("offers")
+    .select("price, currency")
+    .eq("request_id", input.requestId)
+    .eq("status", "accepted")
+    .maybeSingle();
 
-    if (!offer) {
-      return { ok: false, error: "No accepted offer found for this order" };
-    }
-    expectedAmount = Number(offer.price);
-    expectedCurrency = String(offer.currency ?? "USD");
+  if (!offer) {
+    return { ok: false, error: "No accepted offer found for this order" };
+  }
+  expectedAmount = Number(offer.price);
+  expectedCurrency = String(offer.currency ?? "USD");
+
+  if (!Number.isFinite(expectedAmount) || expectedAmount <= 0 || !expectedCurrency.trim()) {
+    return { ok: false, error: "Invalid accepted offer price or currency" };
   }
 
   const checked = verifyStripeAmountAndCurrency({

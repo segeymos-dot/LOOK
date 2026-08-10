@@ -220,11 +220,11 @@ async function acceptWorkFallback(
     .eq("status", "paid")
     .maybeSingle();
 
+  // Authenticated role cannot UPDATE order_payment_status (042). Snapshot sync via admin.
   const { data: updated, error: updateError } = await supabase
     .from("requests")
     .update({
       status: "completed",
-      order_payment_status: "completed",
       revision_feedback: null,
     })
     .eq("id", requestId)
@@ -256,6 +256,19 @@ async function acceptWorkFallback(
     }
 
     return { success: false, error: "Work can only be accepted while pending customer review" };
+  }
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+  if (admin) {
+    await admin
+      .from("requests")
+      .update({
+        order_payment_status: "completed",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", requestId)
+      .eq("status", "completed");
   }
 
   if (context.conversationId) {

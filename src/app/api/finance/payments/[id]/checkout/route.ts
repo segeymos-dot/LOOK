@@ -88,9 +88,21 @@ export async function POST(
     return NextResponse.json({ success: false, error: "No accepted offer" }, { status: 400 });
   }
 
-  // Server-side amount only — never accept client-provided price/commission.
-  const amount = Number(order.order_amount ?? offer.price);
-  const currency = String(order.currency ?? offer.currency ?? "USD");
+  // Authoritative amount/currency: accepted offer only (never requests.order_amount).
+  const amount = Number(offer.price);
+  const currency = String(offer.currency ?? "USD").trim();
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return NextResponse.json(
+      { success: false, error: "Invalid accepted offer price" },
+      { status: 400 }
+    );
+  }
+  if (!currency) {
+    return NextResponse.json(
+      { success: false, error: "Invalid accepted offer currency" },
+      { status: 400 }
+    );
+  }
   const origin = getAppOrigin(request.headers.get("origin") ?? undefined);
 
   const result = await createOrderCheckoutSession(
