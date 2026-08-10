@@ -8,7 +8,7 @@ import { localizeRequest } from "@/lib/i18n/localize-data";
 import { isPlatformAdmin } from "@/lib/data/finance-actions";
 import {
   areTestPaymentsEnabled,
-  isTestPaymentActor,
+  canInvokeSimulatedOrderPayment,
 } from "@/lib/payments/test-payments-guard";
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
@@ -82,12 +82,14 @@ export default async function RequestPaymentPage({ params }: PageProps) {
   if (!request) notFound();
 
   const platformAdmin = user ? await isPlatformAdmin(supabase, user.id) : false;
-  const canUseTestPayments =
-    allowTestPayments &&
-    isTestPaymentActor({ email: user?.email, isPlatformAdmin: platformAdmin });
+  const isOrderOwner = !!user && user.id === request.customer_id;
+  const canUseTestPayments = canInvokeSimulatedOrderPayment({
+    email: user?.email,
+    isPlatformAdmin: platformAdmin,
+    isOrderOwner,
+  });
   const canAccessPayment =
-    !!user &&
-    (user.id === request.customer_id || (canUseTestPayments && platformAdmin));
+    !!user && (isOrderOwner || (canUseTestPayments && platformAdmin));
 
   if (!canAccessPayment) {
     redirect(`/requests/${id}`);
@@ -109,8 +111,9 @@ export default async function RequestPaymentPage({ params }: PageProps) {
   }
 
   const localized = localizeRequest(request, locale);
-  const grossAmount = Number(request.order_amount ?? offer.price);
-  const currency = request.currency ?? offer.currency;
+  // Display SoT: accepted offer (same as checkout / simulate).
+  const grossAmount = Number(offer.price);
+  const currency = String(offer.currency ?? "USD");
 
   return (
     <AppLayout activePath="/search" hideNav>

@@ -11,7 +11,7 @@ import { getOrderPaymentSnapshot } from "@/lib/payments/order-payment";
 import { authorizeTestOrderPayment } from "@/lib/payments/test-payment-authorization";
 import {
   areTestPaymentsEnabled,
-  isTestPaymentActor,
+  canInvokeSimulatedOrderPayment,
   testPaymentsActorDeniedJson,
   testPaymentsDisabledJson,
 } from "@/lib/payments/test-payments-guard";
@@ -79,33 +79,43 @@ export async function POST(
   if ("error" in auth) return auth.error;
 
   const admin = await isPlatformAdmin(auth.supabase, auth.user.id);
-  if (
-    !isTestPaymentActor({
-      email: auth.user.email,
-      isPlatformAdmin: admin,
-    })
-  ) {
-    return NextResponse.json(testPaymentsActorDeniedJson(), { status: 403 });
-  }
 
   let externalReference: string | undefined;
   try {
-    const body = (await request.json()) as { external_reference?: string };
+    const body = (await request.json()) as {
+      external_reference?: string;
+      amount?: number;
+      currency?: string;
+    };
     if (body.external_reference?.trim()) {
       externalReference = body.external_reference.trim();
     }
+    // Ignore any client-supplied amount/currency — accepted offer is authoritative.
+    void body.amount;
+    void body.currency;
   } catch {
     // empty body is fine — never trust client payment status / amounts
   }
 
   const { data: order, error: orderError } = await auth.supabase
     .from("requests")
-    .select("id, customer_id, status, order_payment_status, order_amount, currency")
+    .select("id, customer_id, status, order_payment_status")
     .eq("id", requestId)
     .maybeSingle();
 
   if (orderError || !order) {
     return NextResponse.json({ success: false, error: "Request not found" }, { status: 404 });
+  }
+
+  const isOrderOwner = order.customer_id === auth.user.id;
+  if (
+    !canInvokeSimulatedOrderPayment({
+      email: auth.user.email,
+      isPlatformAdmin: admin,
+      isOrderOwner,
+    })
+  ) {
+    return NextResponse.json(testPaymentsActorDeniedJson(), { status: 403 });
   }
 
   const { data: offer } = await auth.supabase
@@ -115,6 +125,10 @@ export async function POST(
     .eq("status", "accepted")
     .maybeSingle();
 
+  if (!offer) {
+    return NextResponse.json({ success: false, error: "No accepted offer" }, { status: 400 });
+  }
+
   const existingPayment = await getPaymentForRequest(auth.supabase, requestId);
 
   const authz = authorizeTestOrderPayment({
@@ -123,7 +137,8 @@ export async function POST(
     orderStatus: order.status,
     orderPaymentStatus: order.order_payment_status,
     existingPaymentStatus: existingPayment?.status ?? null,
-    expectedGrossAmount: Number(order.order_amount ?? offer?.price),
+    // Authoritative SoT: accepted offer only (never requests.order_amount).
+    expectedGrossAmount: Number(offer.price),
     isPlatformAdmin: admin,
   });
 

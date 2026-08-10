@@ -9,7 +9,7 @@ export type TestPaymentAuthzInput = {
   orderStatus: string | null | undefined;
   orderPaymentStatus: string | null | undefined;
   existingPaymentStatus: string | null | undefined;
-  /** Server-loaded expected gross (order_amount ?? accepted offer price). */
+  /** Server-loaded expected gross from accepted offer.price (never client / order_amount). */
   expectedGrossAmount: number | null | undefined;
   /** Local/dev only: platform admin may simulate payment for any in-progress order. */
   isPlatformAdmin?: boolean;

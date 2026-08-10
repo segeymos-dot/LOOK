@@ -54,6 +54,27 @@ export function isTestPaymentActor(
   return configured.includes(email);
 }
 
+/**
+ * Who may call the simulated order-payment API when the env gate is open:
+ * the order's customer/owner, or a known test actor / platform admin.
+ * Production remains closed via areTestPaymentsEnabled().
+ */
+export function canInvokeSimulatedOrderPayment(
+  input: {
+    email?: string | null;
+    isPlatformAdmin?: boolean;
+    isOrderOwner: boolean;
+  },
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
+): boolean {
+  if (!areTestPaymentsEnabled(env)) return false;
+  if (input.isOrderOwner) return true;
+  return isTestPaymentActor(
+    { email: input.email, isPlatformAdmin: input.isPlatformAdmin },
+    env
+  );
+}
+
 export const TEST_PAYMENTS_DISABLED_MESSAGE =
   "Test payments are disabled. Real charges require Stripe Checkout.";
 

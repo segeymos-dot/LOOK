@@ -47,6 +47,8 @@ export function OrderPaymentScreen({
   const [paying, setPaying] = useState(false);
   const [testPaying, setTestPaying] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  /** After Stripe is unavailable on Preview, reveal explicit Test payment CTA. */
+  const [showTestFallback, setShowTestFallback] = useState(false);
   const [localOrderPaymentStatus, setLocalOrderPaymentStatus] =
     useState<OrderPaymentStatus>(initialOrderPaymentStatus);
   const confirmAttempted = useRef(false);
@@ -131,18 +133,21 @@ export function OrderPaymentScreen({
   };
 
   const handlePayClick = async () => {
+    if (paying || testPaying) return;
     setError(null);
     setPaying(true);
     try {
-      // Preview/Staging: ENABLE_TEST_PAYMENTS → mock flow (no Stripe keys required).
-      if (allowTestPayments) {
-        await runSimulatedPayment();
-        return;
-      }
-
+      // Prefer real Stripe Checkout when configured.
       const checkout = await startStripeCheckout();
       if (checkout.ok) {
         window.location.href = checkout.url;
+        return;
+      }
+
+      // Preview/Staging: server signals test fallback when Stripe is missing.
+      if (allowTestPayments && checkout.useTestFallback) {
+        setShowTestFallback(true);
+        setError(checkout.error);
         return;
       }
 
@@ -155,7 +160,7 @@ export function OrderPaymentScreen({
   };
 
   const handleTestPay = async () => {
-    if (!allowTestPayments) return;
+    if (!allowTestPayments || paying || testPaying) return;
     setError(null);
     setTestPaying(true);
     try {
@@ -166,6 +171,8 @@ export function OrderPaymentScreen({
       setTestPaying(false);
     }
   };
+
+  const showTestPayButton = allowTestPayments && showTestFallback;
 
   return (
     <div className="space-y-5">
@@ -261,13 +268,14 @@ export function OrderPaymentScreen({
               className="w-full gap-2"
               size="lg"
               loading={paying}
+              disabled={testPaying}
               onClick={() => void handlePayClick()}
             >
               <CreditCard className="h-5 w-5" />
               {t("finance.paymentPage.payNow", { amount: formatPrice(split.gross, currency) })}
             </Button>
 
-            {allowTestPayments ? (
+            {showTestPayButton ? (
               <div className="mt-3 space-y-2">
                 <Button
                   variant="secondary"

@@ -8,6 +8,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   areTestPaymentsEnabled,
+  canInvokeSimulatedOrderPayment,
   isProductionRuntime,
   isTestPaymentActor,
 } from "../src/lib/payments/test-payments-guard.ts";
@@ -204,6 +205,81 @@ test("7b. test payment actors are limited to test emails / admins", () => {
   );
 });
 
+test("7c. Preview order owner may invoke simulation; other customer / provider denied", () => {
+  const previewEnv = {
+    NODE_ENV: "production",
+    VERCEL_ENV: "preview",
+    ENABLE_TEST_PAYMENTS: "true",
+  };
+  assert.equal(
+    canInvokeSimulatedOrderPayment(
+      { email: "owner@example.com", isOrderOwner: true },
+      previewEnv
+    ),
+    true
+  );
+  assert.equal(
+    canInvokeSimulatedOrderPayment(
+      { email: "other@example.com", isOrderOwner: false },
+      previewEnv
+    ),
+    false
+  );
+  assert.equal(
+    canInvokeSimulatedOrderPayment(
+      { email: "provider@example.com", isOrderOwner: false },
+      previewEnv
+    ),
+    false
+  );
+  assert.equal(
+    canInvokeSimulatedOrderPayment(
+      { email: "provider@test.look", isOrderOwner: false },
+      previewEnv
+    ),
+    true
+  );
+});
+
+test("7d. production hard-denies simulated invoke even for order owner", () => {
+  assert.equal(
+    canInvokeSimulatedOrderPayment(
+      { email: "owner@example.com", isOrderOwner: true },
+      {
+        VERCEL_ENV: "production",
+        ENABLE_TEST_PAYMENTS: "true",
+      }
+    ),
+    false
+  );
+});
+
+test("7e. accepted offer amount is authoritative for authz ($2500)", () => {
+  const result = authorizeTestOrderPayment({
+    authenticatedUserId: "cust-1",
+    orderCustomerId: "cust-1",
+    orderStatus: "in_progress",
+    orderPaymentStatus: "unpaid",
+    existingPaymentStatus: null,
+    expectedGrossAmount: 2500,
+  });
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.expectedGrossAmount, 2500);
+});
+
+test("7f. already-paid replay is denied (no double ledger)", () => {
+  const result = authorizeTestOrderPayment({
+    authenticatedUserId: "cust-1",
+    orderCustomerId: "cust-1",
+    orderStatus: "in_progress",
+    orderPaymentStatus: "paid",
+    existingPaymentStatus: "paid",
+    expectedGrossAmount: 2500,
+  });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.status, 400);
+});
+
 test("8. migration revokes browser-role RPC execution", () => {
   const migration = readFileSync(
     resolve(root, "supabase/migrations/027_revoke_simulate_test_grants.sql"),
@@ -300,20 +376,35 @@ test("route source fails closed without ENABLE_TEST_PAYMENTS and hard-denies pro
     resolve(root, "src/lib/payments/test-payments-guard.ts"),
     "utf8"
   );
+  const screen = readFileSync(
+    resolve(root, "src/components/finance/OrderPaymentScreen.tsx"),
+    "utf8"
+  );
 
   assert.match(guard, /ENABLE_TEST_PAYMENTS\?\.trim\(\) === "true"/);
   assert.match(guard, /isProductionRuntime/);
   assert.match(guard, /VERCEL_ENV/);
+  assert.match(guard, /canInvokeSimulatedOrderPayment/);
   assert.doesNotMatch(guard, /NEXT_PUBLIC_ENABLE_TEST_PAYMENTS/);
   assert.match(paymentRoute, /areTestPaymentsEnabled\(\)/);
-  assert.match(paymentRoute, /isTestPaymentActor/);
+  assert.match(paymentRoute, /canInvokeSimulatedOrderPayment/);
   assert.match(paymentRoute, /status: 403/);
+  assert.match(paymentRoute, /Number\(offer\.price\)/);
+  assert.doesNotMatch(paymentRoute, /order_amount \?\? offer/);
+  assert.match(paymentRoute, /void body\.amount/);
   assert.match(payoutRoute, /areTestPaymentsEnabled\(\)/);
   assert.match(payoutRoute, /status: 403/);
   assert.match(paymentRoute, /authorizeTestOrderPayment/);
   assert.match(
     readFileSync(resolve(root, "src/lib/payments/order-payment.ts"), "utf8"),
     /createAdminClient/
+  );
+  // Stripe-first; explicit test CTA only after useTestFallback.
+  assert.match(screen, /useTestFallback/);
+  assert.match(screen, /showTestFallback/);
+  assert.doesNotMatch(
+    screen,
+    /if \(allowTestPayments\) \{\s*await runSimulatedPayment\(\);/
   );
 });
 
