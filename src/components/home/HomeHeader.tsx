@@ -10,19 +10,9 @@ import { cn } from "@/lib/utils";
 import { localizeText } from "@/lib/i18n/localize-data";
 import { ArrowLeftRight, Bell, ChevronDown, MapPin } from "lucide-react";
 
+/** Language + city pills: compact on narrow phones, unchanged from sm+. */
 const pillClass =
-  "inline-flex shrink-0 items-center justify-center border border-[#E8ECF1]";
-
-const pillStyle = {
-  backgroundColor: "#ffffff",
-  borderRadius: 12,
-  paddingLeft: 12,
-  paddingRight: 12,
-  paddingTop: 8,
-  paddingBottom: 8,
-  minHeight: 36,
-  boxSizing: "border-box" as const,
-};
+  "inline-flex shrink-0 items-center justify-center border border-[#E8ECF1] bg-white box-border rounded-[10px] px-2 py-1 min-h-[30px] sm:rounded-xl sm:px-3 sm:py-2 sm:min-h-9";
 
 type TimeGreetingKey =
   | "goodMorning"
@@ -74,21 +64,17 @@ export function HomeHeaderControls() {
   const locales: Locale[] = ["ru", "en"];
 
   return (
-    <div
-      className="flex shrink-0 items-center overflow-x-hidden"
-      style={{ gap: "10px" }}
-    >
+    <div className="flex shrink-0 items-center gap-1.5 overflow-x-hidden sm:gap-2.5">
       <div
-        className={cn(pillClass, "gap-1")}
-        style={pillStyle}
+        className={cn(pillClass, "gap-0.5 sm:gap-1")}
         role="group"
         aria-label={t("common.language")}
       >
         {locales.map((code, index) => (
-          <span key={code} className="inline-flex items-center gap-1">
+          <span key={code} className="inline-flex items-center gap-0.5 sm:gap-1">
             {index > 0 ? (
               <ArrowLeftRight
-                className="h-3 w-3 shrink-0 text-[#0F172A]"
+                className="h-2.5 w-2.5 shrink-0 text-[#0F172A] sm:h-3 sm:w-3"
                 strokeWidth={2}
                 aria-hidden="true"
               />
@@ -97,7 +83,7 @@ export function HomeHeaderControls() {
               type="button"
               onClick={() => setLocale(code)}
               className={cn(
-                "min-w-[1.625rem] text-[11px] font-semibold leading-none transition-colors",
+                "min-h-[26px] min-w-[1.5rem] px-0.5 text-[10px] font-semibold leading-none transition-colors sm:min-h-0 sm:min-w-[1.625rem] sm:px-0 sm:text-[11px]",
                 locale === code ? "text-[#0F172A]" : "text-[#64748B] hover:text-[#0F172A]"
               )}
             >
@@ -111,19 +97,18 @@ export function HomeHeaderControls() {
         href={profileHref}
         className={cn(
           pillClass,
-          "max-w-[7.5rem] gap-1 transition-opacity active:opacity-90"
+          "max-w-[5.75rem] gap-0.5 transition-opacity active:opacity-90 sm:max-w-[7.5rem] sm:gap-1"
         )}
-        style={pillStyle}
       >
         <MapPin
-          className="h-3.5 w-3.5 shrink-0 fill-[#6337F5] text-[#6337F5]"
+          className="h-3 w-3 shrink-0 fill-[#6337F5] text-[#6337F5] sm:h-3.5 sm:w-3.5"
           aria-hidden="true"
         />
-        <span className="truncate text-[11px] font-semibold leading-none text-[#0F172A]">
+        <span className="truncate text-[10px] font-semibold leading-none text-[#0F172A] sm:text-[11px]">
           {locationLabel}
         </span>
         <ChevronDown
-          className="h-3 w-3 shrink-0 text-[#64748B]"
+          className="h-2.5 w-2.5 shrink-0 text-[#64748B] sm:h-3 sm:w-3"
           strokeWidth={2}
           aria-hidden="true"
         />
