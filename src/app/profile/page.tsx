@@ -75,6 +75,8 @@ export default function ProfilePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [incomingPendingCount, setIncomingPendingCount] = useState(0);
+  const [customerOrdersCount, setCustomerOrdersCount] = useState(0);
+  const [customerReviewsCount, setCustomerReviewsCount] = useState(0);
   const [form, setForm] = useState({
     full_name: "",
     bio: "",
@@ -88,6 +90,16 @@ export default function ProfilePage() {
     provider_category_slugs: [] as string[],
     role: "both" as "customer" | "provider" | "both",
   });
+
+  const showProviderSection = canActAsProvider(resolvedProfile?.role);
+  const showCustomerSection = canActAsCustomer(resolvedProfile?.role);
+  // Shell follows local UI mode; APIs stay role-capable for deep links.
+  const showCustomerUi =
+    showCustomerSection && effectiveUiMode === "customer";
+  const showProviderUi =
+    showProviderSection && effectiveUiMode === "provider";
+  const showCustomerLinks = showCustomerUi;
+  const showProviderLinks = showProviderUi;
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -120,8 +132,54 @@ export default function ProfilePage() {
       .then(({ data }) => setReviews((data ?? []) as Review[]));
   }, [resolvedProfile]);
 
+  /** Customer-mode stats: orders as customer + reviews received as customer. */
   useEffect(() => {
-    if (!ready || !user || !resolvedProfile || !canActAsProvider(resolvedProfile.role)) {
+    if (!ready || !user || !showCustomerUi) {
+      setCustomerOrdersCount(0);
+      setCustomerReviewsCount(0);
+      return;
+    }
+    if (isDemoMode()) {
+      setCustomerOrdersCount(0);
+      setCustomerReviewsCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const supabase = createClient();
+      const [ordersRes, reviewsRes] = await Promise.all([
+        authFetch(
+          "/api/orders/history?viewer=customer&tab=completed&page=1&pageSize=1"
+        ),
+        // Reviews of this user as customer (not as provider):
+        // provider profile reviews set provider_id === reviewee_id.
+        supabase
+          .from("reviews")
+          .select("id", { count: "exact", head: true })
+          .eq("reviewee_id", user.id)
+          .neq("provider_id", user.id),
+      ]);
+
+      if (cancelled) return;
+
+      if (ordersRes.ok) {
+        const data = (await ordersRes.json()) as { total?: number };
+        setCustomerOrdersCount(Number(data.total ?? 0));
+      } else {
+        setCustomerOrdersCount(0);
+      }
+
+      setCustomerReviewsCount(Number(reviewsRes.count ?? 0));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user, showCustomerUi]);
+
+  useEffect(() => {
+    if (!ready || !user || !resolvedProfile || !showProviderUi) {
       setIncomingPendingCount(0);
       return;
     }
@@ -141,7 +199,7 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [ready, user, resolvedProfile]);
+  }, [ready, user, resolvedProfile, showProviderUi]);
 
   useEffect(() => {
     if (resolvedProfile) {
@@ -217,14 +275,6 @@ export default function ProfilePage() {
     setEditing(false);
   };
 
-  const showProviderSection = canActAsProvider(resolvedProfile?.role);
-  const showCustomerSection = canActAsCustomer(resolvedProfile?.role);
-  // Quick links follow local UI shell; deep links still work via direct URL.
-  const showCustomerLinks =
-    showCustomerSection && effectiveUiMode === "customer";
-  const showProviderLinks =
-    showProviderSection && effectiveUiMode === "provider";
-
   const verification = resolvedProfile
     ? getProviderVerification(resolvedProfile, Boolean(user?.email_confirmed_at))
     : null;
@@ -271,7 +321,7 @@ export default function ProfilePage() {
             {getRoleLabelT(resolvedProfile?.role, t)}
           </Chip>
 
-          {showProviderSection && resolvedProfile && (
+          {showProviderUi && resolvedProfile && (
             <div className="mt-4">
               <ProviderStats
                 rating={Number(resolvedProfile.rating)}
@@ -282,7 +332,18 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {verification && showProviderSection && (
+          {showCustomerUi && (
+            <div className="mt-4">
+              <ProviderStats
+                rating={0}
+                completedOrders={customerOrdersCount}
+                reviewsCount={customerReviewsCount}
+                variant="compact"
+              />
+            </div>
+          )}
+
+          {verification && showProviderUi && (
             <div className="mt-4">
               <VerificationBadges verification={verification} className="justify-center" />
             </div>
@@ -311,7 +372,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {showProviderSection && resolvedProfile && !editing && (
+          {showProviderUi && resolvedProfile && !editing && (
             <Link href={`/providers/${resolvedProfile.id}`} className="mt-4 inline-block">
               <Button variant="outline" size="sm" className="gap-2">
                 <ExternalLink className="h-4 w-4" />
@@ -330,10 +391,10 @@ export default function ProfilePage() {
 
         {!editing && <BecomeProviderCard />}
 
-        {!editing && (showProviderSection || showCustomerSection) && (
+        {!editing && (showProviderUi || showCustomerUi) && (
           <ProfileFinanceBlock
-            showProvider={showProviderSection}
-            showCustomer={showCustomerSection}
+            showProvider={showProviderUi}
+            showCustomer={showCustomerUi}
             adminLinks={
               isPlatformAdmin || isDemoMode() ? (
                 <>
@@ -434,7 +495,7 @@ export default function ProfilePage() {
                 <p className="mt-1 text-xs text-text-muted">{t("profile.roleLockedHint")}</p>
               </div>
 
-              {showProviderSection && user && (
+              {showProviderUi && user && (
                 <>
                   <Input
                     id="skills"
@@ -493,7 +554,7 @@ export default function ProfilePage() {
               </Card>
             )}
 
-            {showProviderSection && resolvedProfile?.skills && (
+            {showProviderUi && resolvedProfile?.skills && (
               <Card padding="md">
                 <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("profile.skills")}</h3>
                 <div className="flex flex-wrap gap-2">
@@ -504,7 +565,7 @@ export default function ProfilePage() {
               </Card>
             )}
 
-            {showProviderSection && resolvedProfile?.portfolio?.trim() && (
+            {showProviderUi && resolvedProfile?.portfolio?.trim() && (
               <Card padding="md">
                 <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("profile.portfolio")}</h3>
                 <p className="whitespace-pre-line text-sm leading-relaxed text-text-secondary">
@@ -513,13 +574,13 @@ export default function ProfilePage() {
               </Card>
             )}
 
-            {showProviderSection &&
+            {showProviderUi &&
               resolvedProfile &&
               (resolvedProfile.portfolio_items?.length ?? 0) > 0 && (
               <PortfolioGallery items={resolvedProfile.portfolio_items} />
             )}
 
-            {showProviderSection && reviews.length > 0 && (
+            {showProviderUi && reviews.length > 0 && (
               <ReviewsList reviews={reviews} />
             )}
 

@@ -3,6 +3,10 @@
 /**
  * Own-profile finance summary only. Uses existing balance / payment-history /
  * transactions / order-history APIs. Never mount on public `/providers/[id]`.
+ *
+ * Caller must pass mode-aware flags (effectiveUiMode), not raw role capability:
+ * - showProvider → provider wallet / payouts
+ * - showCustomer → customer balance placeholder (never provider_balances)
  */
 import { FinanceStatCard } from "@/components/finance/FinanceStatCard";
 import { PaymentHistoryList } from "@/components/finance/PaymentHistoryList";
@@ -18,7 +22,6 @@ import {
   signedAmountForViewer,
   type AmountViewer,
 } from "@/lib/finance/ledger";
-import type { OrderHistoryItem } from "@/lib/orders/history-types";
 import { formatPrice } from "@/lib/utils";
 import type {
   FinanceTransaction,
@@ -26,14 +29,14 @@ import type {
   ProviderBalance,
 } from "@/types";
 import {
-  Briefcase,
+  Banknote,
   ChevronRight,
-  Clock,
   CreditCard,
   History,
-  Receipt,
+  Settings2,
   TrendingUp,
   Wallet,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
@@ -89,17 +92,23 @@ export function ProfileFinanceBlock({
   const [providerRecentTx, setProviderRecentTx] =
     useState<FinanceTransaction | null>(null);
   const [loadingProvider, setLoadingProvider] = useState(showProvider);
+  const [allowTestPayout, setAllowTestPayout] = useState(false);
 
   const [customerPayments, setCustomerPayments] = useState<PaymentHistoryEntry[]>(
     []
   );
   const [customerRecentTx, setCustomerRecentTx] =
     useState<FinanceTransaction | null>(null);
-  const [activeOrdersCount, setActiveOrdersCount] = useState(0);
   const [loadingCustomer, setLoadingCustomer] = useState(showCustomer);
 
   useEffect(() => {
-    if (!showProvider) return;
+    if (!showProvider) {
+      setBalance(null);
+      setProviderRecentTx(null);
+      setAllowTestPayout(false);
+      setLoadingProvider(false);
+      return;
+    }
     let cancelled = false;
     setLoadingProvider(true);
     void (async () => {
@@ -112,6 +121,7 @@ export function ProfileFinanceBlock({
         const txData = await txRes.json();
         if (cancelled) return;
         if (balData.balance) setBalance(balData.balance);
+        setAllowTestPayout(Boolean(balData.test_payments_enabled));
         setProviderRecentTx(
           pickLatestVisibleTx(
             (txData.transactions ?? []) as FinanceTransaction[],
@@ -128,21 +138,22 @@ export function ProfileFinanceBlock({
   }, [showProvider]);
 
   useEffect(() => {
-    if (!showCustomer) return;
+    if (!showCustomer) {
+      setCustomerPayments([]);
+      setCustomerRecentTx(null);
+      setLoadingCustomer(false);
+      return;
+    }
     let cancelled = false;
     setLoadingCustomer(true);
     void (async () => {
       try {
-        const [payRes, txRes, ordersRes] = await Promise.all([
+        const [payRes, txRes] = await Promise.all([
           authFetch("/api/finance/payment-history"),
           authFetch("/api/finance/transactions?limit=10&scope=customer"),
-          authFetch(
-            "/api/orders/history?viewer=customer&tab=active&page=1&pageSize=50"
-          ),
         ]);
         const payData = await payRes.json();
         const txData = await txRes.json();
-        const ordersData = await ordersRes.json();
         if (cancelled) return;
 
         const history = (payData.history ?? []) as PaymentHistoryEntry[];
@@ -152,15 +163,6 @@ export function ProfileFinanceBlock({
             (txData.transactions ?? []) as FinanceTransaction[],
             "customer"
           )
-        );
-
-        const items = (ordersData.items ?? []) as OrderHistoryItem[];
-        // Active tab already scopes to in-progress work; keep a safe filter.
-        setActiveOrdersCount(
-          items.filter(
-            (item) =>
-              item.status === "in_progress" || item.status === "pending_review"
-          ).length
         );
       } finally {
         if (!cancelled) setLoadingCustomer(false);
@@ -173,11 +175,6 @@ export function ProfileFinanceBlock({
 
   const providerCurrency = balance?.currency ?? "USD";
   const paidCustomer = customerPayments.filter((e) => e.payment_status === "paid");
-  const totalPaid = paidCustomer.reduce(
-    (sum, e) => sum + (Number(e.amount_gross) || 0),
-    0
-  );
-  const paidOrdersCount = paidCustomer.length;
   const customerCurrency = paidCustomer[0]?.currency ?? "USD";
 
   const providerRecentLine = providerRecentTx
@@ -199,6 +196,8 @@ export function ProfileFinanceBlock({
       latest.currency
     )} · ${latest.request_title}`;
   }
+
+  const available = Number(balance?.available_balance ?? 0);
 
   return (
     <Card padding="md" className="space-y-4">
@@ -225,10 +224,7 @@ export function ProfileFinanceBlock({
               <FinanceStatCard
                 icon={Wallet}
                 label={t("finance.provider.availableBalance")}
-                value={formatPrice(
-                  balance?.available_balance ?? 0,
-                  providerCurrency
-                )}
+                value={formatPrice(available, providerCurrency)}
                 hint={t("finance.provider.availableHint")}
                 accent="success"
               />
@@ -262,6 +258,12 @@ export function ProfileFinanceBlock({
 
           <div className="grid gap-2">
             <Link href="/my/balance">
+              <Button className="w-full gap-2" size="sm">
+                <Banknote className="h-4 w-4" />
+                {t("profile.finance.withdraw")}
+              </Button>
+            </Link>
+            <Link href="/my/balance">
               <Button
                 variant="outline"
                 className="w-full justify-between gap-2"
@@ -270,6 +272,19 @@ export function ProfileFinanceBlock({
                 <span className="inline-flex items-center gap-2">
                   <Wallet className="h-4 w-4" />
                   {t("profile.finance.balanceAndPayouts")}
+                </span>
+                <ChevronRight className="h-4 w-4 text-text-muted" />
+              </Button>
+            </Link>
+            <Link href="/settings/provider">
+              <Button
+                variant="outline"
+                className="w-full justify-between gap-2"
+                size="sm"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Settings2 className="h-4 w-4" />
+                  {t("profile.finance.payoutMethods")}
                 </span>
                 <ChevronRight className="h-4 w-4 text-text-muted" />
               </Button>
@@ -288,6 +303,12 @@ export function ProfileFinanceBlock({
               </Button>
             </Link>
           </div>
+
+          {allowTestPayout && available > 0 ? (
+            <p className="text-xs text-text-muted">
+              {t("profile.finance.withdrawHint")}
+            </p>
+          ) : null}
         </section>
       )}
 
@@ -306,30 +327,16 @@ export function ProfileFinanceBlock({
             </h3>
           ) : null}
 
-          {loadingCustomer && customerPayments.length === 0 ? (
+          {loadingCustomer ? (
             <p className="text-sm text-text-muted">{t("common.loading")}</p>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3">
               <FinanceStatCard
                 icon={CreditCard}
-                label={t("profile.finance.totalPaid")}
-                value={formatPrice(totalPaid, customerCurrency)}
-                hint={t("profile.finance.totalPaidHint")}
-                accent="success"
-              />
-              <FinanceStatCard
-                icon={Receipt}
-                label={t("profile.finance.paidOrders")}
-                value={String(paidOrdersCount)}
-                hint={t("profile.finance.paidOrdersHint")}
+                label={t("profile.finance.customerBalance")}
+                value={formatPrice(0, customerCurrency)}
+                hint={t("profile.finance.customerBalanceHint")}
                 accent="brand"
-              />
-              <FinanceStatCard
-                icon={Briefcase}
-                label={t("profile.finance.activeOrders")}
-                value={String(activeOrdersCount)}
-                hint={t("profile.finance.activeOrdersHint")}
-                accent="warning"
               />
             </div>
           )}
@@ -365,7 +372,7 @@ export function ProfileFinanceBlock({
                 size="sm"
               >
                 <span className="inline-flex items-center gap-2">
-                  <Briefcase className="h-4 w-4" />
+                  <History className="h-4 w-4" />
                   {t("profile.orderHistory")}
                 </span>
                 <ChevronRight className="h-4 w-4 text-text-muted" />
