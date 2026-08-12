@@ -17,11 +17,10 @@ import { createClient } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/app-url";
 import { createLoginSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useMemo, useRef, useState } from "react";
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { syncSession, clearPrivateAuthState } = useAuth();
   const { t } = useTranslation();
@@ -32,7 +31,7 @@ function LoginForm() {
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [savePassword, setSavePassword] = useState(false);
 
   const signIn = async (email: string, password: string) => {
     const supabase = createClient();
@@ -40,7 +39,6 @@ function LoginForm() {
       data: { user },
     } = await supabase.auth.getUser();
     if (user?.email && user.email !== email) {
-      // Drop previous account state before authenticating the next user.
       clearPrivateAuthState();
       const { clearPrivateClientStorage } = await import(
         "@/lib/auth/sign-out-cleanup"
@@ -57,9 +55,12 @@ function LoginForm() {
     e.preventDefault();
     setErrors({});
 
-    // Prefer live DOM values so browser autofill is not lost to React state lag.
-    const credentials = readLoginCredentialsFromForm(e.currentTarget, form);
-    setForm(credentials);
+    const formEl = e.currentTarget;
+    // Read live DOM values — Safari AutoFill may never have touched React state.
+    const credentials = readLoginCredentialsFromForm(formEl, {
+      email: "",
+      password: "",
+    });
 
     const parsed = loginSchema.safeParse(credentials);
     if (!parsed.success) {
@@ -75,7 +76,7 @@ function LoginForm() {
 
     if (demo) {
       setLoading(false);
-      router.push(redirect);
+      window.location.assign(redirect);
       return;
     }
 
@@ -85,9 +86,9 @@ function LoginForm() {
       body: JSON.stringify(parsed.data),
     });
     const result = await response.json();
-    setLoading(false);
 
     if (!response.ok || !result.success) {
+      setLoading(false);
       const rawError = result.error ?? t("auth.login.invalidCredentials");
       const mapped = mapAuthErrorT(rawError, t);
       const emailNotConfirmed =
@@ -104,6 +105,7 @@ function LoginForm() {
     if (!synced) {
       const { error } = await signIn(parsed.data.email, parsed.data.password);
       if (error) {
+        setLoading(false);
         setErrors({ form: mapAuthErrorT(error.message, t) });
         return;
       }
@@ -112,15 +114,19 @@ function LoginForm() {
     }
 
     rememberLoginEmail(parsed.data.email);
-    // Progressive enhancement only — never block navigation on password-manager errors.
-    try {
-      await offerPasswordManagerSave(formRef.current, parsed.data);
-    } catch {
-      // ignore
+
+    // Only when the user opted in — never store passwords inside LOOK.
+    if (savePassword) {
+      try {
+        await offerPasswordManagerSave(formRef.current, parsed.data);
+      } catch {
+        // Progressive enhancement only — login already succeeded.
+      }
     }
 
-    router.push(redirect);
-    router.refresh();
+    // Full navigation helps Safari associate a successful sign-in with the form
+    // for Password AutoFill / Keychain. Do not clear form fields first.
+    window.location.assign(redirect);
   };
 
   return (
@@ -163,31 +169,41 @@ function LoginForm() {
         autoComplete="on"
       >
         <LoginEmailField
-          id="email"
+          id="username"
           label={t("auth.login.email")}
           placeholder="you@example.com"
-          value={form.email}
-          onChange={(email) => setForm((prev) => ({ ...prev, email }))}
           error={errors.email}
         />
         <PasswordInput
-          id="password"
+          id="current-password"
           name="password"
           autoComplete="current-password"
           label={t("auth.login.password")}
           placeholder="••••••"
-          value={form.password}
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, password: e.target.value }))
-          }
-          onInput={(e) =>
-            setForm((prev) => ({
-              ...prev,
-              password: (e.target as HTMLInputElement).value,
-            }))
-          }
+          // Uncontrolled: do not bind value — Safari must own DOM autofill.
+          defaultValue=""
           error={errors.password}
         />
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border-subtle bg-surface-muted/60 px-3 py-3">
+          <input
+            id="save-password"
+            name="save-password"
+            type="checkbox"
+            checked={savePassword}
+            onChange={(e) => setSavePassword(e.target.checked)}
+            className="mt-1 h-4 w-4 shrink-0 rounded border-border text-brand-600 focus:ring-brand-500/30"
+            autoComplete="off"
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-text-primary">
+              {t("auth.login.savePassword")}
+            </span>
+            <span className="mt-0.5 block text-xs leading-snug text-text-muted">
+              {t("auth.login.savePasswordHint")}
+            </span>
+          </span>
+        </label>
 
         {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
         {"emailConfirm" in errors && errors.emailConfirm && (

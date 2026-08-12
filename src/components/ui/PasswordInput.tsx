@@ -12,9 +12,24 @@ interface PasswordInputProps extends React.InputHTMLAttributes<HTMLInputElement>
 }
 
 export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
-  ({ className, label, error, hint, id, autoComplete, type: _type, ...props }, ref) => {
+  (
+    {
+      className,
+      label,
+      error,
+      hint,
+      id,
+      autoComplete,
+      type: _type,
+      defaultValue,
+      value,
+      ...props
+    },
+    ref
+  ) => {
     const [visible, setVisible] = useState(false);
     const { t } = useTranslation();
+    const isControlled = value !== undefined;
 
     return (
       <div className="space-y-1.5">
@@ -27,7 +42,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           <input
             ref={ref}
             id={id}
-            // Always password unless user toggles visibility; never override via props.type.
+            // Same DOM node: only toggle type (never remount password ↔ text).
             type={visible ? "text" : "password"}
             autoComplete={autoComplete ?? "current-password"}
             className={cn(
@@ -38,6 +53,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
               className
             )}
             {...props}
+            {...(isControlled ? { value } : { defaultValue: defaultValue ?? "" })}
           />
           <button
             type="button"

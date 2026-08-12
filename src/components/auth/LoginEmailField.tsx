@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import {
   useCallback,
   useEffect,
-  useId,
   useRef,
   useState,
   type InputHTMLAttributes,
@@ -17,46 +16,43 @@ import {
 
 type LoginEmailFieldProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
-  "type" | "value" | "onChange" | "autoComplete" | "name"
+  "type" | "value" | "defaultValue" | "onChange" | "autoComplete" | "name" | "id"
 > & {
   label: string;
-  value: string;
-  onChange: (value: string) => void;
   error?: string;
+  /** Stable login username id for password managers (default: username). */
+  id?: string;
 };
 
+/**
+ * Uncontrolled email/username field for login.
+ * Keeps DOM value owned by the browser (Safari AutoFill) while still offering
+ * our local recent-email dropdown.
+ */
 export function LoginEmailField({
   label,
-  value,
-  onChange,
   error,
-  id,
+  id = "username",
   ...props
 }: LoginEmailFieldProps) {
-  const generatedId = useId();
-  const inputId = id ?? generatedId;
-  const listId = `${inputId}-suggestions`;
+  const listId = `${id}-suggestions`;
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  const refreshSuggestions = useCallback((query: string) => {
-    // Show after the user types at least one character (mobile-friendly).
-    if (!query.trim()) {
+  const refreshSuggestions = useCallback((nextQuery: string) => {
+    if (!nextQuery.trim()) {
       setSuggestions([]);
       return [];
     }
-    const next = filterRecentLoginEmails(query, MAX_RECENT_LOGIN_EMAILS).filter(
-      (email) => email !== query.trim().toLowerCase()
+    const next = filterRecentLoginEmails(nextQuery, MAX_RECENT_LOGIN_EMAILS).filter(
+      (email) => email !== nextQuery.trim().toLowerCase()
     );
     setSuggestions(next);
     return next;
   }, []);
-
-  useEffect(() => {
-    refreshSuggestions(value);
-  }, [value, refreshSuggestions]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
@@ -77,16 +73,19 @@ export function LoginEmailField({
   const showList = open && suggestions.length > 0;
 
   const selectEmail = (email: string) => {
-    onChange(email);
+    const input = inputRef.current;
+    if (input) {
+      // Write into the live DOM without remounting / wiping password.
+      input.value = email;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    setQuery(email);
     setOpen(false);
-    // Keep focus in the form; password is the natural next step.
     window.requestAnimationFrame(() => {
-      const password = document.getElementById("password") as HTMLInputElement | null;
-      if (password) {
-        password.focus();
-        return;
-      }
-      inputRef.current?.focus();
+      const password = document.getElementById(
+        "current-password"
+      ) as HTMLInputElement | null;
+      password?.focus();
     });
   };
 
@@ -94,28 +93,29 @@ export function LoginEmailField({
     <div ref={rootRef} className="relative">
       <Input
         ref={inputRef}
-        id={inputId}
+        id={id}
         label={label}
         type="email"
-        name="email"
-        // username helps password managers pair email + password credentials.
+        name="username"
         autoComplete="username"
         inputMode="email"
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck={false}
-        value={value}
+        // Uncontrolled: Safari/Chrome own the value for Password AutoFill.
+        defaultValue=""
         error={error}
-        aria-autocomplete="list"
+        aria-autocomplete={showList ? "list" : undefined}
         aria-controls={showList ? listId : undefined}
-        aria-expanded={showList}
+        aria-expanded={showList || undefined}
         onFocus={() => {
-          const next = refreshSuggestions(value);
+          const current = inputRef.current?.value ?? query;
+          const next = refreshSuggestions(current);
           setOpen(next.length > 0);
         }}
-        onChange={(e) => {
-          const nextValue = e.target.value;
-          onChange(nextValue);
+        onInput={(e) => {
+          const nextValue = e.currentTarget.value;
+          setQuery(nextValue);
           const next = refreshSuggestions(nextValue);
           setOpen(next.length > 0);
         }}
@@ -133,12 +133,11 @@ export function LoginEmailField({
           role="listbox"
           className={cn(
             "absolute left-0 right-0 z-20 mt-1 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface shadow-elevated",
-            // Keep short so it stays under the email field and above the keyboard.
             "max-h-44"
           )}
         >
           {suggestions.map((email) => (
-            <li key={email} role="option">
+            <li key={email} role="option" aria-selected={false}>
               <button
                 type="button"
                 className={cn(
@@ -147,7 +146,6 @@ export function LoginEmailField({
                   "focus:bg-brand-50 focus:outline-none"
                 )}
                 onMouseDown={(e) => {
-                  // Prevent input blur before click registers.
                   e.preventDefault();
                 }}
                 onClick={() => selectEmail(email)}

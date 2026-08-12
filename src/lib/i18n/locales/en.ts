@@ -179,6 +179,9 @@ export const en: TranslationDict = {
       checkEmail: "Check your email",
       invalidCredentials: "Invalid email or password",
       emailNotConfirmed: "email not confirmed",
+      savePassword: "Save password",
+      savePasswordHint:
+        "Next time you sign in, your device or browser can offer this password.",
     },
     register: {
       title: "Sign up",

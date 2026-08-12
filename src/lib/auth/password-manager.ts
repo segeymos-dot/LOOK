@@ -79,7 +79,7 @@ export function readLoginCredentialsFromForm(
 ): { email: string; password: string } {
   const data = new FormData(form);
   const email = String(
-    data.get("email") ?? data.get("username") ?? fallback.email ?? ""
+    data.get("username") ?? data.get("email") ?? fallback.email ?? ""
   ).trim();
   const password = String(data.get("password") ?? fallback.password ?? "");
   return {
