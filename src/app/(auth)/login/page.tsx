@@ -6,6 +6,12 @@ import { Button } from "@/components/ui/Button";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
+import { authFetch } from "@/lib/auth/client-fetch";
+import {
+  isPasskeySupported,
+  passkeyErrorCode,
+  signInWithUserPasskey,
+} from "@/lib/auth/passkeys";
 import {
   offerPasswordManagerSave,
   readLoginCredentialsFromForm,
@@ -30,8 +36,14 @@ function LoginForm() {
   const formRef = useRef<HTMLFormElement>(null);
 
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [savePassword, setSavePassword] = useState(false);
+
+  useEffect(() => {
+    setPasskeyAvailable(isPasskeySupported());
+  }, []);
 
   useEffect(() => {
     const code = searchParams.get("error");
@@ -44,6 +56,60 @@ function LoginForm() {
           : t("auth.login.invalidCredentials");
     setErrors({ form: mapped });
   }, [searchParams, t]);
+
+  const handlePasskeySignIn = async () => {
+    if (demo) {
+      window.location.assign(redirect);
+      return;
+    }
+    setErrors({});
+    setPasskeyLoading(true);
+    try {
+      const { data, error } = await signInWithUserPasskey();
+      if (error || !data?.session?.access_token || !data.session.refresh_token) {
+        const code = passkeyErrorCode(error);
+        setErrors({
+          form:
+            code === "unsupported"
+              ? t("auth.login.passkeyUnsupported")
+              : code === "cancelled"
+                ? t("auth.login.passkeyCancelled")
+                : mapAuthErrorT(
+                    error?.message ?? t("auth.login.passkeyFailed"),
+                    t
+                  ),
+        });
+        setPasskeyLoading(false);
+        return;
+      }
+
+      const synced = await syncClientSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+      if (!synced) {
+        setPasskeyLoading(false);
+        setErrors({ form: t("auth.login.passkeyFailed") });
+        return;
+      }
+
+      await syncSession();
+      // Register LOOK account session row (same as password login path).
+      await authFetch("/api/auth/sessions").catch(() => undefined);
+      window.location.assign(redirect);
+    } catch (err) {
+      const code = passkeyErrorCode(err);
+      setPasskeyLoading(false);
+      setErrors({
+        form:
+          code === "unsupported"
+            ? t("auth.login.passkeyUnsupported")
+            : code === "cancelled"
+              ? t("auth.login.passkeyCancelled")
+              : t("auth.login.passkeyFailed"),
+      });
+    }
+  };
 
   const signIn = async (email: string, password: string) => {
     const supabase = createClient();
@@ -239,9 +305,35 @@ function LoginForm() {
           </Link>
         </div>
 
-        <Button type="submit" loading={loading} className="w-full">
+        <Button
+          type="submit"
+          loading={loading}
+          disabled={passkeyLoading}
+          className="w-full"
+        >
           {t("auth.login.submit")}
         </Button>
+
+        {passkeyAvailable && (
+          <>
+            <div className="relative py-1 text-center">
+              <span className="relative z-10 bg-surface px-3 text-xs uppercase tracking-wide text-text-muted">
+                {t("auth.login.or")}
+              </span>
+              <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border-subtle" />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              loading={passkeyLoading}
+              disabled={loading}
+              onClick={() => void handlePasskeySignIn()}
+            >
+              {t("auth.login.passkey")}
+            </Button>
+          </>
+        )}
       </form>
     </AuthLayout>
   );

@@ -6,7 +6,16 @@ let browserClient: SupabaseClient | undefined;
 
 export function createClient() {
   if (!browserClient) {
-    browserClient = createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey());
+    // isSingleton: false — LOOK owns the singleton so resetBrowserClient()
+    // can recreate with the same auth options (incl. passkey opt-in).
+    browserClient = createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+      isSingleton: false,
+      auth: {
+        experimental: {
+          passkey: true,
+        },
+      },
+    });
   }
   return browserClient;
 }

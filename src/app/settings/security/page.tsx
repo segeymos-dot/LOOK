@@ -1,5 +1,6 @@
 "use client";
 
+import { PasskeyManageCard } from "@/components/auth/PasskeyManageCard";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SettingsShell } from "@/components/settings/SettingsShell";
 import { Button } from "@/components/ui/Button";
@@ -156,6 +157,8 @@ export default function SettingsSecurityPage() {
           {t("auth.login.forgot")}
         </Link>
       </Card>
+
+      <PasskeyManageCard />
 
       <Card padding="md" className="space-y-2">
         <h2 className="font-semibold text-text-primary">
