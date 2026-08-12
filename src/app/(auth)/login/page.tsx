@@ -18,7 +18,7 @@ import { safeRedirectPath } from "@/lib/app-url";
 import { createLoginSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useMemo, useRef, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -32,6 +32,18 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [savePassword, setSavePassword] = useState(false);
+
+  useEffect(() => {
+    const code = searchParams.get("error");
+    if (!code) return;
+    const mapped =
+      code === "invalid_credentials"
+        ? t("auth.login.invalidCredentials")
+        : code === "too_many_attempts"
+          ? t("auth.errors.rateLimit")
+          : t("auth.login.invalidCredentials");
+    setErrors({ form: mapped });
+  }, [searchParams, t]);
 
   const signIn = async (email: string, password: string) => {
     const supabase = createClient();
@@ -52,11 +64,7 @@ function LoginForm() {
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setErrors({});
-
     const formEl = e.currentTarget;
-    // Read live DOM values — Safari AutoFill may never have touched React state.
     const credentials = readLoginCredentialsFromForm(formEl, {
       email: "",
       password: "",
@@ -64,6 +72,7 @@ function LoginForm() {
 
     const parsed = loginSchema.safeParse(credentials);
     if (!parsed.success) {
+      e.preventDefault();
       const fieldErrors: Record<string, string> = {};
       parsed.error.errors.forEach((err) => {
         if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
@@ -72,6 +81,17 @@ function LoginForm() {
       return;
     }
 
+    rememberLoginEmail(parsed.data.email);
+
+    // Safari/iOS: PasswordCredential is unsupported. A real form POST + redirect
+    // is what triggers the system "Save Password" sheet. Do not preventDefault.
+    if (savePassword && !demo) {
+      setLoading(true);
+      return;
+    }
+
+    e.preventDefault();
+    setErrors({});
     setLoading(true);
 
     if (demo) {
@@ -113,21 +133,19 @@ function LoginForm() {
       await syncSession();
     }
 
-    rememberLoginEmail(parsed.data.email);
-
-    // Only when the user opted in — never store passwords inside LOOK.
-    if (savePassword) {
-      try {
-        await offerPasswordManagerSave(formRef.current, parsed.data);
-      } catch {
-        // Progressive enhancement only — login already succeeded.
-      }
+    // Chromium progressive enhancement only (no-op on Safari).
+    try {
+      await offerPasswordManagerSave(formRef.current, parsed.data);
+    } catch {
+      // ignore
     }
 
-    // Full navigation helps Safari associate a successful sign-in with the form
-    // for Password AutoFill / Keychain. Do not clear form fields first.
     window.location.assign(redirect);
   };
+
+  const formAction = savePassword
+    ? "/api/auth/sign-in-form"
+    : "/login";
 
   return (
     <AuthLayout
@@ -163,11 +181,12 @@ function LoginForm() {
       <form
         ref={formRef}
         method="post"
-        action="/login"
+        action={formAction}
         onSubmit={handleSubmit}
         className="space-y-4"
         autoComplete="on"
       >
+        <input type="hidden" name="redirect" value={redirect} />
         <LoginEmailField
           id="username"
           label={t("auth.login.email")}
@@ -180,7 +199,6 @@ function LoginForm() {
           autoComplete="current-password"
           label={t("auth.login.password")}
           placeholder="••••••"
-          // Uncontrolled: do not bind value — Safari must own DOM autofill.
           defaultValue=""
           error={errors.password}
         />

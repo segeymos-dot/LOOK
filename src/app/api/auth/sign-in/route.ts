@@ -1,4 +1,4 @@
-import { registerCurrentSession } from "@/lib/auth/account-sessions";
+import { performPasswordSignIn } from "@/lib/auth/perform-password-sign-in";
 import { getClientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { mapAuthError } from "@/lib/test-auth";
@@ -22,35 +22,26 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const result = await performPasswordSignIn(supabase, {
     email: parsed.data.email,
     password: parsed.data.password,
+    request,
+    ip,
   });
 
-  if (error) {
+  if (!result.ok) {
     return NextResponse.json(
-      { success: false, error: mapAuthError(error.message) },
+      { success: false, error: mapAuthError(result.errorMessage) },
       { status: 401 }
     );
   }
 
-  if (data.user && data.session?.access_token) {
-    await registerCurrentSession(supabase, {
-      userId: data.user.id,
-      accessToken: data.session.access_token,
-      userAgent: request.headers.get("user-agent"),
-      ip,
-    });
-  }
-
   return NextResponse.json({
     success: true,
-    user: data.user,
-    session: data.session
-      ? {
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-        }
-      : null,
+    user: result.user,
+    session: {
+      access_token: result.session.access_token,
+      refresh_token: result.session.refresh_token,
+    },
   });
 }
