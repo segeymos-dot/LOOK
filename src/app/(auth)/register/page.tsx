@@ -183,8 +183,10 @@ export default function RegisterPage() {
             />
             <Input
               id="email"
+              name="email"
               label={t("auth.register.email")}
               type="email"
+              autoComplete="username"
               placeholder="you@example.com"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -192,6 +194,8 @@ export default function RegisterPage() {
             />
             <PasswordInput
               id="password"
+              name="password"
+              autoComplete="new-password"
               label={t("auth.register.password")}
               placeholder={t("auth.register.passwordPlaceholder")}
               value={form.password}

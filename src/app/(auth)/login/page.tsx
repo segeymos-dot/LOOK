@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/Button";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  offerPasswordManagerSave,
+  readLoginCredentialsFromForm,
+} from "@/lib/auth/password-manager";
 import { rememberLoginEmail } from "@/lib/auth/recent-login-emails";
 import { syncClientSession } from "@/lib/auth/sync-client-session";
 import { isDemoMode } from "@/lib/config";
@@ -14,7 +18,7 @@ import { safeRedirectPath } from "@/lib/app-url";
 import { createLoginSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useMemo, useState } from "react";
+import { FormEvent, Suspense, useMemo, useRef, useState } from "react";
 
 function LoginForm() {
   const router = useRouter();
@@ -24,6 +28,7 @@ function LoginForm() {
   const loginSchema = useMemo(() => createLoginSchema(t), [t]);
   const redirect = safeRedirectPath(searchParams.get("redirect"));
   const demo = isDemoMode();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -48,11 +53,15 @@ function LoginForm() {
     return createClient().auth.signInWithPassword({ email, password });
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrors({});
 
-    const parsed = loginSchema.safeParse(form);
+    // Prefer live DOM values so browser autofill is not lost to React state lag.
+    const credentials = readLoginCredentialsFromForm(e.currentTarget, form);
+    setForm(credentials);
+
+    const parsed = loginSchema.safeParse(credentials);
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
       parsed.error.errors.forEach((err) => {
@@ -103,6 +112,12 @@ function LoginForm() {
     }
 
     rememberLoginEmail(parsed.data.email);
+    // Progressive enhancement only — never block navigation on password-manager errors.
+    try {
+      await offerPasswordManagerSave(formRef.current, parsed.data);
+    } catch {
+      // ignore
+    }
 
     router.push(redirect);
     router.refresh();
@@ -139,13 +154,20 @@ function LoginForm() {
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
+      <form
+        ref={formRef}
+        method="post"
+        action="/login"
+        onSubmit={handleSubmit}
+        className="space-y-4"
+        autoComplete="on"
+      >
         <LoginEmailField
           id="email"
           label={t("auth.login.email")}
           placeholder="you@example.com"
           value={form.email}
-          onChange={(email) => setForm({ ...form, email })}
+          onChange={(email) => setForm((prev) => ({ ...prev, email }))}
           error={errors.email}
         />
         <PasswordInput
@@ -155,7 +177,15 @@ function LoginForm() {
           label={t("auth.login.password")}
           placeholder="••••••"
           value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, password: e.target.value }))
+          }
+          onInput={(e) =>
+            setForm((prev) => ({
+              ...prev,
+              password: (e.target as HTMLInputElement).value,
+            }))
+          }
           error={errors.password}
         />
 

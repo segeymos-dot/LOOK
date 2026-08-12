@@ -98,7 +98,8 @@ export function LoginEmailField({
         label={label}
         type="email"
         name="email"
-        autoComplete="email"
+        // username helps password managers pair email + password credentials.
+        autoComplete="username"
         inputMode="email"
         autoCapitalize="none"
         autoCorrect="off"

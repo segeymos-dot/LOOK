@@ -87,6 +87,7 @@ export default function ResetPasswordPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <PasswordInput
           id="password"
+          name="password"
           label={t("auth.reset.password")}
           autoComplete="new-password"
           placeholder="••••••"
@@ -96,6 +97,7 @@ export default function ResetPasswordPage() {
         />
         <PasswordInput
           id="confirmPassword"
+          name="confirmPassword"
           label={t("auth.reset.confirm")}
           autoComplete="new-password"
           placeholder="••••••"

@@ -113,16 +113,22 @@ export default function SettingsSecurityPage() {
         </h2>
         <PasswordInput
           label={t("settings.security.currentPassword")}
+          name="current-password"
+          autoComplete="current-password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
         />
         <PasswordInput
           label={t("settings.security.newPassword")}
+          name="new-password"
+          autoComplete="new-password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
         />
         <PasswordInput
           label={t("settings.security.confirmNewPassword")}
+          name="confirm-new-password"
+          autoComplete="new-password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
         />
