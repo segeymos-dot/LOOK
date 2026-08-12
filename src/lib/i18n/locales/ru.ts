@@ -715,6 +715,7 @@ export const ru = {
         unsupported: "Это устройство или браузер не поддерживает Passkey.",
         cancelled: "Действие с Passkey отменено.",
         failed: "Не удалось выполнить операцию с Passkey.",
+        listFailed: "Не удалось загрузить список Passkey. Попробуйте обновить страницу.",
         registered: "Passkey добавлен.",
         renamed: "Имя Passkey обновлено.",
         deleted: "Passkey удалён.",

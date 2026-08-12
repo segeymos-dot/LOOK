@@ -9,6 +9,7 @@ import {
   deleteUserPasskey,
   isPasskeySupported,
   listUserPasskeys,
+  normalizePasskeyItem,
   passkeyErrorCode,
   registerUserPasskey,
   renameUserPasskey,
@@ -36,35 +37,32 @@ export function PasskeyManageCard() {
       const code = passkeyErrorCode(err);
       if (code === "unsupported") return t("settings.security.passkeys.unsupported");
       if (code === "cancelled") return t("settings.security.passkeys.cancelled");
-      const msg =
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message?: string }).message ?? "")
-          : "";
-      return msg || t("settings.security.passkeys.failed");
+      if (code === "load_failed") return t("settings.security.passkeys.listFailed");
+      return t("settings.security.passkeys.failed");
     },
     [t]
   );
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    setError(null);
     try {
       if (!isPasskeySupported()) {
         setSupported(false);
         setItems([]);
+        setError(null);
         return;
       }
       setSupported(true);
       const { data, error: listError } = await listUserPasskeys();
       if (listError) {
         setError(mapError(listError));
-        setItems([]);
+        // Keep any previously shown / optimistic items — do not fake an empty list.
         return;
       }
-      setItems(Array.isArray(data) ? data : []);
+      setItems(data);
+      setError(null);
     } catch (err) {
       setError(mapError(err));
-      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -84,10 +82,28 @@ export function PasskeyManageCard() {
         setError(mapError(regError ?? new Error("register failed")));
         return;
       }
-      if (data.id) {
-        const defaultName = t("settings.security.passkeys.defaultName");
-        await renameUserPasskey(data.id, defaultName);
+
+      const defaultName = t("settings.security.passkeys.defaultName");
+      let listed = normalizePasskeyItem(data);
+      if (listed?.id) {
+        const { data: renamed, error: renameError } = await renameUserPasskey(
+          listed.id,
+          defaultName
+        );
+        if (!renameError && renamed) {
+          listed = renamed;
+        } else if (listed) {
+          listed = { ...listed, friendly_name: defaultName };
+        }
       }
+
+      if (listed) {
+        setItems((prev) => {
+          const rest = prev.filter((item) => item.id !== listed.id);
+          return [listed, ...rest];
+        });
+      }
+
       setMessage(t("settings.security.passkeys.registered"));
       await refresh();
     } catch (err) {
@@ -108,10 +124,15 @@ export function PasskeyManageCard() {
     setError(null);
     setMessage(null);
     try {
-      const { error: updateError } = await renameUserPasskey(renameId, name);
+      const { data, error: updateError } = await renameUserPasskey(renameId, name);
       if (updateError) {
         setError(mapError(updateError));
         return;
+      }
+      if (data) {
+        setItems((prev) =>
+          prev.map((item) => (item.id === data.id ? data : item))
+        );
       }
       setRenameId(null);
       setRenameValue("");
@@ -126,15 +147,17 @@ export function PasskeyManageCard() {
 
   const confirmDelete = async () => {
     if (!deleteId) return;
+    const removingId = deleteId;
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
-      const { error: delError } = await deleteUserPasskey(deleteId);
+      const { error: delError } = await deleteUserPasskey(removingId);
       if (delError) {
         setError(mapError(delError));
         return;
       }
+      setItems((prev) => prev.filter((item) => item.id !== removingId));
       setDeleteId(null);
       setMessage(t("settings.security.passkeys.deleted"));
       await refresh();
@@ -171,9 +194,7 @@ export function PasskeyManageCard() {
 
       {loading ? (
         <p className="text-sm text-text-muted">{t("settings.security.passkeys.loading")}</p>
-      ) : items.length === 0 ? (
-        <p className="text-sm text-text-muted">{t("settings.security.passkeys.empty")}</p>
-      ) : (
+      ) : items.length > 0 ? (
         <ul className="space-y-2">
           {items.map((item) => (
             <li
@@ -250,6 +271,8 @@ export function PasskeyManageCard() {
             </li>
           ))}
         </ul>
+      ) : error ? null : (
+        <p className="text-sm text-text-muted">{t("settings.security.passkeys.empty")}</p>
       )}
 
       {message && <p className="text-sm text-emerald-700">{message}</p>}

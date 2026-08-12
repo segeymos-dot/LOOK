@@ -716,6 +716,7 @@ export const en: TranslationDict = {
         unsupported: "This device or browser does not support passkeys.",
         cancelled: "Passkey action was cancelled.",
         failed: "Passkey action failed.",
+        listFailed: "Could not load passkeys. Try refreshing the page.",
         registered: "Passkey added.",
         renamed: "Passkey renamed.",
         deleted: "Passkey deleted.",
