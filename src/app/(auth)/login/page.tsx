@@ -1,11 +1,12 @@
 "use client";
 
+import { LoginEmailField } from "@/components/auth/LoginEmailField";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
+import { rememberLoginEmail } from "@/lib/auth/recent-login-emails";
 import { syncClientSession } from "@/lib/auth/sync-client-session";
 import { isDemoMode } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
@@ -101,6 +102,8 @@ function LoginForm() {
       await syncSession();
     }
 
+    rememberLoginEmail(parsed.data.email);
+
     router.push(redirect);
     router.refresh();
   };
@@ -136,18 +139,19 @@ function LoginForm() {
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
+      <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
+        <LoginEmailField
           id="email"
           label={t("auth.login.email")}
-          type="email"
           placeholder="you@example.com"
           value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          onChange={(email) => setForm({ ...form, email })}
           error={errors.email}
         />
         <PasswordInput
           id="password"
+          name="password"
+          autoComplete="current-password"
           label={t("auth.login.password")}
           placeholder="••••••"
           value={form.password}

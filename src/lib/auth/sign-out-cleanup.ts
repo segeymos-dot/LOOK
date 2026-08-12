@@ -1,6 +1,6 @@
 /**
  * Client-side cleanup after sign-out / account switch.
- * Preserves non-private device prefs (locale) unless explicitly cleared.
+ * Preserves non-private device prefs (locale, recent login emails) unless explicitly cleared.
  */
 
 export const LOOK_AUTH_BROADCAST = "look-auth";
