@@ -102,6 +102,48 @@ async function submitWorkFallback(
     revision,
   };
 
+  // Provider cannot UPDATE requests (RLS: customer-only). Mirror submit_work RPC
+  // via service role so DB status becomes pending_review before accept_work.
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+  if (!admin) {
+    return {
+      success: false,
+      error: "Unable to submit work: server write path unavailable",
+    };
+  }
+
+  const { data: updated, error: statusError } = await admin
+    .from("requests")
+    .update({
+      status: "pending_review",
+      work_submitted_at: new Date().toISOString(),
+      revision_feedback: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", requestId)
+    .eq("status", "in_progress")
+    .select("id")
+    .maybeSingle();
+
+  if (statusError) {
+    return { success: false, error: statusError.message };
+  }
+  if (!updated) {
+    return {
+      success: false,
+      error: "Work can only be submitted while order is in progress",
+    };
+  }
+
+  await admin.from("work_submissions").insert({
+    request_id: requestId,
+    provider_id: user.id,
+    summary: summary.trim(),
+    attachments,
+    revision_number: revision,
+  });
+
   const { error } = await supabase.from("messages").insert({
     conversation_id: context.conversationId,
     sender_id: user.id,
@@ -143,6 +185,30 @@ async function requestRevisionFallback(
 
   if (!context.conversationId) {
     return { success: false, error: "Conversation not found for this order" };
+  }
+
+  // Mirror request_revision RPC: pending_review → in_progress (customer may UPDATE status).
+  const { data: updated, error: statusError } = await supabase
+    .from("requests")
+    .update({
+      status: "in_progress",
+      revision_feedback: feedback.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", requestId)
+    .eq("status", "pending_review")
+    .eq("customer_id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (statusError) {
+    return { success: false, error: statusError.message };
+  }
+  if (!updated) {
+    return {
+      success: false,
+      error: "Revision can only be requested while work is pending review",
+    };
   }
 
   const payload = { feedback: feedback.trim() };
@@ -269,6 +335,25 @@ async function acceptWorkFallback(
       })
       .eq("id", requestId)
       .eq("status", "completed");
+
+    // Mirror accept_work RPC: denormalized counter for cards/embeds.
+    // Public profile prefers live SoT counts; this keeps aggregates from drifting.
+    const { data: providerProfile } = await admin
+      .from("profiles")
+      .select("completed_orders_count")
+      .eq("id", context.offer.provider_id)
+      .maybeSingle();
+
+    if (providerProfile) {
+      await admin
+        .from("profiles")
+        .update({
+          completed_orders_count:
+            Number(providerProfile.completed_orders_count ?? 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", context.offer.provider_id);
+    }
   }
 
   if (context.conversationId) {

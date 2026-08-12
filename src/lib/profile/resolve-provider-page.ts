@@ -7,6 +7,7 @@ import {
   getMockReviewsForProvider,
 } from "@/lib/mock/data";
 import { parsePortfolioItems } from "@/lib/profile/provider-utils";
+import { getProviderPublicReputationStats } from "@/lib/profile/provider-public-stats";
 import {
   isProviderPubliclyVisible,
   PUBLIC_PROVIDER_PROFILE_SELECT,
@@ -117,17 +118,29 @@ export async function resolveProviderPageData(id: string): Promise<{
     return null;
   }
 
-  const publicProfile = toPublicProviderProfile(normalizePortfolio(profile), {
+  const basePublicProfile = toPublicProviderProfile(normalizePortfolio(profile), {
     isOwnProfile,
   });
 
-  const [reviews, categoriesRes, conversationId] = await Promise.all([
+  const [reviews, categoriesRes, conversationId, reputation] = await Promise.all([
     getReviewsForProvider(id),
     supabase.from("categories").select("id, name, name_en, slug, icon, sort_order, created_at").order("sort_order"),
     user && !isOwnProfile
       ? getConversationWithProvider(user.id, id)
       : Promise.resolve(null),
+    getProviderPublicReputationStats(id, {
+      completedOrdersCount: basePublicProfile.completed_orders_count,
+      rating: basePublicProfile.rating,
+      reviewsCount: basePublicProfile.reviews_count,
+    }),
   ]);
+
+  const publicProfile: Profile = {
+    ...basePublicProfile,
+    completed_orders_count: reputation.completedOrdersCount,
+    rating: reputation.rating,
+    reviews_count: reputation.reviewsCount,
+  };
 
   const categories =
     categoriesRes.data?.filter((c) =>
