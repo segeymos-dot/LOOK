@@ -716,6 +716,12 @@ export const ru = {
         cancelled: "Действие с Passkey отменено.",
         failed: "Не удалось выполнить операцию с Passkey.",
         listFailed: "Не удалось загрузить список Passkey. Попробуйте обновить страницу.",
+        registerVerifyFailed:
+          "Не удалось подтвердить Passkey на сервере. Попробуйте настроить ещё раз.",
+        registerNotPersisted:
+          "Face ID на устройстве прошёл, но сервер не сохранил Passkey. Попробуйте ещё раз.",
+        registerSessionMissing:
+          "Сессия истекла во время настройки Passkey. Войдите снова и повторите.",
         registered: "Passkey добавлен.",
         renamed: "Имя Passkey обновлено.",
         deleted: "Passkey удалён.",

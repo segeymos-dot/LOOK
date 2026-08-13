@@ -38,6 +38,19 @@ export function PasskeyManageCard() {
       if (code === "unsupported") return t("settings.security.passkeys.unsupported");
       if (code === "cancelled") return t("settings.security.passkeys.cancelled");
       if (code === "load_failed") return t("settings.security.passkeys.listFailed");
+      const msg =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message ?? "")
+          : "";
+      if (msg.toLowerCase().includes("not persisted")) {
+        return t("settings.security.passkeys.registerNotPersisted");
+      }
+      if (msg.toLowerCase().includes("verify failed") || msg.toLowerCase().includes("verification")) {
+        return t("settings.security.passkeys.registerVerifyFailed");
+      }
+      if (msg.toLowerCase().includes("session missing")) {
+        return t("settings.security.passkeys.registerSessionMissing");
+      }
       return t("settings.security.passkeys.failed");
     },
     [t]

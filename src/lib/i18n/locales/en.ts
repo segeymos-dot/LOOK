@@ -717,6 +717,12 @@ export const en: TranslationDict = {
         cancelled: "Passkey action was cancelled.",
         failed: "Passkey action failed.",
         listFailed: "Could not load passkeys. Try refreshing the page.",
+        registerVerifyFailed:
+          "Could not verify the passkey on the server. Try setting it up again.",
+        registerNotPersisted:
+          "Face ID succeeded on the device, but the server did not save the passkey. Try again.",
+        registerSessionMissing:
+          "Your session expired while setting up the passkey. Sign in again and retry.",
         registered: "Passkey added.",
         renamed: "Passkey renamed.",
         deleted: "Passkey deleted.",
