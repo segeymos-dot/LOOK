@@ -169,28 +169,6 @@ async function listPasskeysViaAuthApi(): Promise<AuthResult<PasskeyListItem[]>> 
   }
 }
 
-type PasskeyDiagEvent =
-  | "registration_preflight"
-  | "registration_options_ok"
-  | "registration_options_error"
-  | "credential_created"
-  | "credential_create_error"
-  | "registration_verify_started"
-  | "registration_verify_ok"
-  | "registration_verify_error"
-  | "registration_persist_ok"
-  | "registration_persist_error";
-
-/** Staging-only safe ceremony breadcrumbs (no secrets / rawIds / attestation). */
-function passkeyDiag(
-  event: PasskeyDiagEvent,
-  detail?: Record<string, string | number | boolean | null | undefined>
-) {
-  if (typeof window === "undefined") return;
-  if (window.location.hostname !== "staging.lookcruise.com") return;
-  console.info("[look:passkey]", event, detail ?? {});
-}
-
 function base64UrlToBuffer(value: string): ArrayBuffer {
   const padded = value.replace(/-/g, "+").replace(/_/g, "/");
   const pad =
@@ -323,12 +301,6 @@ async function ensureFreshSession(
   return { ok: true };
 }
 
-function authErrorCode(error: unknown): string | null {
-  if (!error || typeof error !== "object") return null;
-  if ("code" in error && error.code != null) return String(error.code);
-  return null;
-}
-
 /**
  * Register a passkey via native Supabase Auth two-step ceremony:
  * startRegistration → navigator.credentials.create → verifyRegistration.
@@ -354,34 +326,22 @@ export async function registerUserPasskey(): Promise<
     error: userError,
   } = await supabase.auth.getUser();
   if (userError || !user) {
-    passkeyDiag("registration_preflight", { ok: false, reason: "no_user" });
     return { data: null, error: toError(userError, "Auth session missing") };
   }
   if (user.is_anonymous) {
-    passkeyDiag("registration_preflight", { ok: false, reason: "anonymous" });
     return { data: null, error: new Error("Anonymous users cannot register passkeys") };
   }
 
   const preflight = await ensureFreshSession(supabase, user.id);
   if (!preflight.ok) {
-    passkeyDiag("registration_preflight", { ok: false, reason: "no_session" });
     return { data: null, error: preflight.error };
   }
-
-  passkeyDiag("registration_preflight", {
-    ok: true,
-    userPrefix: user.id.slice(0, 8),
-    emailConfirmed: Boolean(user.email_confirmed_at),
-  });
 
   const beforeList = await listUserPasskeys();
   const beforeIds = new Set(beforeList.data.map((item) => item.id));
 
   const started = await supabase.auth.passkey.startRegistration();
   if (started.error || !started.data?.challenge_id || !started.data.options) {
-    passkeyDiag("registration_options_error", {
-      message: started.error?.message ?? "missing_options",
-    });
     return {
       data: null,
       error: toError(started.error, "Passkey registration options failed"),
@@ -396,10 +356,6 @@ export async function registerUserPasskey(): Promise<
   const rpId = options.rp?.id ?? null;
   const optionsUserName = options.user?.name ?? null;
   if (rpId && rpId !== window.location.hostname) {
-    passkeyDiag("registration_options_error", {
-      message: "rp_mismatch",
-      rpId,
-    });
     return {
       data: null,
       error: new Error("Passkey RP ID does not match this host"),
@@ -410,20 +366,11 @@ export async function registerUserPasskey(): Promise<
     user.email &&
     optionsUserName.toLowerCase() !== user.email.toLowerCase()
   ) {
-    passkeyDiag("registration_options_error", {
-      message: "options_user_mismatch",
-    });
     return {
       data: null,
       error: new Error("Passkey challenge does not belong to current user"),
     };
   }
-
-  passkeyDiag("registration_options_ok", {
-    challengePrefix: challengeId.slice(0, 8),
-    rpId,
-    userPrefix: user.id.slice(0, 8),
-  });
 
   let credential: PublicKeyCredential;
   try {
@@ -432,22 +379,12 @@ export async function registerUserPasskey(): Promise<
     );
     const created = await navigator.credentials.create({ publicKey });
     if (!created || !(created instanceof PublicKeyCredential)) {
-      passkeyDiag("credential_create_error", { reason: "empty_response" });
       return { data: null, error: new Error("Passkey create returned empty credential") };
     }
     credential = created;
   } catch (error) {
-    passkeyDiag("credential_create_error", {
-      name: error instanceof Error ? error.name : "unknown",
-      // Safe: error name/short message only — never credential payload.
-      message:
-        error instanceof Error ? error.message.slice(0, 80) : "create_failed",
-    });
     return { data: null, error: toError(error, "Passkey create failed") };
   }
-
-  // Do not log credential id / rawId / attestation — only ceremony stage.
-  passkeyDiag("credential_created", { type: credential.type });
 
   // Face ID UI can take long enough for the access token to near-expire.
   const afterCreateSession = await ensureFreshSession(supabase, user.id);
@@ -456,9 +393,6 @@ export async function registerUserPasskey(): Promise<
   }
 
   const serialized = serializeCreationCredential(credential);
-  passkeyDiag("registration_verify_started", {
-    challengePrefix: challengeId.slice(0, 8),
-  });
 
   let verifyResult = await supabase.auth.passkey.verifyRegistration({
     challengeId,
@@ -468,10 +402,6 @@ export async function registerUserPasskey(): Promise<
   // Retry only transient network failures. Same challenge_id — server will not
   // create a second credential if the first verify already consumed the challenge.
   if (verifyResult.error && isRetryablePasskeyNetworkError(verifyResult.error)) {
-    passkeyDiag("registration_verify_error", {
-      retry: true,
-      message: verifyResult.error.message.slice(0, 80),
-    });
     await ensureFreshSession(supabase, user.id);
     verifyResult = await supabase.auth.passkey.verifyRegistration({
       challengeId,
@@ -480,21 +410,11 @@ export async function registerUserPasskey(): Promise<
   }
 
   if (verifyResult.error || !verifyResult.data?.id) {
-    const code = authErrorCode(verifyResult.error);
-    passkeyDiag("registration_verify_error", {
-      message: verifyResult.error?.message?.slice(0, 120) ?? "missing_data",
-      code,
-    });
-
     // Network ambiguity: verify may have persisted server-side even if the
     // client saw Load failed / challenge already used on retry.
     const afterFail = await listUserPasskeys();
     const createdDespiteError = afterFail.data.find((item) => !beforeIds.has(item.id));
     if (createdDespiteError) {
-      passkeyDiag("registration_persist_ok", {
-        listCount: afterFail.data.length,
-        recovered: true,
-      });
       return { data: createdDespiteError, error: null };
     }
 
@@ -507,10 +427,6 @@ export async function registerUserPasskey(): Promise<
     };
   }
 
-  passkeyDiag("registration_verify_ok", {
-    passkeyPrefix: verifyResult.data.id.slice(0, 8),
-  });
-
   // Success only when list confirms server persistence.
   const listed = await listUserPasskeys();
   const persisted =
@@ -518,10 +434,6 @@ export async function registerUserPasskey(): Promise<
     listed.data.some((item) => item.id === verifyResult.data!.id);
 
   if (!persisted) {
-    passkeyDiag("registration_persist_error", {
-      listCount: listed.data.length,
-      listError: listed.error?.message?.slice(0, 80) ?? null,
-    });
     return {
       data: null,
       error: new Error(
@@ -530,7 +442,6 @@ export async function registerUserPasskey(): Promise<
     };
   }
 
-  passkeyDiag("registration_persist_ok", { listCount: listed.data.length });
   return {
     data: {
       id: verifyResult.data.id,
