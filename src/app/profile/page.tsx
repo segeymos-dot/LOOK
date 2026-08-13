@@ -59,6 +59,7 @@ export default function ProfilePage() {
     profile,
     displayProfile,
     ready,
+    syncSession,
     signOut,
     setProfile,
     isPlatformAdmin,
@@ -72,6 +73,8 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /** Avoid flashing guest shell while auth cookies rehydrate after login. */
+  const [authSettled, setAuthSettled] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [incomingPendingCount, setIncomingPendingCount] = useState(0);
@@ -100,6 +103,33 @@ export default function ProfilePage() {
     showProviderSection && effectiveUiMode === "provider";
   const showCustomerLinks = showCustomerUi;
   const showProviderLinks = showProviderUi;
+
+  useEffect(() => {
+    if (!ready) {
+      setAuthSettled(false);
+      return;
+    }
+    if (user) {
+      setAuthSettled(true);
+      return;
+    }
+
+    let cancelled = false;
+    setAuthSettled(false);
+    void (async () => {
+      try {
+        await syncSession();
+      } catch {
+        // ignore — guest UI only after grace
+      }
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      if (!cancelled) setAuthSettled(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user, syncSession]);
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -279,7 +309,7 @@ export default function ProfilePage() {
     ? getProviderVerification(resolvedProfile, Boolean(user?.email_confirmed_at))
     : null;
 
-  if (!ready) {
+  if (!ready || !authSettled) {
     return (
       <AppLayout activePath="/profile" title={t("profile.title")}>
         <div className="flex flex-col items-center justify-center px-4 py-20">

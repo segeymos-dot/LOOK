@@ -17,7 +17,12 @@ import {
   readLoginCredentialsFromForm,
 } from "@/lib/auth/password-manager";
 import { rememberLoginEmail } from "@/lib/auth/recent-login-emails";
-import { syncClientSession } from "@/lib/auth/sync-client-session";
+import {
+  clearLocalSessionBeforeLogin,
+  confirmClientSession,
+  resolvePasswordLoginRedirect,
+  syncClientSession,
+} from "@/lib/auth/sync-client-session";
 import { isDemoMode } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/app-url";
@@ -111,24 +116,6 @@ function LoginForm() {
     }
   };
 
-  const signIn = async (email: string, password: string) => {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user?.email && user.email !== email) {
-      clearPrivateAuthState();
-      const { clearPrivateClientStorage } = await import(
-        "@/lib/auth/sign-out-cleanup"
-      );
-      const { resetBrowserClient } = await import("@/lib/supabase/client");
-      clearPrivateClientStorage();
-      await supabase.auth.signOut({ scope: "local" });
-      resetBrowserClient();
-    }
-    return createClient().auth.signInWithPassword({ email, password });
-  };
-
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     const formEl = e.currentTarget;
     const credentials = readLoginCredentialsFromForm(formEl, {
@@ -166,6 +153,12 @@ function LoginForm() {
       return;
     }
 
+    // Clear a different local session BEFORE server sign-in (avoids cookie race).
+    const switched = await clearLocalSessionBeforeLogin(parsed.data.email);
+    if (switched) {
+      clearPrivateAuthState();
+    }
+
     const response = await fetch("/api/auth/sign-in", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -187,17 +180,44 @@ function LoginForm() {
       return;
     }
 
-    const synced = await syncClientSession(result.session);
+    const expectedUserId =
+      typeof result.user?.id === "string" ? result.user.id : null;
+    if (!expectedUserId || !result.session?.access_token || !result.session?.refresh_token) {
+      setLoading(false);
+      setErrors({ form: t("auth.login.sessionPersistFailed") });
+      return;
+    }
+
+    // Apply server session locally, then verify getSession/getUser before redirect.
+    let synced = await syncClientSession(result.session);
     if (!synced) {
-      const { error } = await signIn(parsed.data.email, parsed.data.password);
+      const { error } = await createClient().auth.signInWithPassword({
+        email: parsed.data.email,
+        password: parsed.data.password,
+      });
       if (error) {
         setLoading(false);
         setErrors({ form: mapAuthErrorT(error.message, t) });
         return;
       }
-    } else {
-      await syncSession();
     }
+
+    let confirmed = await confirmClientSession(expectedUserId);
+    if (!confirmed) {
+      // One explicit re-apply of the server tokens, then re-check.
+      synced = await syncClientSession(result.session);
+      if (synced) {
+        confirmed = await confirmClientSession(expectedUserId);
+      }
+    }
+
+    if (!confirmed) {
+      setLoading(false);
+      setErrors({ form: t("auth.login.sessionPersistFailed") });
+      return;
+    }
+
+    await syncSession();
 
     // Chromium progressive enhancement only (no-op on Safari).
     try {
@@ -206,7 +226,8 @@ function LoginForm() {
       // ignore
     }
 
-    window.location.assign(redirect);
+    const nextPath = await resolvePasswordLoginRedirect(redirect);
+    window.location.assign(nextPath);
   };
 
   const formAction = savePassword

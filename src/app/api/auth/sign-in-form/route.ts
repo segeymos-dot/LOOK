@@ -1,6 +1,10 @@
 import { performPasswordSignIn } from "@/lib/auth/perform-password-sign-in";
 import { safeRedirectPath } from "@/lib/app-url";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import {
+  applyAuthCookieOptions,
+  getAuthCookieOptions,
+} from "@/lib/supabase/auth-cookie-options";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { loginSchema } from "@/lib/validations";
@@ -50,7 +54,7 @@ export async function POST(request: Request) {
     formData.get("username") ?? formData.get("email") ?? ""
   ).trim();
   const password = String(formData.get("password") ?? "");
-  const redirect = safeRedirectPath(String(formData.get("redirect") ?? ""));
+  let redirect = safeRedirectPath(String(formData.get("redirect") ?? ""));
 
   const parsed = loginSchema.safeParse({ email, password });
   if (!parsed.success) {
@@ -63,13 +67,18 @@ export async function POST(request: Request) {
   );
 
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    cookieOptions: getAuthCookieOptions(requestUrl),
     cookies: {
       getAll() {
         return parseRequestCookies(request);
       },
       setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
         cookiesToSet.forEach(({ name, value, options }) => {
-          successRedirect.cookies.set(name, value, options);
+          successRedirect.cookies.set(
+            name,
+            value,
+            applyAuthCookieOptions(options, requestUrl)
+          );
         });
       },
     },
@@ -84,6 +93,26 @@ export async function POST(request: Request) {
 
   if (!result.ok) {
     return failRedirect("invalid_credentials", redirect);
+  }
+
+  if (redirect === "/") {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_platform_admin")
+      .eq("id", result.user.id)
+      .maybeSingle();
+    if (profile?.is_platform_admin) {
+      redirect = "/admin/stats";
+      // Location was baked into successRedirect; rebuild with cookies copied.
+      const adminRedirect = NextResponse.redirect(
+        new URL(redirect, requestUrl.origin),
+        303
+      );
+      for (const cookie of successRedirect.cookies.getAll()) {
+        adminRedirect.cookies.set(cookie);
+      }
+      return adminRedirect;
+    }
   }
 
   return successRedirect;

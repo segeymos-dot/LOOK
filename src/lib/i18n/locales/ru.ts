@@ -184,6 +184,8 @@ export const ru = {
       passkeyUnsupported: "Это устройство не поддерживает Face ID / Passkey.",
       passkeyCancelled: "Вход с Passkey отменён.",
       passkeyFailed: "Не удалось войти с Passkey. Попробуйте пароль.",
+      sessionPersistFailed:
+        "Вход на сервере прошёл, но устройство не сохранило сессию. Попробуйте ещё раз.",
     },
     register: {
       title: "Регистрация",

@@ -187,6 +187,8 @@ export const en: TranslationDict = {
       passkeyUnsupported: "This device does not support Face ID / Passkey.",
       passkeyCancelled: "Passkey sign-in was cancelled.",
       passkeyFailed: "Could not sign in with Passkey. Try your password.",
+      sessionPersistFailed:
+        "Signed in on the server, but this device could not keep the session. Try again.",
     },
     register: {
       title: "Sign up",
