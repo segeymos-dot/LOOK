@@ -182,7 +182,7 @@ export function OrderHistoryCard({
       </div>
 
       <div className="flex flex-wrap gap-2 pt-1">
-        <Link href={`/requests/${item.id}`}>
+        <Link href={viewer === "admin" ? `/admin/orders/${item.id}` : `/requests/${item.id}`}>
           <Button size="sm">{t("orderHistory.openOrder")}</Button>
         </Link>
         {item.conversation_id ? (
