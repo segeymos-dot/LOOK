@@ -19,12 +19,11 @@ import {
 import { rememberLoginEmail } from "@/lib/auth/recent-login-emails";
 import {
   clearLocalSessionBeforeLogin,
-  confirmClientSession,
+  confirmServerSession,
   resolvePasswordLoginRedirect,
   syncClientSession,
 } from "@/lib/auth/sync-client-session";
 import { isDemoMode } from "@/lib/config";
-import { createClient } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/app-url";
 import { createLoginSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
 import Link from "next/link";
@@ -182,36 +181,17 @@ function LoginForm() {
 
     const expectedUserId =
       typeof result.user?.id === "string" ? result.user.id : null;
-    if (!expectedUserId || !result.session?.access_token || !result.session?.refresh_token) {
+    if (!expectedUserId) {
       setLoading(false);
       setErrors({ form: t("auth.login.sessionPersistFailed") });
       return;
     }
 
-    // Apply server session locally, then verify getSession/getUser before redirect.
-    let synced = await syncClientSession(result.session);
-    if (!synced) {
-      const { error } = await createClient().auth.signInWithPassword({
-        email: parsed.data.email,
-        password: parsed.data.password,
-      });
-      if (error) {
-        setLoading(false);
-        setErrors({ form: mapAuthErrorT(error.message, t) });
-        return;
-      }
-    }
-
-    let confirmed = await confirmClientSession(expectedUserId);
-    if (!confirmed) {
-      // One explicit re-apply of the server tokens, then re-check.
-      synced = await syncClientSession(result.session);
-      if (synced) {
-        confirmed = await confirmClientSession(expectedUserId);
-      }
-    }
-
-    if (!confirmed) {
+    // Server Set-Cookie is the only auth-cookie writer. Confirm durability with
+    // a fresh same-origin GET that runs server getUser() — no client setSession
+    // / refreshSession (avoids dual-write and refresh-token rotation races).
+    const durable = await confirmServerSession(expectedUserId);
+    if (!durable.ok) {
       setLoading(false);
       setErrors({ form: t("auth.login.sessionPersistFailed") });
       return;
@@ -226,7 +206,10 @@ function LoginForm() {
       // ignore
     }
 
-    const nextPath = await resolvePasswordLoginRedirect(redirect);
+    const nextPath = resolvePasswordLoginRedirect(
+      redirect,
+      durable.isPlatformAdmin
+    );
     window.location.assign(nextPath);
   };
 

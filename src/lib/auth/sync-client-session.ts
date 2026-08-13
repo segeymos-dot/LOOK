@@ -6,7 +6,11 @@ export type AuthSessionPayload = {
   refresh_token: string;
 };
 
-/** Sync browser Supabase client after server-side sign-in/sign-up (sets cookies via API). */
+/**
+ * Sync browser Supabase client after flows that intentionally return tokens
+ * (passkey / register). Password login must NOT call this with tokens — the
+ * server Set-Cookie is the sole auth-cookie writer for that path.
+ */
 export async function syncClientSession(
   session?: AuthSessionPayload | null
 ): Promise<boolean> {
@@ -29,7 +33,7 @@ export async function syncClientSession(
 
 /**
  * If another account is already signed in locally, clear it before server sign-in
- * so Set-Cookie / setSession cannot race with a stale session.
+ * so Set-Cookie cannot race with a stale session.
  * @returns true when a different local session was cleared.
  */
 export async function clearLocalSessionBeforeLogin(
@@ -52,59 +56,56 @@ export async function clearLocalSessionBeforeLogin(
   return true;
 }
 
-async function sessionMatchesUserId(expectedUserId: string): Promise<boolean> {
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session?.user?.id || session.user.id !== expectedUserId) {
-    return false;
-  }
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  if (error || !user?.id) return false;
-  return user.id === expectedUserId;
-}
+export type ServerSessionProbe = {
+  ok: boolean;
+  userId: string | null;
+  isPlatformAdmin: boolean;
+};
 
 /**
- * Ensure the browser sees the same user the server just authenticated.
- * One refresh retry only — never logs tokens.
+ * Durability check: a fresh same-origin GET that reads SSR cookies via
+ * server getUser(). Never logs tokens. Does not call refreshSession/setSession.
  */
-export async function confirmClientSession(
+export async function confirmServerSession(
   expectedUserId: string
-): Promise<boolean> {
-  if (await sessionMatchesUserId(expectedUserId)) {
-    return true;
-  }
+): Promise<ServerSessionProbe> {
+  // Drop any in-memory client so the next reads come from document.cookie
+  // (populated by the sign-in Set-Cookie response).
+  resetBrowserClient();
 
-  const supabase = createClient();
-  await supabase.auth.refreshSession();
+  const response = await fetch("/api/auth/session", {
+    method: "GET",
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  const body = (await response.json().catch(() => null)) as {
+    success?: boolean;
+    user?: { id?: string } | null;
+    is_platform_admin?: boolean;
+  } | null;
 
-  return sessionMatchesUserId(expectedUserId);
+  const userId =
+    typeof body?.user?.id === "string" ? body.user.id : null;
+  const ok =
+    response.ok &&
+    Boolean(body?.success) &&
+    userId !== null &&
+    userId === expectedUserId;
+
+  return {
+    ok,
+    userId,
+    isPlatformAdmin: Boolean(body?.is_platform_admin),
+  };
 }
 
 /** Default post-password-login path: platform admins land on admin stats. */
-export async function resolvePasswordLoginRedirect(
-  requestedRedirect: string
-): Promise<string> {
+export function resolvePasswordLoginRedirect(
+  requestedRedirect: string,
+  isPlatformAdmin: boolean
+): string {
   const requested = requestedRedirect || "/";
-  if (requested !== "/") return requested;
-
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return requested;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_platform_admin")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profile?.is_platform_admin) {
+  if (isPlatformAdmin && requested === "/") {
     return "/admin/stats";
   }
   return requested;

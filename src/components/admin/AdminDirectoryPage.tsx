@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -10,9 +9,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { AdminSectionNav } from "@/components/admin/AdminSectionNav";
 import { AdminUserCard } from "@/components/admin/AdminUserCard";
 import { useTranslation } from "@/components/providers/LocaleProvider";
-import { useAuth } from "@/hooks/useAuth";
+import { useRequirePlatformAdmin } from "@/hooks/useRequirePlatformAdmin";
 import { authFetch } from "@/lib/auth/client-fetch";
-import { isDemoMode } from "@/lib/config";
 import type { AdminUserListItem } from "@/lib/admin/directory";
 import { ADMIN_PAGE_SIZE } from "@/lib/admin/directory";
 import { Search, Users } from "lucide-react";
@@ -20,10 +18,8 @@ import { Search, Users } from "lucide-react";
 type Kind = "customers" | "providers";
 
 export function AdminDirectoryPage({ kind }: { kind: Kind }) {
-  const router = useRouter();
   const { t } = useTranslation();
-  const { isPlatformAdmin, ready, profileReady } = useAuth();
-  const demo = isDemoMode();
+  const { pending, allowed } = useRequirePlatformAdmin();
 
   const [q, setQ] = useState("");
   const [city, setCity] = useState("");
@@ -97,16 +93,11 @@ export function AdminDirectoryPage({ kind }: { kind: Kind }) {
   ]);
 
   useEffect(() => {
-    if (!ready || !profileReady) return;
-    if (!isPlatformAdmin && !demo) {
-      router.replace("/profile");
-      return;
-    }
+    if (pending || !allowed) return;
     void load();
-  }, [ready, profileReady, isPlatformAdmin, demo, router, load]);
+  }, [pending, allowed, load]);
 
-  if (!ready || !profileReady) return null;
-  if (!isPlatformAdmin && !demo) return null;
+  if (pending || !allowed) return null;
 
   const totalPages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE));
 

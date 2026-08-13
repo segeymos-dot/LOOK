@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -11,18 +10,15 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AdminSectionNav } from "@/components/admin/AdminSectionNav";
 import { useTranslation } from "@/components/providers/LocaleProvider";
-import { useAuth } from "@/hooks/useAuth";
+import { useRequirePlatformAdmin } from "@/hooks/useRequirePlatformAdmin";
 import { authFetch } from "@/lib/auth/client-fetch";
-import { isDemoMode } from "@/lib/config";
 import { formatPrice } from "@/lib/utils";
 import type { AdminDisputeListItem } from "@/lib/admin/disputes";
 import { Scale } from "lucide-react";
 
 export default function AdminDisputesPage() {
-  const router = useRouter();
   const { t, locale } = useTranslation();
-  const { isPlatformAdmin, ready, profileReady } = useAuth();
-  const demo = isDemoMode();
+  const { pending, allowed } = useRequirePlatformAdmin();
 
   const [status, setStatus] = useState("open");
   const [q, setQ] = useState("");
@@ -69,16 +65,11 @@ export default function AdminDisputesPage() {
   }, [status, q, from, to, customerId, providerId, requestId, t]);
 
   useEffect(() => {
-    if (!ready || !profileReady) return;
-    if (!isPlatformAdmin && !demo) {
-      router.replace("/profile");
-      return;
-    }
+    if (pending || !allowed) return;
     void load();
-  }, [ready, profileReady, isPlatformAdmin, demo, router, load]);
+  }, [pending, allowed, load]);
 
-  if (!ready || !profileReady) return null;
-  if (!isPlatformAdmin && !demo) return null;
+  if (pending || !allowed) return null;
 
   return (
     <AppLayout hideNav title={t("admin.disputes.title")}>

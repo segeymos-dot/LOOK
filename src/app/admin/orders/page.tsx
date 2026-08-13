@@ -5,26 +5,13 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { OrderHistoryPanel } from "@/components/orders/OrderHistoryPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useTranslation } from "@/components/providers/LocaleProvider";
-import { useAuth } from "@/hooks/useAuth";
-import { isDemoMode } from "@/lib/config";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useRequirePlatformAdmin } from "@/hooks/useRequirePlatformAdmin";
 
 export default function AdminOrdersPage() {
   const { t } = useTranslation();
-  const router = useRouter();
-  const { isPlatformAdmin, ready, profileReady } = useAuth();
-  const demo = isDemoMode();
+  const { pending, allowed } = useRequirePlatformAdmin();
 
-  useEffect(() => {
-    if (!ready || !profileReady) return;
-    if (!isPlatformAdmin && !demo) {
-      router.replace("/profile");
-    }
-  }, [ready, profileReady, isPlatformAdmin, demo, router]);
-
-  if (!ready || !profileReady) return null;
-  if (!isPlatformAdmin && !demo) return null;
+  if (pending || !allowed) return null;
 
   return (
     <AppLayout hideNav title={t("orderHistory.adminTitle")}>

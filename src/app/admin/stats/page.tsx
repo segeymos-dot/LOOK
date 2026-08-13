@@ -10,20 +10,16 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useTranslation } from "@/components/providers/LocaleProvider";
-import { useAuth } from "@/hooks/useAuth";
+import { useRequirePlatformAdmin } from "@/hooks/useRequirePlatformAdmin";
 import { authFetch } from "@/lib/auth/client-fetch";
-import { isDemoMode } from "@/lib/config";
 import type { PlatformStats } from "@/lib/analytics/platform-stats";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 export default function AdminStatsPage() {
-  const router = useRouter();
   const { t } = useTranslation();
-  const { isPlatformAdmin, ready, profileReady } = useAuth();
-  const demo = isDemoMode();
+  const { pending, allowed } = useRequirePlatformAdmin();
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,16 +49,11 @@ export default function AdminStatsPage() {
   }, [t]);
 
   useEffect(() => {
-    if (!ready || !profileReady) return;
-    if (!isPlatformAdmin && !demo) {
-      router.replace("/profile");
-      return;
-    }
+    if (pending || !allowed) return;
     void load();
-  }, [ready, profileReady, isPlatformAdmin, demo, router, load]);
+  }, [pending, allowed, load]);
 
-  if (!ready || !profileReady) return null;
-  if (!isPlatformAdmin && !demo) return null;
+  if (pending || !allowed) return null;
 
   const items = stats
     ? [

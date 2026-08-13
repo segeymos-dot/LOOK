@@ -8,6 +8,28 @@ import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+/** Redirect while preserving any cookies written onto supabaseResponse (token refresh). */
+function redirectWithCookies(
+  request: NextRequest,
+  pathname: string,
+  supabaseResponse: NextResponse,
+  searchParams?: Record<string, string>
+) {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = "";
+  if (searchParams) {
+    for (const [key, value] of Object.entries(searchParams)) {
+      url.searchParams.set(key, value);
+    }
+  }
+  const redirectResponse = NextResponse.redirect(url);
+  for (const cookie of supabaseResponse.cookies.getAll()) {
+    redirectResponse.cookies.set(cookie);
+  }
+  return redirectResponse;
+}
+
 export async function updateSession(request: NextRequest) {
   if (isDemoMode()) {
     return NextResponse.next({ request });
@@ -60,15 +82,15 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/my");
 
   if (!user && isProtectedRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.search = "";
-    url.searchParams.set("redirect", safeRedirectPath(request.nextUrl.pathname));
-    return NextResponse.redirect(url);
+    return redirectWithCookies(
+      request,
+      "/login",
+      supabaseResponse,
+      { redirect: safeRedirectPath(request.nextUrl.pathname) }
+    );
   }
 
   if (user && isAuthRoute) {
-    const url = request.nextUrl.clone();
     let nextPath = safeRedirectPath(request.nextUrl.searchParams.get("redirect"));
     if (nextPath === "/") {
       const { data: profile } = await supabase
@@ -80,18 +102,17 @@ export async function updateSession(request: NextRequest) {
         nextPath = "/admin/stats";
       }
     }
-    url.pathname = nextPath;
-    url.search = "";
-    return NextResponse.redirect(url);
+    return redirectWithCookies(request, nextPath, supabaseResponse);
   }
 
   if (request.nextUrl.pathname.startsWith("/admin")) {
     if (!user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.search = "";
-      url.searchParams.set("redirect", safeRedirectPath(request.nextUrl.pathname));
-      return NextResponse.redirect(url);
+      return redirectWithCookies(
+        request,
+        "/login",
+        supabaseResponse,
+        { redirect: safeRedirectPath(request.nextUrl.pathname) }
+      );
     }
 
     const { data: profile } = await supabase
@@ -101,10 +122,7 @@ export async function updateSession(request: NextRequest) {
       .maybeSingle();
 
     if (!profile?.is_platform_admin) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/profile";
-      url.search = "";
-      return NextResponse.redirect(url);
+      return redirectWithCookies(request, "/profile", supabaseResponse);
     }
   }
 

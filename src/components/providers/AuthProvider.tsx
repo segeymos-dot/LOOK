@@ -347,7 +347,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => resolveEffectiveUiMode(role, storedUiMode),
     [role, storedUiMode]
   );
-  const switchAllowed = canSwitchUiMode(role);
+  // Only the DB profiles row counts — never the fallback display profile.
+  const isPlatformAdmin = Boolean(state.profile?.is_platform_admin);
+  const switchAllowed =
+    canSwitchUiMode(role) && !isPlatformAdmin && state.profileReady;
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -362,7 +365,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Capabilities — always from real role, never uiMode.
       isProvider: canActAsProvider(role),
       isCustomer: canActAsCustomer(role),
-      isPlatformAdmin: Boolean(displayProfile?.is_platform_admin),
+      isPlatformAdmin,
       uiMode: storedUiMode,
       effectiveUiMode,
       canSwitchUiMode: switchAllowed,
@@ -377,6 +380,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearPrivateAuthState,
       displayProfile,
       role,
+      isPlatformAdmin,
       storedUiMode,
       effectiveUiMode,
       switchAllowed,

@@ -1,35 +1,28 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { AdminRecordShell } from "@/components/admin/AdminRecordShell";
 import { AdminLinkRow } from "@/components/admin/AdminLinkRow";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useTranslation } from "@/components/providers/LocaleProvider";
-import { useAuth } from "@/hooks/useAuth";
+import { useRequirePlatformAdmin } from "@/hooks/useRequirePlatformAdmin";
 import { authFetch } from "@/lib/auth/client-fetch";
-import { isDemoMode } from "@/lib/config";
 import type { AdminCustomerRecord } from "@/lib/admin/directory";
 import { formatPrice } from "@/lib/utils";
 import { ClipboardList, MessageSquare, Receipt, Star, TimerReset } from "lucide-react";
 
 export default function AdminCustomerRecordPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const { t } = useTranslation();
-  const { isPlatformAdmin, ready, profileReady } = useAuth();
-  const demo = isDemoMode();
+  const { pending, allowed } = useRequirePlatformAdmin();
   const [record, setRecord] = useState<AdminCustomerRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!ready || !profileReady) return;
-    if (!isPlatformAdmin && !demo) {
-      router.replace("/profile");
-      return;
-    }
+    if (pending || !allowed) return;
 
     const load = async () => {
       setLoading(true);
@@ -52,7 +45,7 @@ export default function AdminCustomerRecordPage() {
     };
 
     void load();
-  }, [demo, isPlatformAdmin, params.id, profileReady, ready, router, t]);
+  }, [pending, allowed, params.id, t]);
 
   const tabs = useMemo(() => {
     if (!record) return [];
@@ -309,8 +302,7 @@ export default function AdminCustomerRecordPage() {
     ];
   }, [record, t]);
 
-  if (!ready || !profileReady) return null;
-  if (!isPlatformAdmin && !demo) return null;
+  if (pending || !allowed) return null;
 
   return (
     <AdminRecordShell

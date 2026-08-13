@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -11,9 +11,8 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Card } from "@/components/ui/Card";
 import { AdminSectionNav } from "@/components/admin/AdminSectionNav";
 import { useTranslation } from "@/components/providers/LocaleProvider";
-import { useAuth } from "@/hooks/useAuth";
+import { useRequirePlatformAdmin } from "@/hooks/useRequirePlatformAdmin";
 import { authFetch } from "@/lib/auth/client-fetch";
-import { isDemoMode } from "@/lib/config";
 import { formatPrice } from "@/lib/utils";
 import type { AdminDisputeDetail, SettlementPreview } from "@/lib/admin/disputes";
 import type { DisputeResolutionDecision } from "@/types";
@@ -28,10 +27,8 @@ const DECISIONS: DisputeResolutionDecision[] = [
 
 export default function AdminDisputeDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const { t, locale } = useTranslation();
-  const { isPlatformAdmin, ready, profileReady } = useAuth();
-  const demo = isDemoMode();
+  const { pending, allowed } = useRequirePlatformAdmin();
 
   const [dispute, setDispute] = useState<AdminDisputeDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,13 +65,9 @@ export default function AdminDisputeDetailPage() {
   }, [id, t]);
 
   useEffect(() => {
-    if (!ready || !profileReady) return;
-    if (!isPlatformAdmin && !demo) {
-      router.replace("/profile");
-      return;
-    }
+    if (pending || !allowed) return;
     void load();
-  }, [ready, profileReady, isPlatformAdmin, demo, router, load]);
+  }, [pending, allowed, load]);
 
   const loadPreview = async () => {
     setPreviewLoading(true);
@@ -150,8 +143,7 @@ export default function AdminDisputeDetailPage() {
 
   const effectRows = useMemo(() => preview?.effects ?? [], [preview]);
 
-  if (!ready || !profileReady) return null;
-  if (!isPlatformAdmin && !demo) return null;
+  if (pending || !allowed) return null;
 
   return (
     <AppLayout hideNav title={t("admin.disputes.detailTitle")}>

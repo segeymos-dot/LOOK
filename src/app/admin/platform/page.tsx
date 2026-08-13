@@ -6,27 +6,14 @@ import { PlatformBalancePanel } from "@/components/finance/PlatformBalancePanel"
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { useTranslation } from "@/components/providers/LocaleProvider";
-import { useAuth } from "@/hooks/useAuth";
-import { isDemoMode } from "@/lib/config";
+import { useRequirePlatformAdmin } from "@/hooks/useRequirePlatformAdmin";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 export default function PlatformBalancePage() {
-  const router = useRouter();
   const { t } = useTranslation();
-  const { isPlatformAdmin, ready, profileReady } = useAuth();
-  const demo = isDemoMode();
+  const { pending, allowed } = useRequirePlatformAdmin();
 
-  useEffect(() => {
-    if (!ready || !profileReady) return;
-    if (!isPlatformAdmin && !demo) {
-      router.replace("/profile");
-    }
-  }, [ready, profileReady, isPlatformAdmin, demo, router]);
-
-  if (!ready || !profileReady) return null;
-  if (!isPlatformAdmin && !demo) return null;
+  if (pending || !allowed) return null;
 
   return (
     <AppLayout hideNav title="LOOK Platform">
