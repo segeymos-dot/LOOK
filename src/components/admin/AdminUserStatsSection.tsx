@@ -1,7 +1,7 @@
 "use client";
 
+import { AdminMetricCards, type MetricCardItem } from "@/components/admin/AdminMetricCards";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { authFetch } from "@/lib/auth/client-fetch";
 import type { AdminUserStats } from "@/lib/admin/user-stats";
@@ -18,14 +18,14 @@ type MetricKey =
   | "uniqueVisitors"
   | "totalVisits";
 
-const METRICS: { key: MetricKey; online: boolean }[] = [
-  { key: "registeredCustomers", online: false },
-  { key: "registeredProviders", online: false },
-  { key: "usersOnline", online: true },
-  { key: "customersOnline", online: true },
-  { key: "providersOnline", online: true },
-  { key: "uniqueVisitors", online: false },
-  { key: "totalVisits", online: false },
+const METRICS: { key: MetricKey; href?: string }[] = [
+  { key: "registeredCustomers", href: "/admin/customers" },
+  { key: "registeredProviders", href: "/admin/providers" },
+  { key: "usersOnline" },
+  { key: "customersOnline", href: "/admin/customers" },
+  { key: "providersOnline", href: "/admin/providers" },
+  { key: "uniqueVisitors" },
+  { key: "totalVisits" },
 ];
 
 const ONLINE_POLL_MS = 30_000;
@@ -52,12 +52,13 @@ export function AdminUserStatsSection() {
     return () => clearInterval(onlineTimer);
   }, [reload]);
 
-  const loadState =
-    state === "ready" && stats
-      ? ({ status: "ready", stats } as const)
-      : state === "error"
-        ? ({ status: "error" } as const)
-        : ({ status: "loading" } as const);
+  const items: MetricCardItem[] = METRICS.map((metric) => ({
+    key: metric.key,
+    label: t(`admin.userStats.${metric.key}`),
+    hint: t(`admin.userStats.${metric.key}Hint`),
+    value: stats ? stats[metric.key] : null,
+    href: metric.href,
+  }));
 
   return (
     <div className="space-y-3">
@@ -79,66 +80,7 @@ export function AdminUserStatsSection() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {METRICS.map((metric) => (
-          <StatCard
-            key={metric.key}
-            title={t(`admin.userStats.${metric.key}`)}
-            hint={t(`admin.userStats.${metric.key}Hint`)}
-            state={loadState}
-            valueKey={metric.key}
-            onRetry={() => void reload()}
-          />
-        ))}
-      </div>
+      <AdminMetricCards items={items} state={state} onRetry={() => void reload()} />
     </div>
-  );
-}
-
-function StatCard({
-  title,
-  hint,
-  state,
-  valueKey,
-  onRetry,
-}: {
-  title: string;
-  hint: string;
-  state:
-    | { status: "loading" }
-    | { status: "ready"; stats: AdminUserStats }
-    | { status: "error" };
-  valueKey: MetricKey;
-  onRetry: () => void;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <Card padding="md" className="min-h-[132px]">
-      <p className="text-sm text-text-secondary">{title}</p>
-
-      {state.status === "loading" && (
-        <p className="mt-3 text-sm text-text-secondary">{t("common.loading")}</p>
-      )}
-
-      {state.status === "error" && (
-        <div className="mt-3 space-y-2">
-          <p className="text-sm text-danger">{t("admin.userStats.loadError")}</p>
-          <Button variant="secondary" className="gap-2" onClick={onRetry}>
-            <RefreshCw className="h-3.5 w-3.5" />
-            {t("admin.userStats.retry")}
-          </Button>
-        </div>
-      )}
-
-      {state.status === "ready" && (
-        <>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-text-primary">
-            {state.stats[valueKey].toLocaleString()}
-          </p>
-          <p className="mt-2 text-xs text-text-secondary">{hint}</p>
-        </>
-      )}
-    </Card>
   );
 }

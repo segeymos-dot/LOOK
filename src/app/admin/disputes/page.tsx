@@ -145,7 +145,11 @@ export default function AdminDisputesPage() {
         {loading ? (
           <p className="text-sm text-text-muted">{t("common.loading")}</p>
         ) : items.length === 0 ? (
-          <EmptyState icon={Scale} title={t("admin.directory.emptyDisputes")} />
+          <EmptyState
+            icon={Scale}
+            title={t("admin.directory.emptyDisputes")}
+            description={t("admin.directory.emptyDisputesHint")}
+          />
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-text-muted">
@@ -161,6 +165,9 @@ export default function AdminDisputesPage() {
                     >
                       {item.request_title}
                     </Link>
+                    <p className="mt-0.5 font-mono text-xs text-text-muted">
+                      {t("admin.disputes.filterOrderId")}: {item.request_id.slice(0, 8)}
+                    </p>
                     <p className="text-xs text-text-muted">
                       {new Date(item.created_at).toLocaleString(
                         locale === "en" ? "en-US" : "ru-RU"
@@ -177,10 +184,13 @@ export default function AdminDisputesPage() {
                   </span>
                 </div>
                 <p className="text-sm text-text-secondary">
-                  {t("admin.directory.provider")}: {item.provider_name ?? "—"} ·{" "}
                   {t("request.customer")}: {item.customer_name}
                 </p>
+                <p className="text-sm text-text-secondary">
+                  {t("admin.directory.provider")}: {item.provider_name ?? "—"}
+                </p>
                 <p className="text-sm font-medium text-text-primary">
+                  {t("admin.disputes.amount")}:{" "}
                   {item.amount_gross != null
                     ? formatPrice(item.amount_gross, item.currency)
                     : "—"}

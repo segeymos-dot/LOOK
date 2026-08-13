@@ -12,7 +12,8 @@ import type {
   OrderHistoryTab,
 } from "@/lib/orders/history-types";
 import { cn } from "@/lib/utils";
-import { ClipboardList, RefreshCw } from "lucide-react";
+import { ChevronDown, ClipboardList, RefreshCw } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 const TABS: OrderHistoryTab[] = [
@@ -23,6 +24,11 @@ const TABS: OrderHistoryTab[] = [
   "archived",
   "all",
 ];
+
+function parseTab(raw: string | null): OrderHistoryTab | null {
+  if (!raw) return null;
+  return (TABS as string[]).includes(raw) ? (raw as OrderHistoryTab) : null;
+}
 
 type Props = {
   viewer: "customer" | "provider" | "admin";
@@ -38,7 +44,13 @@ export function OrderHistoryPanel({
   allowExport = false,
 }: Props) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<OrderHistoryTab>("all");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const tabFromUrl = parseTab(tabParam);
+
+  const [tab, setTab] = useState<OrderHistoryTab>(tabFromUrl ?? "all");
   const [sort, setSort] = useState<OrderHistorySort>("newest");
   const [q, setQ] = useState("");
   const [from, setFrom] = useState("");
@@ -53,6 +65,24 @@ export function OrderHistoryPanel({
   const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  useEffect(() => {
+    const next = parseTab(tabParam);
+    if (!next) return;
+    setTab(next);
+    setPage(1);
+  }, [tabParam]);
+
+  const selectTab = (key: OrderHistoryTab) => {
+    setTab(key);
+    setPage(1);
+    if (viewer !== "admin") return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", key);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -153,12 +183,9 @@ export function OrderHistoryPanel({
             type="button"
             role="tab"
             aria-selected={tab === key}
-            onClick={() => {
-              setTab(key);
-              setPage(1);
-            }}
+            onClick={() => selectTab(key)}
             className={cn(
-              "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+              "inline-flex min-h-[44px] items-center rounded-full px-3.5 text-xs font-semibold transition-colors",
               tab === key
                 ? "bg-brand-600 text-white"
                 : "bg-surface text-text-secondary ring-1 ring-border-subtle hover:bg-surface-muted"
@@ -200,66 +227,88 @@ export function OrderHistoryPanel({
       </div>
 
       {showAdminFilters ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Input
-            label={t("orderHistory.filters.customerId")}
-            value={customerId}
-            onChange={(e) => {
-              setCustomerId(e.target.value);
-              setPage(1);
-            }}
-          />
-          <Input
-            label={t("orderHistory.filters.providerId")}
-            value={providerId}
-            onChange={(e) => {
-              setProviderId(e.target.value);
-              setPage(1);
-            }}
-          />
-          <Input
-            label={t("orderHistory.filters.location")}
-            value={location}
-            onChange={(e) => {
-              setLocation(e.target.value);
-              setPage(1);
-            }}
-          />
-          <Input
-            label={t("orderHistory.filters.from")}
-            type="date"
-            value={from}
-            onChange={(e) => {
-              setFrom(e.target.value);
-              setPage(1);
-            }}
-          />
-          <Input
-            label={t("orderHistory.filters.to")}
-            type="date"
-            value={to}
-            onChange={(e) => {
-              setTo(e.target.value);
-              setPage(1);
-            }}
-          />
-          <label className="block space-y-1.5 text-sm">
-            <span className="font-medium text-text-primary">
-              {t("orderHistory.filters.testMarker")}
-            </span>
-            <select
-              className="w-full rounded-xl border border-border bg-surface px-4 py-3"
-              value={testOnly}
+        <div className="space-y-2">
+          <button
+            type="button"
+            className={cn(
+              "inline-flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl px-3 text-sm font-semibold text-text-primary ring-1 ring-border-subtle sm:hidden",
+              "hover:bg-surface-muted"
+            )}
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            <span>{t("orderHistory.advancedFilters")}</span>
+            <ChevronDown
+              className={cn("h-4 w-4 transition-transform", advancedOpen && "rotate-180")}
+              aria-hidden
+            />
+          </button>
+          <div
+            className={cn(
+              "grid gap-2 sm:grid-cols-2",
+              advancedOpen ? "grid" : "hidden sm:grid"
+            )}
+          >
+            <Input
+              label={t("orderHistory.filters.customerId")}
+              value={customerId}
               onChange={(e) => {
-                setTestOnly(e.target.value as "" | "1" | "0");
+                setCustomerId(e.target.value);
                 setPage(1);
               }}
-            >
-              <option value="">{t("orderHistory.filters.testAll")}</option>
-              <option value="1">{t("orderHistory.filters.testOnly")}</option>
-              <option value="0">{t("orderHistory.filters.productionOnly")}</option>
-            </select>
-          </label>
+            />
+            <Input
+              label={t("orderHistory.filters.providerId")}
+              value={providerId}
+              onChange={(e) => {
+                setProviderId(e.target.value);
+                setPage(1);
+              }}
+            />
+            <Input
+              label={t("orderHistory.filters.location")}
+              value={location}
+              onChange={(e) => {
+                setLocation(e.target.value);
+                setPage(1);
+              }}
+            />
+            <Input
+              label={t("orderHistory.filters.from")}
+              type="date"
+              value={from}
+              onChange={(e) => {
+                setFrom(e.target.value);
+                setPage(1);
+              }}
+            />
+            <Input
+              label={t("orderHistory.filters.to")}
+              type="date"
+              value={to}
+              onChange={(e) => {
+                setTo(e.target.value);
+                setPage(1);
+              }}
+            />
+            <label className="block space-y-1.5 text-sm">
+              <span className="font-medium text-text-primary">
+                {t("orderHistory.filters.testMarker")}
+              </span>
+              <select
+                className="w-full rounded-xl border border-border bg-surface px-4 py-3"
+                value={testOnly}
+                onChange={(e) => {
+                  setTestOnly(e.target.value as "" | "1" | "0");
+                  setPage(1);
+                }}
+              >
+                <option value="">{t("orderHistory.filters.testAll")}</option>
+                <option value="1">{t("orderHistory.filters.testOnly")}</option>
+                <option value="0">{t("orderHistory.filters.productionOnly")}</option>
+              </select>
+            </label>
+          </div>
         </div>
       ) : null}
 
@@ -267,7 +316,7 @@ export function OrderHistoryPanel({
         <Button
           variant="outline"
           size="sm"
-          className="gap-1"
+          className="min-h-[44px] gap-1"
           loading={loading}
           onClick={() => void load()}
         >
@@ -275,7 +324,12 @@ export function OrderHistoryPanel({
           {t("orderHistory.refresh")}
         </Button>
         {allowExport ? (
-          <Button variant="outline" size="sm" onClick={() => void exportCsv()}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="min-h-[44px]"
+            onClick={() => void exportCsv()}
+          >
             {t("orderHistory.exportCsv")}
           </Button>
         ) : null}
@@ -313,6 +367,7 @@ export function OrderHistoryPanel({
           <Button
             size="sm"
             variant="outline"
+            className="min-h-[44px]"
             disabled={page <= 1 || loading}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
@@ -324,6 +379,7 @@ export function OrderHistoryPanel({
           <Button
             size="sm"
             variant="outline"
+            className="min-h-[44px]"
             disabled={page >= totalPages || loading}
             onClick={() => setPage((p) => p + 1)}
           >

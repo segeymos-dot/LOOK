@@ -55,6 +55,11 @@ export function OrderHistoryCard({
           <h3 className="line-clamp-2 text-base font-bold text-text-primary">
             {item.title}
           </h3>
+          {viewer === "admin" ? (
+            <p className="mt-1 font-mono text-xs text-text-muted">
+              {t("orderHistory.shortId")}: {item.id.slice(0, 8)}
+            </p>
+          ) : null}
           <div className="mt-1 flex flex-wrap items-center gap-2">
             {item.category_name ? <Chip>{item.category_name}</Chip> : null}
             <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-text-secondary">

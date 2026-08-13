@@ -6,9 +6,9 @@ import { AdminUserStatsSection } from "@/components/admin/AdminUserStatsSection"
 import { AdminCustomerStatsProvider } from "@/components/admin/AdminCustomerStatsProvider";
 import { AdminRoleAnalyticsSection } from "@/components/admin/AdminRoleAnalyticsSection";
 import { AdminOrderAnalyticsSection } from "@/components/admin/AdminOrderAnalyticsSection";
+import { AdminMetricCards, type MetricCardItem } from "@/components/admin/AdminMetricCards";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useRequirePlatformAdmin } from "@/hooks/useRequirePlatformAdmin";
 import { authFetch } from "@/lib/auth/client-fetch";
@@ -55,23 +55,42 @@ export default function AdminStatsPage() {
 
   if (pending || !allowed) return null;
 
-  const items = stats
-    ? [
-        { label: t("admin.pageViews"), value: stats.pageViews },
-        { label: t("admin.uniqueVisitors"), value: stats.uniqueVisitors },
-        { label: t("admin.registrations"), value: stats.registrations },
-        { label: t("admin.ordersCreated"), value: stats.ordersCreated },
-        { label: t("admin.offersCreated"), value: stats.offersCreated },
-        { label: t("admin.ordersCompleted"), value: stats.ordersCompleted },
-      ]
-    : [
-        { label: t("admin.pageViews"), value: null as number | null },
-        { label: t("admin.uniqueVisitors"), value: null },
-        { label: t("admin.registrations"), value: null },
-        { label: t("admin.ordersCreated"), value: null },
-        { label: t("admin.offersCreated"), value: null },
-        { label: t("admin.ordersCompleted"), value: null },
-      ];
+  const activityState = loading ? "loading" : activityFailed ? "error" : "ready";
+  const activityItems: MetricCardItem[] = [
+    {
+      key: "pageViews",
+      label: t("admin.pageViews"),
+      value: stats?.pageViews ?? null,
+    },
+    {
+      key: "uniqueVisitors",
+      label: t("admin.uniqueVisitors"),
+      value: stats?.uniqueVisitors ?? null,
+    },
+    {
+      key: "registrations",
+      label: t("admin.registrations"),
+      value: stats?.registrations ?? null,
+      href: "/admin/customers",
+    },
+    {
+      key: "ordersCreated",
+      label: t("admin.ordersCreated"),
+      value: stats?.ordersCreated ?? null,
+      href: "/admin/orders?tab=all",
+    },
+    {
+      key: "offersCreated",
+      label: t("admin.offersCreated"),
+      value: stats?.offersCreated ?? null,
+    },
+    {
+      key: "ordersCompleted",
+      label: t("admin.ordersCompleted"),
+      value: stats?.ordersCompleted ?? null,
+      href: "/admin/orders?tab=completed",
+    },
+  ];
 
   return (
     <AppLayout hideNav title={t("admin.statsTitle")}>
@@ -84,13 +103,13 @@ export default function AdminStatsPage() {
         <AdminSectionNav activeHref="/admin/stats" />
 
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href="/admin/orders">
-            <Button variant="outline" className="w-full sm:w-auto">
+          <Link href="/admin/orders?tab=all">
+            <Button variant="outline" className="min-h-[44px] w-full sm:w-auto">
               {t("profile.allOrderHistory")}
             </Button>
           </Link>
           <Link href="/admin/disputes">
-            <Button variant="outline" className="w-full sm:w-auto">
+            <Button variant="outline" className="min-h-[44px] w-full sm:w-auto">
               {t("admin.nav.disputes")}
             </Button>
           </Link>
@@ -136,30 +155,11 @@ export default function AdminStatsPage() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {items.map((item) => (
-              <Card key={item.label} padding="md" className="min-h-[112px]">
-                <p className="text-sm text-text-secondary">{item.label}</p>
-                {loading && item.value == null && (
-                  <p className="mt-3 text-sm text-text-secondary">{t("common.loading")}</p>
-                )}
-                {activityFailed && item.value == null && !loading && (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-sm text-danger">{t("admin.userStats.loadError")}</p>
-                    <Button variant="secondary" className="gap-2" onClick={load}>
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      {t("admin.userStats.retry")}
-                    </Button>
-                  </div>
-                )}
-                {item.value != null && (
-                  <p className="mt-1 text-2xl font-bold tabular-nums text-text-primary">
-                    {item.value.toLocaleString()}
-                  </p>
-                )}
-              </Card>
-            ))}
-          </div>
+          <AdminMetricCards
+            items={activityItems}
+            state={activityState}
+            onRetry={() => void load()}
+          />
           {error && !activityFailed && <p className="text-sm text-danger">{error}</p>}
         </div>
       </div>

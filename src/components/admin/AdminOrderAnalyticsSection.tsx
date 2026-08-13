@@ -18,50 +18,82 @@ export function AdminOrderAnalyticsSection() {
 
   const o = orders;
   const items = [
-    { key: "total", label: t("admin.orderAnalytics.total"), value: o?.total ?? null },
-    { key: "today", label: t("admin.orderAnalytics.today"), value: o?.today ?? null },
-    { key: "d7", label: t("admin.orderAnalytics.d7"), value: o?.d7 ?? null },
-    { key: "d30", label: t("admin.orderAnalytics.d30"), value: o?.d30 ?? null },
+    {
+      key: "total",
+      label: t("admin.orderAnalytics.total"),
+      value: o?.total ?? null,
+      href: "/admin/orders?tab=all",
+    },
+    {
+      key: "today",
+      label: t("admin.orderAnalytics.today"),
+      value: o?.today ?? null,
+      href: "/admin/orders?tab=all",
+    },
+    {
+      key: "d7",
+      label: t("admin.orderAnalytics.d7"),
+      value: o?.d7 ?? null,
+      href: "/admin/orders?tab=all",
+    },
+    {
+      key: "d30",
+      label: t("admin.orderAnalytics.d30"),
+      value: o?.d30 ?? null,
+      href: "/admin/orders?tab=all",
+    },
     {
       key: "withOrders",
       label: t("admin.orderAnalytics.customersWithOrders"),
       value: o?.customersWithOrders ?? null,
+      href: "/admin/customers",
     },
     {
       key: "withoutOrders",
       label: t("admin.orderAnalytics.customersWithoutOrders"),
       value: o?.customersWithoutOrders ?? null,
+      href: "/admin/customers",
     },
     {
       key: "avg",
       label: t("admin.orderAnalytics.avgOrders"),
       value: o?.avgOrdersPerActiveCustomer ?? null,
     },
-    { key: "open", label: t("admin.orderAnalytics.open"), value: o?.open ?? null },
+    {
+      key: "open",
+      label: t("admin.orderAnalytics.open"),
+      value: o?.open ?? null,
+      href: "/admin/orders?tab=active",
+    },
     {
       key: "inProgress",
       label: t("admin.orderAnalytics.inProgress"),
       value: o?.inProgress ?? null,
+      href: "/admin/orders?tab=active",
     },
     {
       key: "completed",
       label: t("admin.orderAnalytics.completed"),
       value: o?.completed ?? null,
+      href: "/admin/orders?tab=completed",
     },
     {
       key: "cancelled",
       label: t("admin.orderAnalytics.cancelled"),
       value: o?.cancelled ?? null,
+      href: "/admin/orders?tab=cancelled_refunded",
     },
     {
       key: "withoutOffers",
       label: t("admin.orderAnalytics.withoutOffers"),
       value: o?.withoutOffers ?? null,
+      href: "/admin/orders?tab=active",
     },
     {
       key: "withOffers",
       label: t("admin.orderAnalytics.withOffers"),
       value: o?.withOffers ?? null,
+      href: "/admin/orders?tab=active",
     },
     {
       key: "avgFirst",
@@ -77,11 +109,13 @@ export function AdminOrderAnalyticsSection() {
       key: "selected",
       label: t("admin.orderAnalytics.withProviderSelected"),
       value: o?.withProviderSelected ?? null,
+      href: "/admin/orders?tab=active",
     },
     {
       key: "confirmed",
       label: t("admin.orderAnalytics.customerConfirmed"),
       value: o?.customerConfirmedCompletions ?? null,
+      href: "/admin/orders?tab=completed",
     },
   ];
 
@@ -104,6 +138,7 @@ export function AdminOrderAnalyticsSection() {
           {t("admin.refresh")}
         </Button>
       </div>
+
       <AdminMetricCards items={items} state={state} onRetry={() => void reload()} />
     </div>
   );

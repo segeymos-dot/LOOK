@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { AdminSectionNav } from "@/components/admin/AdminSectionNav";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { OrderHistoryPanel } from "@/components/orders/OrderHistoryPanel";
@@ -22,12 +23,14 @@ export default function AdminOrdersPage() {
           backHref="/profile"
         />
         <AdminSectionNav activeHref="/admin/orders" />
-        <OrderHistoryPanel
-          viewer="admin"
-          apiPath="/api/admin/orders"
-          showAdminFilters
-          allowExport
-        />
+        <Suspense fallback={<p className="text-sm text-text-muted">{t("common.loading")}</p>}>
+          <OrderHistoryPanel
+            viewer="admin"
+            apiPath="/api/admin/orders"
+            showAdminFilters
+            allowExport
+          />
+        </Suspense>
       </div>
     </AppLayout>
   );

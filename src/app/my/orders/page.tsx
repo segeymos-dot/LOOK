@@ -7,7 +7,7 @@ import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { canActAsCustomer } from "@/lib/auth/roles";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 
 export default function MyOrdersHistoryPage() {
   const { t } = useTranslation();
@@ -35,10 +35,12 @@ export default function MyOrdersHistoryPage() {
           subtitle={t("orderHistory.customerSubtitle")}
           backHref="/profile"
         />
-        <OrderHistoryPanel
-          viewer="customer"
-          apiPath="/api/orders/history"
-        />
+        <Suspense fallback={<p className="text-sm text-text-muted">{t("common.loading")}</p>}>
+          <OrderHistoryPanel
+            viewer="customer"
+            apiPath="/api/orders/history"
+          />
+        </Suspense>
       </div>
     </AppLayout>
   );

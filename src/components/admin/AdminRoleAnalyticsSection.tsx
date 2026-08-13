@@ -26,19 +26,60 @@ function CustomerAnalyticsBody() {
   const { state, stats, refreshing, reload } = useAdminCustomerStats();
   const prefix = "admin.customerAnalytics";
   const s = stats;
+  const directoryHref = "/admin/customers";
 
   const items = [
-    { key: "registered", label: t(`${prefix}.registered`), value: s?.registeredTotal ?? null },
-    { key: "online", label: t(`${prefix}.online`), value: s?.online ?? null },
-    { key: "activeToday", label: t(`${prefix}.activeToday`), value: s?.uniqueActiveToday ?? null },
-    { key: "active7d", label: t(`${prefix}.active7d`), value: s?.uniqueActive7d ?? null },
-    { key: "active30d", label: t(`${prefix}.active30d`), value: s?.uniqueActive30d ?? null },
-    { key: "sessionsToday", label: t(`${prefix}.sessionsToday`), value: s?.sessionsToday ?? null },
-    { key: "sessions7d", label: t(`${prefix}.sessions7d`), value: s?.sessions7d ?? null },
-    { key: "sessions30d", label: t(`${prefix}.sessions30d`), value: s?.sessions30d ?? null },
-    { key: "newToday", label: t(`${prefix}.newToday`), value: s?.newToday ?? null },
-    { key: "new7d", label: t(`${prefix}.new7d`), value: s?.new7d ?? null },
-    { key: "new30d", label: t(`${prefix}.new30d`), value: s?.new30d ?? null },
+    {
+      key: "registered",
+      label: t(`${prefix}.registered`),
+      value: s?.registeredTotal ?? null,
+      href: directoryHref,
+    },
+    { key: "online", label: t(`${prefix}.online`), value: s?.online ?? null, href: directoryHref },
+    {
+      key: "activeToday",
+      label: t(`${prefix}.activeToday`),
+      value: s?.uniqueActiveToday ?? null,
+      href: directoryHref,
+    },
+    {
+      key: "active7d",
+      label: t(`${prefix}.active7d`),
+      value: s?.uniqueActive7d ?? null,
+      href: directoryHref,
+    },
+    {
+      key: "active30d",
+      label: t(`${prefix}.active30d`),
+      value: s?.uniqueActive30d ?? null,
+      href: directoryHref,
+    },
+    {
+      key: "sessionsToday",
+      label: t(`${prefix}.sessionsToday`),
+      value: s?.sessionsToday ?? null,
+      href: directoryHref,
+    },
+    {
+      key: "sessions7d",
+      label: t(`${prefix}.sessions7d`),
+      value: s?.sessions7d ?? null,
+      href: directoryHref,
+    },
+    {
+      key: "sessions30d",
+      label: t(`${prefix}.sessions30d`),
+      value: s?.sessions30d ?? null,
+      href: directoryHref,
+    },
+    {
+      key: "newToday",
+      label: t(`${prefix}.newToday`),
+      value: s?.newToday ?? null,
+      href: directoryHref,
+    },
+    { key: "new7d", label: t(`${prefix}.new7d`), value: s?.new7d ?? null, href: directoryHref },
+    { key: "new30d", label: t(`${prefix}.new30d`), value: s?.new30d ?? null, href: directoryHref },
   ];
 
   return (
@@ -72,19 +113,60 @@ function ProviderAnalyticsBody() {
   });
   const prefix = "admin.providerAnalytics";
   const s = stats;
+  const directoryHref = "/admin/providers";
 
   const items = [
-    { key: "registered", label: t(`${prefix}.registered`), value: s?.registeredTotal ?? null },
-    { key: "online", label: t(`${prefix}.online`), value: s?.online ?? null },
-    { key: "activeToday", label: t(`${prefix}.activeToday`), value: s?.uniqueActiveToday ?? null },
-    { key: "active7d", label: t(`${prefix}.active7d`), value: s?.uniqueActive7d ?? null },
-    { key: "active30d", label: t(`${prefix}.active30d`), value: s?.uniqueActive30d ?? null },
-    { key: "sessionsToday", label: t(`${prefix}.sessionsToday`), value: s?.sessionsToday ?? null },
-    { key: "sessions7d", label: t(`${prefix}.sessions7d`), value: s?.sessions7d ?? null },
-    { key: "sessions30d", label: t(`${prefix}.sessions30d`), value: s?.sessions30d ?? null },
-    { key: "newToday", label: t(`${prefix}.newToday`), value: s?.newToday ?? null },
-    { key: "new7d", label: t(`${prefix}.new7d`), value: s?.new7d ?? null },
-    { key: "new30d", label: t(`${prefix}.new30d`), value: s?.new30d ?? null },
+    {
+      key: "registered",
+      label: t(`${prefix}.registered`),
+      value: s?.registeredTotal ?? null,
+      href: directoryHref,
+    },
+    { key: "online", label: t(`${prefix}.online`), value: s?.online ?? null, href: directoryHref },
+    {
+      key: "activeToday",
+      label: t(`${prefix}.activeToday`),
+      value: s?.uniqueActiveToday ?? null,
+      href: directoryHref,
+    },
+    {
+      key: "active7d",
+      label: t(`${prefix}.active7d`),
+      value: s?.uniqueActive7d ?? null,
+      href: directoryHref,
+    },
+    {
+      key: "active30d",
+      label: t(`${prefix}.active30d`),
+      value: s?.uniqueActive30d ?? null,
+      href: directoryHref,
+    },
+    {
+      key: "sessionsToday",
+      label: t(`${prefix}.sessionsToday`),
+      value: s?.sessionsToday ?? null,
+      href: directoryHref,
+    },
+    {
+      key: "sessions7d",
+      label: t(`${prefix}.sessions7d`),
+      value: s?.sessions7d ?? null,
+      href: directoryHref,
+    },
+    {
+      key: "sessions30d",
+      label: t(`${prefix}.sessions30d`),
+      value: s?.sessions30d ?? null,
+      href: directoryHref,
+    },
+    {
+      key: "newToday",
+      label: t(`${prefix}.newToday`),
+      value: s?.newToday ?? null,
+      href: directoryHref,
+    },
+    { key: "new7d", label: t(`${prefix}.new7d`), value: s?.new7d ?? null, href: directoryHref },
+    { key: "new30d", label: t(`${prefix}.new30d`), value: s?.new30d ?? null, href: directoryHref },
   ];
 
   return (

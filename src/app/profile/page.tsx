@@ -348,10 +348,12 @@ export default function ProfilePage() {
             {resolvedProfile?.full_name ?? user?.email ?? t("profile.title")}
           </h1>
           <Chip variant="brand" className="mt-2">
-            {getRoleLabelT(resolvedProfile?.role, t)}
+            {isPlatformAdmin
+              ? t("profile.platformAdmin")
+              : getRoleLabelT(resolvedProfile?.role, t)}
           </Chip>
 
-          {showProviderUi && resolvedProfile && (
+          {!isPlatformAdmin && showProviderUi && resolvedProfile && (
             <div className="mt-4">
               <ProviderStats
                 rating={Number(resolvedProfile.rating)}
@@ -362,7 +364,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {showCustomerUi && (
+          {!isPlatformAdmin && showCustomerUi && (
             <div className="mt-4">
               <ProviderStats
                 rating={0}
@@ -373,7 +375,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {verification && showProviderUi && (
+          {!isPlatformAdmin && verification && showProviderUi && (
             <div className="mt-4">
               <VerificationBadges verification={verification} className="justify-center" />
             </div>
@@ -402,7 +404,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {showProviderUi && resolvedProfile && !editing && (
+          {!isPlatformAdmin && showProviderUi && resolvedProfile && !editing && (
             <Link href={`/providers/${resolvedProfile.id}`} className="mt-4 inline-block">
               <Button variant="outline" size="sm" className="gap-2">
                 <ExternalLink className="h-4 w-4" />
@@ -412,21 +414,30 @@ export default function ProfilePage() {
           )}
         </Card>
 
-        {!editing && canSwitchUiMode && (
+        {!editing && isPlatformAdmin && (
+          <Link href="/admin/stats" className="block">
+            <Button className="min-h-[48px] w-full gap-2 text-base" size="lg">
+              <BarChart3 className="h-5 w-5" />
+              {t("profile.adminPanel")}
+            </Button>
+          </Link>
+        )}
+
+        {!editing && !isPlatformAdmin && canSwitchUiMode && (
           <div className="space-y-2">
             <p className="text-xs font-medium text-text-muted">{t("uiMode.hint")}</p>
             <UiModeSwitch />
           </div>
         )}
 
-        {!editing && <BecomeProviderCard />}
+        {!editing && !isPlatformAdmin && <BecomeProviderCard />}
 
-        {!editing && (showProviderUi || showCustomerUi) && (
+        {!editing && !isPlatformAdmin && (showProviderUi || showCustomerUi) && (
           <ProfileFinanceBlock
             showProvider={showProviderUi}
             showCustomer={showCustomerUi}
             adminLinks={
-              isPlatformAdmin || isDemoMode() ? (
+              isDemoMode() ? (
                 <>
                   <Link href="/admin/stats">
                     <Button variant="outline" className="w-full justify-start gap-2" size="sm">
@@ -578,13 +589,13 @@ export default function ProfilePage() {
           </Card>
         ) : (
           <>
-            {resolvedProfile?.bio && (
+            {!isPlatformAdmin && resolvedProfile?.bio && (
               <Card padding="md">
                 <p className="text-sm leading-relaxed text-text-secondary">{resolvedProfile.bio}</p>
               </Card>
             )}
 
-            {showProviderUi && resolvedProfile?.skills && (
+            {!isPlatformAdmin && showProviderUi && resolvedProfile?.skills && (
               <Card padding="md">
                 <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("profile.skills")}</h3>
                 <div className="flex flex-wrap gap-2">
@@ -595,7 +606,7 @@ export default function ProfilePage() {
               </Card>
             )}
 
-            {showProviderUi && resolvedProfile?.portfolio?.trim() && (
+            {!isPlatformAdmin && showProviderUi && resolvedProfile?.portfolio?.trim() && (
               <Card padding="md">
                 <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("profile.portfolio")}</h3>
                 <p className="whitespace-pre-line text-sm leading-relaxed text-text-secondary">
@@ -604,18 +615,19 @@ export default function ProfilePage() {
               </Card>
             )}
 
-            {showProviderUi &&
+            {!isPlatformAdmin &&
+              showProviderUi &&
               resolvedProfile &&
               (resolvedProfile.portfolio_items?.length ?? 0) > 0 && (
               <PortfolioGallery items={resolvedProfile.portfolio_items} />
             )}
 
-            {showProviderUi && reviews.length > 0 && (
+            {!isPlatformAdmin && showProviderUi && reviews.length > 0 && (
               <ReviewsList reviews={reviews} />
             )}
 
             <div className="space-y-2">
-              {showCustomerLinks && (
+              {!isPlatformAdmin && showCustomerLinks && (
                 <>
                   <Link href="/my/orders">
                     <Button variant="secondary" className="w-full gap-2">
@@ -631,7 +643,7 @@ export default function ProfilePage() {
                   </Link>
                 </>
               )}
-              {showProviderLinks && (
+              {!isPlatformAdmin && showProviderLinks && (
                 <>
                   <Link href="/my/incoming">
                     <Button variant="secondary" className="w-full gap-2">
