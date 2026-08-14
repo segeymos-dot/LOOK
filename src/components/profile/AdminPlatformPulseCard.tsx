@@ -7,10 +7,22 @@ import { Card } from "@/components/ui/Card";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { authFetch } from "@/lib/auth/client-fetch";
 import type { AdminUserStats } from "@/lib/admin/user-stats";
+import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
+type PluralForm = "one" | "few" | "many";
+
+function pluralForm(n: number, locale: Locale): PluralForm {
+  if (locale === "en") return n === 1 ? "one" : "many";
+  const mod10 = Math.abs(n) % 10;
+  const mod100 = Math.abs(n) % 100;
+  if (mod10 === 1 && mod100 !== 11) return "one";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "few";
+  return "many";
+}
+
 export function AdminPlatformPulseCard() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [stats, setStats] = useState<AdminUserStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -48,6 +60,29 @@ export function AdminPlatformPulseCard() {
   const fmt = (n: number | null | undefined) =>
     typeof n === "number" ? n.toLocaleString() : "—";
 
+  const countWithWord = (
+    n: number | null | undefined,
+    kind: "visits" | "unique"
+  ) => {
+    if (typeof n !== "number") return "—";
+    const form = pluralForm(n, locale);
+    const key =
+      kind === "visits"
+        ? form === "one"
+          ? "profile.platformPulse.visitsOne"
+          : form === "few"
+            ? "profile.platformPulse.visitsFew"
+            : "profile.platformPulse.visitsMany"
+        : form === "one"
+          ? "profile.platformPulse.uniqueOne"
+          : form === "few"
+            ? "profile.platformPulse.uniqueFew"
+            : "profile.platformPulse.uniqueMany";
+    return `${fmt(n)} ${t(key)}`;
+  };
+
+  const todayReady = !loading && !error;
+
   return (
     <Link
       href="/admin/stats"
@@ -72,9 +107,14 @@ export function AdminPlatformPulseCard() {
               ) : error ? (
                 <p className="mt-1 text-sm text-danger">{t("profile.platformPulse.loadError")}</p>
               ) : (
-                <p className="mt-0.5 text-3xl font-bold tabular-nums tracking-tight text-text-primary">
-                  {fmt(stats?.totalVisits)}
-                </p>
+                <>
+                  <p className="mt-0.5 text-3xl font-bold tabular-nums tracking-tight text-text-primary">
+                    {fmt(stats?.totalVisits)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-text-muted">
+                    {t("profile.platformPulse.allTime")}
+                  </p>
+                </>
               )}
             </div>
 
@@ -89,8 +129,8 @@ export function AdminPlatformPulseCard() {
 
             <p className="text-xs text-text-muted">
               {t("profile.platformPulse.todayLine", {
-                visits: loading || error ? "—" : fmt(stats?.visitsToday),
-                unique: loading || error ? "—" : fmt(stats?.uniqueVisitorsToday),
+                visits: todayReady ? countWithWord(stats?.visitsToday, "visits") : "—",
+                unique: todayReady ? countWithWord(stats?.uniqueVisitorsToday, "unique") : "—",
               })}
             </p>
 
