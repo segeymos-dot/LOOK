@@ -16,7 +16,7 @@ import { ArrowLeftRight, Bell, ChevronDown, MapPin } from "lucide-react";
  * sm+: previous visual density.
  */
 const pillClass =
-  "inline-flex shrink-0 items-center justify-center border border-[#E8ECF1] bg-white box-border rounded-[10px] px-1 py-0 min-h-[44px] sm:rounded-xl sm:px-3 sm:py-2 sm:min-h-9";
+  "inline-flex shrink-0 items-center justify-center border border-[#E8ECF1] bg-white box-border rounded-[10px] px-0.5 py-0 min-h-[44px] sm:rounded-xl sm:px-3 sm:py-2 sm:min-h-9";
 
 type TimeGreetingKey =
   | "goodMorning"
@@ -24,12 +24,24 @@ type TimeGreetingKey =
   | "goodEvening"
   | "goodNight";
 
-/** Local-device hour → greeting period (browser timezone). */
+/**
+ * Local-device hour → greeting period (browser timezone).
+ * Matches HomeGreeting buckets for morning/afternoon/evening;
+ * hours 0–4 stay goodNight for existing customer/provider greetings.
+ */
 function getTimeGreetingKey(hour: number): TimeGreetingKey {
   if (hour >= 5 && hour < 12) return "goodMorning";
   if (hour >= 12 && hour < 18) return "goodAfternoon";
   if (hour >= 18) return "goodEvening";
   return "goodNight";
+}
+
+/** Admin copy follows HomeGreeting (no separate night line → evening). */
+function adminGreetingKey(
+  key: TimeGreetingKey
+): "goodMorning" | "goodAfternoon" | "goodEvening" {
+  if (key === "goodNight") return "goodEvening";
+  return key;
 }
 
 function getFirstName(fullName: string | null | undefined): string | undefined {
@@ -78,7 +90,7 @@ export function HomeHeaderControls() {
           <span key={code} className="inline-flex items-center gap-0 sm:gap-1">
             {index > 0 ? (
               <ArrowLeftRight
-                className="h-2.5 w-2.5 shrink-0 text-[#0F172A] sm:h-3 sm:w-3"
+                className="h-2 w-2 shrink-0 text-[#0F172A] sm:h-3 sm:w-3"
                 strokeWidth={2}
                 aria-hidden="true"
               />
@@ -87,7 +99,7 @@ export function HomeHeaderControls() {
               type="button"
               onClick={() => setLocale(code)}
               className={cn(
-                "inline-flex min-h-[44px] min-w-[1.5rem] items-center justify-center px-0.5 text-[10px] font-semibold leading-none transition-colors sm:min-h-0 sm:min-w-[1.625rem] sm:px-0 sm:text-[11px]",
+                "inline-flex min-h-[44px] min-w-[1.375rem] items-center justify-center px-0 text-[10px] font-semibold leading-none transition-colors sm:min-h-0 sm:min-w-[1.625rem] sm:px-0 sm:text-[11px]",
                 locale === code ? "text-[#0F172A]" : "text-[#64748B] hover:text-[#0F172A]"
               )}
             >
@@ -101,7 +113,8 @@ export function HomeHeaderControls() {
         href={profileHref}
         className={cn(
           pillClass,
-          "min-w-0 max-w-[4.5rem] shrink overflow-hidden gap-0.5 transition-opacity active:opacity-90 sm:max-w-[7.5rem] sm:shrink-0 sm:gap-1"
+          // ~7rem fits Бангкок / Bangkok / Москва / Moscow at 10px; longer cities truncate
+          "min-w-0 max-w-[7rem] shrink overflow-hidden gap-0.5 px-1 transition-opacity active:opacity-90 sm:max-w-[7.5rem] sm:shrink-0 sm:gap-1 sm:px-3"
         )}
       >
         <MapPin
@@ -155,7 +168,7 @@ export function HomeHeaderControls() {
 
 /** LOOK wordmark + controls — rendered as the beach-image top overlay. */
 export function HomeHeader() {
-  const { user, profile, loading, profileReady } = useAuth();
+  const { user, profile, loading, profileReady, isPlatformAdmin } = useAuth();
   const { t } = useTranslation();
   const [greetingKey, setGreetingKey] = useState<TimeGreetingKey | null>(null);
 
@@ -172,6 +185,7 @@ export function HomeHeader() {
   const firstName = useMemo(() => {
     if (loading) return undefined;
     if (user && !profileReady) return undefined;
+    if (isPlatformAdmin) return undefined;
 
     const meta = user?.user_metadata;
     const candidates: Array<string | null | undefined> = [
@@ -187,15 +201,18 @@ export function HomeHeader() {
       if (name) return name;
     }
     return undefined;
-  }, [loading, user, profileReady, profile?.full_name]);
+  }, [loading, user, profileReady, profile?.full_name, isPlatformAdmin]);
 
   const greetingText = useMemo(() => {
     if (!greetingKey) return null;
+    if (isPlatformAdmin) {
+      return t(`home.${adminGreetingKey(greetingKey)}Admin`);
+    }
     const timeGreeting = t(`home.${greetingKey}`);
     return firstName
       ? `${timeGreeting}, ${firstName} 👏`
       : `${timeGreeting} 👏`;
-  }, [greetingKey, firstName, t]);
+  }, [greetingKey, firstName, isPlatformAdmin, t]);
 
   return (
     <div className="relative w-full min-w-0">
