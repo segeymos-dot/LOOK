@@ -561,6 +561,15 @@ export const en: TranslationDict = {
     adminProviders: "Providers",
     adminPanel: "Admin panel",
     platformAdmin: "Platform admin",
+    platformPulse: {
+      ariaLabel: "Open LOOK statistics",
+      totalVisits: "Total user visits",
+      uniqueVisitors: "Unique visitors",
+      todayLine: "Today: {visits} visits · {unique} unique",
+      adminSessions: "Admin sessions",
+      adminLine: "Total {total} · Today {today}",
+      loadError: "Could not load platform pulse",
+    },
     logout: "Sign out",
     settings: "Settings",
     loading: "Loading profile…",
@@ -962,9 +971,11 @@ export const en: TranslationDict = {
       providersOnlineHint:
         "Registered providers currently active in the application. Platform admins are not counted.",
       uniqueVisitors: "Total unique visitors",
-      uniqueVisitorsHint: "Registered and anonymous visitors counted once",
+      uniqueVisitorsHint:
+        "Registered and anonymous visitors counted once. Platform admins excluded.",
       totalVisits: "Total visits",
-      totalVisitsHint: "New app sessions, not in-app page navigations",
+      totalVisitsHint:
+        "New app sessions, not in-app page navigations. Platform admins excluded.",
       loadError: "Failed to load statistics",
       retry: "Retry",
     },

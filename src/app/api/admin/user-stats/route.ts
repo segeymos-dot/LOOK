@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const stats = await fetchAdminUserStats(gate.ctx.supabase);
+    const stats = await fetchAdminUserStats(gate.ctx.supabase, gate.ctx.adminClient);
     return NextResponse.json({ success: true, stats });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load statistics";

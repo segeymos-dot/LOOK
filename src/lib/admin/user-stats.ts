@@ -7,17 +7,45 @@ import {
   normalizeVisitorId,
 } from "@/lib/admin/presence-validation";
 
+export type AdminVisitByUser = {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  visitsTotal: number;
+  visitsToday: number;
+  lastSeenAt: string | null;
+};
+
 export type AdminUserStats = {
   registeredCustomers: number;
   registeredProviders: number;
   usersOnline: number;
   customersOnline: number;
   providersOnline: number;
+  /** Lifetime unique visitors (anonymous + users), platform admins excluded. */
   uniqueVisitors: number;
+  /** Lifetime app sessions (anonymous + users), platform admins excluded. */
   totalVisits: number;
+  visitsToday: number;
+  uniqueVisitorsToday: number;
+  adminVisitsTotal: number;
+  adminVisitsToday: number;
+  adminVisitsByUser: AdminVisitByUser[];
   onlineWindowSeconds: number;
   /** Platform admins are excluded from online counters. */
   adminsCountedInOnline: boolean;
+  /** Platform admins are excluded from user visit counters. */
+  adminsCountedInUserVisits: boolean;
+  /** ISO day boundary used for "today" (UTC date_trunc, matches role analytics). */
+  dayStart: string | null;
+};
+
+type RpcAdminVisitByUser = {
+  user_id?: string;
+  name?: string | null;
+  visits_total?: number;
+  visits_today?: number;
+  last_seen_at?: string | null;
 };
 
 type RpcStats = {
@@ -28,9 +56,30 @@ type RpcStats = {
   providers_online?: number;
   unique_visitors?: number;
   total_visits?: number;
+  visits_today?: number;
+  unique_visitors_today?: number;
+  admin_visits_total?: number;
+  admin_visits_today?: number;
+  admin_visits_by_user?: RpcAdminVisitByUser[] | null;
   online_window_seconds?: number;
   admins_counted_in_online?: boolean;
+  admins_counted_in_user_visits?: boolean;
+  day_start?: string | null;
 };
+
+function mapAdminVisitsByUser(
+  raw: RpcAdminVisitByUser[] | null | undefined
+): AdminVisitByUser[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((row) => ({
+    userId: String(row.user_id ?? ""),
+    name: row.name ?? null,
+    email: null,
+    visitsTotal: Number(row.visits_total ?? 0),
+    visitsToday: Number(row.visits_today ?? 0),
+    lastSeenAt: row.last_seen_at ?? null,
+  })).filter((row) => row.userId);
+}
 
 function mapStats(raw: RpcStats | null): AdminUserStats {
   return {
@@ -41,9 +90,37 @@ function mapStats(raw: RpcStats | null): AdminUserStats {
     providersOnline: Number(raw?.providers_online ?? 0),
     uniqueVisitors: Number(raw?.unique_visitors ?? 0),
     totalVisits: Number(raw?.total_visits ?? 0),
+    visitsToday: Number(raw?.visits_today ?? 0),
+    uniqueVisitorsToday: Number(raw?.unique_visitors_today ?? 0),
+    adminVisitsTotal: Number(raw?.admin_visits_total ?? 0),
+    adminVisitsToday: Number(raw?.admin_visits_today ?? 0),
+    adminVisitsByUser: mapAdminVisitsByUser(raw?.admin_visits_by_user),
     onlineWindowSeconds: Number(raw?.online_window_seconds ?? 90),
     adminsCountedInOnline: Boolean(raw?.admins_counted_in_online ?? false),
+    adminsCountedInUserVisits: Boolean(raw?.admins_counted_in_user_visits ?? false),
+    dayStart: raw?.day_start ?? null,
   };
+}
+
+async function enrichAdminEmails(
+  adminClient: SupabaseClient | null,
+  stats: AdminUserStats
+): Promise<AdminUserStats> {
+  if (!adminClient || stats.adminVisitsByUser.length === 0) return stats;
+
+  const enriched = await Promise.all(
+    stats.adminVisitsByUser.map(async (row) => {
+      try {
+        const { data, error } = await adminClient.auth.admin.getUserById(row.userId);
+        if (error || !data.user) return row;
+        return { ...row, email: data.user.email ?? null };
+      } catch {
+        return row;
+      }
+    })
+  );
+
+  return { ...stats, adminVisitsByUser: enriched };
 }
 
 /** Prefer Bearer token (browser authFetch / Electron); fall back to cookie session. */
@@ -62,11 +139,13 @@ export async function createPresenceClient(request?: Request): Promise<SupabaseC
 
 /** Admin-only stats. Caller must already be verified as platform admin. */
 export async function fetchAdminUserStats(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  adminClient?: SupabaseClient | null
 ): Promise<AdminUserStats> {
   const { data, error } = await supabase.rpc("get_admin_user_stats");
   if (error) throw new Error(error.message);
-  return mapStats((data ?? null) as RpcStats | null);
+  const mapped = mapStats((data ?? null) as RpcStats | null);
+  return enrichAdminEmails(adminClient ?? null, mapped);
 }
 
 export type HeartbeatResult = {

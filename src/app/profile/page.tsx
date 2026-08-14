@@ -9,6 +9,7 @@ import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { PortfolioEditor } from "@/components/profile/PortfolioEditor";
 import { PortfolioGallery } from "@/components/profile/PortfolioGallery";
 import { ProviderStats } from "@/components/profile/ProviderStats";
+import { AdminPlatformPulseCard } from "@/components/profile/AdminPlatformPulseCard";
 import { ReviewsList } from "@/components/profile/ReviewsList";
 import { VerificationBadges } from "@/components/profile/VerificationBadges";
 import { Avatar } from "@/components/ui/Avatar";
@@ -413,6 +414,8 @@ export default function ProfilePage() {
             </Link>
           )}
         </Card>
+
+        {!editing && isPlatformAdmin && <AdminPlatformPulseCard />}
 
         {!editing && isPlatformAdmin && (
           <Link href="/admin/stats" className="block">
