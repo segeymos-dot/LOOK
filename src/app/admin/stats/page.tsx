@@ -13,7 +13,6 @@ import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useRequirePlatformAdmin } from "@/hooks/useRequirePlatformAdmin";
 import { authFetch } from "@/lib/auth/client-fetch";
 import type { PlatformStats } from "@/lib/analytics/platform-stats";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
@@ -101,19 +100,6 @@ export default function AdminStatsPage() {
           backHref="/profile"
         />
         <AdminSectionNav activeHref="/admin/stats" />
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href="/admin/orders?tab=all">
-            <Button variant="outline" className="min-h-[44px] w-full sm:w-auto">
-              {t("profile.allOrderHistory")}
-            </Button>
-          </Link>
-          <Link href="/admin/disputes">
-            <Button variant="outline" className="min-h-[44px] w-full sm:w-auto">
-              {t("admin.nav.disputes")}
-            </Button>
-          </Link>
-        </div>
 
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-text-primary">

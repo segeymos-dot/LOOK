@@ -64,7 +64,7 @@ export function AdminSectionNav({ activeHref }: { activeHref: string }) {
   return (
     <nav aria-label={t("admin.nav.label")}>
       {/* Mobile: vertical cards */}
-      <ul className="flex flex-col gap-2 md:hidden">
+      <ul className="flex flex-col gap-1.5 md:hidden">
         {LINKS.map((link) => {
           const active =
             activeHref === link.href || activeHref.startsWith(`${link.href}/`);
@@ -78,7 +78,7 @@ export function AdminSectionNav({ activeHref }: { activeHref: string }) {
                 aria-label={`${title}. ${subtitle}`}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-[48px] items-center gap-3 rounded-2xl px-3 py-3 outline-none transition-colors",
+                  "flex min-h-[48px] items-center gap-2.5 rounded-xl px-3 py-2.5 outline-none transition-colors",
                   "focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
                   active
                     ? "bg-brand-50 text-brand-800 ring-1 ring-brand-500/40"
@@ -87,12 +87,12 @@ export function AdminSectionNav({ activeHref }: { activeHref: string }) {
               >
                 <span
                   className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
                     active ? "bg-brand-100 text-brand-700" : "bg-surface-muted text-text-secondary"
                   )}
                   aria-hidden
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-[18px] w-[18px]" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold leading-tight">{title}</span>
@@ -107,7 +107,7 @@ export function AdminSectionNav({ activeHref }: { activeHref: string }) {
                 </span>
                 <ChevronRight
                   className={cn(
-                    "h-5 w-5 shrink-0",
+                    "h-4 w-4 shrink-0",
                     active ? "text-brand-600" : "text-text-muted"
                   )}
                   aria-hidden
