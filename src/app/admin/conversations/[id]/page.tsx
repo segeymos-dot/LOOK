@@ -57,7 +57,7 @@ export default function AdminConversationPage() {
         <PageHeader
           title={t("admin.record.conversations")}
           subtitle={record?.request_title ?? undefined}
-          backHref="/admin/customers"
+          historyBack
         />
         <AdminSectionNav activeHref="/admin/customers" />
 

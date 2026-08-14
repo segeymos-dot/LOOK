@@ -151,7 +151,7 @@ export default function AdminDisputeDetailPage() {
         <PageHeader
           title={t("admin.disputes.detailTitle")}
           subtitle={dispute?.request_title ?? t("admin.disputes.subtitle")}
-          backHref="/admin/disputes"
+          historyBack
         />
         <AdminSectionNav activeHref="/admin/disputes" />
 

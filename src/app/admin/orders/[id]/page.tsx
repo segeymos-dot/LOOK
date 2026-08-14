@@ -190,7 +190,7 @@ export default function AdminOrderDetailPage() {
         <PageHeader
           title={detail?.order.title ?? t("admin.orderDetail.title")}
           subtitle={t("admin.orderDetail.subtitle")}
-          backHref="/admin/orders"
+          historyBack
         />
         <AdminSectionNav activeHref="/admin/orders" />
 

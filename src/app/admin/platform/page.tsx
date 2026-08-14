@@ -21,7 +21,7 @@ export default function PlatformBalancePage() {
         <PageHeader
           title={t("admin.platformTitle")}
           subtitle={t("admin.platformSubtitle")}
-          backHref="/profile"
+          historyBack
         />
         <AdminSectionNav activeHref="/admin/platform" />
         <PlatformBalancePanel />

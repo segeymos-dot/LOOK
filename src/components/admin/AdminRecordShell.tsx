@@ -18,7 +18,6 @@ export type AdminRecordTab = {
 
 export function AdminRecordShell({
   title,
-  backHref,
   activeNavHref,
   overview,
   tabs,
@@ -26,7 +25,6 @@ export function AdminRecordShell({
   error,
 }: {
   title: string;
-  backHref: string;
   activeNavHref: string;
   overview: AdminUserListItem | null;
   tabs: AdminRecordTab[];
@@ -39,7 +37,7 @@ export function AdminRecordShell({
   return (
     <AppLayout hideNav title={title}>
       <div className="space-y-5 p-4 pb-8">
-        <PageHeader title={title} backHref={backHref} />
+        <PageHeader title={title} historyBack />
         <AdminSectionNav activeHref={activeNavHref} />
 
         {loading && <p className="text-sm text-text-muted">{t("common.loading")}</p>}

@@ -386,7 +386,6 @@ export default function AdminProviderRecordPage() {
   return (
     <AdminRecordShell
       title={t("admin.providers.recordTitle")}
-      backHref="/admin/providers"
       activeNavHref="/admin/providers"
       overview={record?.overview ?? null}
       tabs={tabs}

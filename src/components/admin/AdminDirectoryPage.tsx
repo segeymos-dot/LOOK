@@ -104,7 +104,7 @@ export function AdminDirectoryPage({ kind }: { kind: Kind }) {
   return (
     <AppLayout hideNav title={title}>
       <div className="space-y-5 p-4 pb-8">
-        <PageHeader title={title} subtitle={subtitle} backHref="/profile" />
+        <PageHeader title={title} subtitle={subtitle} historyBack />
         <AdminSectionNav activeHref={activeHref} />
 
         <div className="space-y-3 rounded-2xl border border-border-subtle bg-surface p-3">

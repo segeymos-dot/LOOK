@@ -77,7 +77,7 @@ export default function AdminDisputesPage() {
         <PageHeader
           title={t("admin.disputes.title")}
           subtitle={t("admin.disputes.subtitle")}
-          backHref="/profile"
+          historyBack
         />
         <AdminSectionNav activeHref="/admin/disputes" />
 

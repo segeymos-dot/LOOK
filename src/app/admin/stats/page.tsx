@@ -97,7 +97,7 @@ export default function AdminStatsPage() {
         <PageHeader
           title={t("admin.statsTitle")}
           subtitle={t("admin.statsSubtitle")}
-          backHref="/profile"
+          historyBack
         />
         <AdminSectionNav activeHref="/admin/stats" />
 

@@ -20,7 +20,7 @@ export default function AdminOrdersPage() {
         <PageHeader
           title={t("orderHistory.adminTitle")}
           subtitle={t("orderHistory.adminSubtitle")}
-          backHref="/profile"
+          historyBack
         />
         <AdminSectionNav activeHref="/admin/orders" />
         <Suspense fallback={<p className="text-sm text-text-muted">{t("common.loading")}</p>}>
