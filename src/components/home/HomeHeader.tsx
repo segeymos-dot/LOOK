@@ -10,9 +10,13 @@ import { cn } from "@/lib/utils";
 import { localizeText } from "@/lib/i18n/localize-data";
 import { ArrowLeftRight, Bell, ChevronDown, MapPin } from "lucide-react";
 
-/** Language + city pills: compact on narrow phones, unchanged from sm+. */
+/**
+ * Language + city pills.
+ * Mobile: compact horizontal padding, min touch height 44px.
+ * sm+: previous visual density.
+ */
 const pillClass =
-  "inline-flex shrink-0 items-center justify-center border border-[#E8ECF1] bg-white box-border rounded-[10px] px-2 py-1 min-h-[30px] sm:rounded-xl sm:px-3 sm:py-2 sm:min-h-9";
+  "inline-flex shrink-0 items-center justify-center border border-[#E8ECF1] bg-white box-border rounded-[10px] px-1 py-0 min-h-[44px] sm:rounded-xl sm:px-3 sm:py-2 sm:min-h-9";
 
 type TimeGreetingKey =
   | "goodMorning"
@@ -47,7 +51,7 @@ function firstNameFromSource(value: string | null | undefined): string | undefin
 
 /**
  * Existing Home header controls (language, location, bell, avatar).
- * Same handlers, hrefs, state and visuals as before.
+ * Same handlers, hrefs and state as before — mobile density only.
  */
 export function HomeHeaderControls() {
   const { user, displayProfile, profile } = useAuth();
@@ -64,14 +68,14 @@ export function HomeHeaderControls() {
   const locales: Locale[] = ["ru", "en"];
 
   return (
-    <div className="flex shrink-0 items-center gap-1.5 overflow-x-hidden sm:gap-2.5">
+    <div className="flex min-w-0 shrink items-center gap-0.5 overflow-x-hidden sm:gap-2.5">
       <div
-        className={cn(pillClass, "gap-0.5 sm:gap-1")}
+        className={cn(pillClass, "gap-0 sm:gap-1")}
         role="group"
         aria-label={t("common.language")}
       >
         {locales.map((code, index) => (
-          <span key={code} className="inline-flex items-center gap-0.5 sm:gap-1">
+          <span key={code} className="inline-flex items-center gap-0 sm:gap-1">
             {index > 0 ? (
               <ArrowLeftRight
                 className="h-2.5 w-2.5 shrink-0 text-[#0F172A] sm:h-3 sm:w-3"
@@ -83,7 +87,7 @@ export function HomeHeaderControls() {
               type="button"
               onClick={() => setLocale(code)}
               className={cn(
-                "min-h-[26px] min-w-[1.5rem] px-0.5 text-[10px] font-semibold leading-none transition-colors sm:min-h-0 sm:min-w-[1.625rem] sm:px-0 sm:text-[11px]",
+                "inline-flex min-h-[44px] min-w-[1.5rem] items-center justify-center px-0.5 text-[10px] font-semibold leading-none transition-colors sm:min-h-0 sm:min-w-[1.625rem] sm:px-0 sm:text-[11px]",
                 locale === code ? "text-[#0F172A]" : "text-[#64748B] hover:text-[#0F172A]"
               )}
             >
@@ -97,14 +101,14 @@ export function HomeHeaderControls() {
         href={profileHref}
         className={cn(
           pillClass,
-          "max-w-[5.75rem] gap-0.5 transition-opacity active:opacity-90 sm:max-w-[7.5rem] sm:gap-1"
+          "min-w-0 max-w-[4.5rem] shrink overflow-hidden gap-0.5 transition-opacity active:opacity-90 sm:max-w-[7.5rem] sm:shrink-0 sm:gap-1"
         )}
       >
         <MapPin
           className="h-3 w-3 shrink-0 fill-[#6337F5] text-[#6337F5] sm:h-3.5 sm:w-3.5"
           aria-hidden="true"
         />
-        <span className="truncate text-[10px] font-semibold leading-none text-[#0F172A] sm:text-[11px]">
+        <span className="min-w-0 truncate text-[10px] font-semibold leading-none text-[#0F172A] sm:text-[11px]">
           {locationLabel}
         </span>
         <ChevronDown
@@ -195,28 +199,34 @@ export function HomeHeader() {
 
   return (
     <div className="relative w-full min-w-0">
+      {/* Row 1: LOOK (never shrinks) | controls (may compress location) */}
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <Link href="/" className="shrink-0">
+          <span
+            style={{
+              color: "#1677F2",
+              fontSize: "40.32px",
+              fontWeight: 800,
+              lineHeight: 1,
+              letterSpacing: "-0.03em",
+              opacity: 1,
+            }}
+          >
+            LOOK
+          </span>
+        </Link>
+        <HomeHeaderControls />
+      </div>
+
+      {/* Greeting + titles: full width below controls row */}
       <div
         className="flex shrink-0 flex-col items-start"
-        style={{ gap: 12 }}
+        style={{ gap: 12, marginTop: 12 }}
       >
         <div
           className="flex flex-col items-start"
           style={{ gap: 5 }}
         >
-          <Link href="/" className="shrink-0">
-            <span
-              style={{
-                color: "#1677F2",
-                fontSize: "40.32px",
-                fontWeight: 800,
-                lineHeight: 1,
-                letterSpacing: "-0.03em",
-                opacity: 1,
-              }}
-            >
-              LOOK
-            </span>
-          </Link>
           <p
             style={{
               margin: 0,
@@ -272,13 +282,6 @@ export function HomeHeader() {
             {t("home.greetingSubtitleLine3")}
           </span>
         </p>
-      </div>
-
-      <div
-        className="absolute top-0"
-        style={{ right: 0 }}
-      >
-        <HomeHeaderControls />
       </div>
     </div>
   );
