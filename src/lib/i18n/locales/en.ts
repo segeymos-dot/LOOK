@@ -964,6 +964,16 @@ export const en: TranslationDict = {
     platformBalance: "Platform balance",
     platformTitle: "Platform balance",
     platformSubtitle: "LOOK revenue, commission and turnover",
+    voiceNav: {
+      ariaLabel: "Voice admin navigation",
+      prompt: "Tell me what to open",
+      listening: "Listening…",
+      unavailable: "Voice input is not available in this browser",
+      notFound: "User not found",
+      orderNotFound: "Order not found",
+      unknown: "Try: open statistics, show orders, find customer…",
+      error: "Could not run that command",
+    },
     userStats: {
       title: "Users and visits",
       subtitle: "Registration, online presence and traffic metrics",

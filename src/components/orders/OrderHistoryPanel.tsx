@@ -48,11 +48,12 @@ export function OrderHistoryPanel({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
+  const qParam = searchParams.get("q") ?? "";
   const tabFromUrl = parseTab(tabParam);
 
   const [tab, setTab] = useState<OrderHistoryTab>(tabFromUrl ?? "all");
   const [sort, setSort] = useState<OrderHistorySort>("newest");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(qParam);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [customerId, setCustomerId] = useState("");
@@ -73,6 +74,12 @@ export function OrderHistoryPanel({
     setTab(next);
     setPage(1);
   }, [tabParam]);
+
+  useEffect(() => {
+    if (viewer !== "admin") return;
+    setQ(qParam);
+    setPage(1);
+  }, [qParam, viewer]);
 
   const selectTab = (key: OrderHistoryTab) => {
     setTab(key);

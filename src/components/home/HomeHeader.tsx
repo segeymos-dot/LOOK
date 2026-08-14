@@ -9,6 +9,7 @@ import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { localizeText } from "@/lib/i18n/localize-data";
 import { ArrowLeftRight, Bell, ChevronDown, MapPin } from "lucide-react";
+import { AdminVoiceNav } from "@/components/home/AdminVoiceNav";
 
 /**
  * Language + city pills.
@@ -278,27 +279,31 @@ export function HomeHeader() {
             {t("home.greetingTitleLine2")}
           </span>
         </h2>
-        <p
-          style={{
-            margin: 0,
-            padding: 0,
-            fontSize: 13,
-            fontWeight: 400,
-            lineHeight: 1.4,
-            color: "#0F172A",
-            textAlign: "left",
-          }}
-        >
-          <span style={{ display: "block", whiteSpace: "nowrap" }}>
-            {t("home.greetingSubtitleLine1")}
-          </span>
-          <span style={{ display: "block", whiteSpace: "nowrap" }}>
-            {t("home.greetingSubtitleLine2")}
-          </span>
-          <span style={{ display: "block", whiteSpace: "nowrap" }}>
-            {t("home.greetingSubtitleLine3")}
-          </span>
-        </p>
+        {isPlatformAdmin ? (
+          <AdminVoiceNav />
+        ) : (
+          <p
+            style={{
+              margin: 0,
+              padding: 0,
+              fontSize: 13,
+              fontWeight: 400,
+              lineHeight: 1.4,
+              color: "#0F172A",
+              textAlign: "left",
+            }}
+          >
+            <span style={{ display: "block", whiteSpace: "nowrap" }}>
+              {t("home.greetingSubtitleLine1")}
+            </span>
+            <span style={{ display: "block", whiteSpace: "nowrap" }}>
+              {t("home.greetingSubtitleLine2")}
+            </span>
+            <span style={{ display: "block", whiteSpace: "nowrap" }}>
+              {t("home.greetingSubtitleLine3")}
+            </span>
+          </p>
+        )}
       </div>
     </div>
   );

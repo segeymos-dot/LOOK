@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -17,11 +18,13 @@ import { Search, Users } from "lucide-react";
 
 type Kind = "customers" | "providers";
 
-export function AdminDirectoryPage({ kind }: { kind: Kind }) {
+function AdminDirectoryPageInner({ kind }: { kind: Kind }) {
   const { t } = useTranslation();
   const { pending, allowed } = useRequirePlatformAdmin();
+  const searchParams = useSearchParams();
+  const qFromUrl = searchParams.get("q") ?? "";
 
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(qFromUrl);
   const [city, setCity] = useState("");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState("newest");
@@ -35,6 +38,11 @@ export function AdminDirectoryPage({ kind }: { kind: Kind }) {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setQ(qFromUrl);
+    setPage(1);
+  }, [qFromUrl]);
 
   const title =
     kind === "customers" ? t("admin.customers.title") : t("admin.providers.title");
@@ -98,6 +106,7 @@ export function AdminDirectoryPage({ kind }: { kind: Kind }) {
   }, [pending, allowed, load]);
 
   if (pending || !allowed) return null;
+
 
   const totalPages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE));
 
@@ -258,5 +267,14 @@ export function AdminDirectoryPage({ kind }: { kind: Kind }) {
         )}
       </div>
     </AppLayout>
+  );
+}
+
+export function AdminDirectoryPage({ kind }: { kind: Kind }) {
+  const { t } = useTranslation();
+  return (
+    <Suspense fallback={<p className="p-4 text-sm text-text-muted">{t("common.loading")}</p>}>
+      <AdminDirectoryPageInner kind={kind} />
+    </Suspense>
   );
 }
