@@ -967,8 +967,12 @@ export const en: TranslationDict = {
     voiceNav: {
       ariaLabel: "Voice admin navigation",
       prompt: "Tell me what to open",
+      starting: "Connecting microphone…",
       listening: "Listening…",
+      recognized: "Recognized: “{text}”",
       unavailable: "Voice input is not available in this browser",
+      permissionDenied: "Allow microphone access in your browser settings",
+      noSpeech: "Didn’t catch that — tap the mic and try again",
       notFound: "User not found",
       orderNotFound: "Order not found",
       unknown: "Try: open statistics, show orders, find customer…",
