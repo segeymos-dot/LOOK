@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { ArrowRight, BarChart3, Plus } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 
 interface HomeHeroCardProps {
   href: string;
@@ -102,12 +101,14 @@ export function HomeHeroCard({
         {/* Non-link shell: only the Admin panel button navigates (never /requests/new). */}
         <div className={shellClass} style={shellStyle}>
           {backgroundLayers}
-          <div className="relative z-[1] flex w-full min-w-0 items-center">
-            <Link href={href} className="block w-full max-w-[260px]">
-              <Button className="min-h-[48px] w-full gap-2 text-base" size="lg">
-                <BarChart3 className="h-5 w-5 shrink-0" />
-                <span className="truncate">{adminCtaLabel}</span>
-              </Button>
+          <div className="relative z-[1] flex h-full w-full min-w-0 items-center">
+            {/* Transparent CTA: no brand fill; nudged ~½ button height below center. */}
+            <Link
+              href={href}
+              className="inline-flex min-h-[48px] w-full max-w-[260px] translate-y-6 items-center justify-center gap-2 rounded-2xl bg-transparent px-4 text-base font-semibold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.45)] transition-transform active:scale-[0.98]"
+            >
+              <BarChart3 className="h-5 w-5 shrink-0 drop-shadow-sm" aria-hidden />
+              <span className="truncate">{adminCtaLabel}</span>
             </Link>
           </div>
         </div>
