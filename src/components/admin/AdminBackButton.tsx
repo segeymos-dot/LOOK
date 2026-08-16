@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { useTranslation } from "@/components/providers/LocaleProvider";
@@ -30,26 +30,28 @@ function hasUsableAppHistory(): boolean {
 
 export function AdminBackButton({
   fallbackHref = DEFAULT_FALLBACK,
+  /** When set, always navigate here (stable parent). Skips history.back(). */
+  href,
   className,
 }: {
   fallbackHref?: string;
+  href?: string;
   className?: string;
 }) {
   const router = useRouter();
   const { t } = useTranslation();
-  const [canGoBack, setCanGoBack] = useState(false);
-
-  useEffect(() => {
-    setCanGoBack(hasUsableAppHistory());
-  }, []);
 
   const onBack = useCallback(() => {
+    if (href) {
+      router.push(href);
+      return;
+    }
     if (hasUsableAppHistory()) {
       router.back();
       return;
     }
     router.push(fallbackHref);
-  }, [fallbackHref, router]);
+  }, [fallbackHref, href, router]);
 
   const label = t("common.back");
 
@@ -59,13 +61,12 @@ export function AdminBackButton({
       onClick={onBack}
       aria-label={label}
       className={cn(
-        "inline-flex min-h-[48px] shrink-0 items-center gap-1 rounded-xl px-2.5 text-sm font-semibold",
+        "inline-flex min-h-[48px] min-w-[48px] shrink-0 items-center gap-1 rounded-xl px-2.5 text-sm font-semibold",
         "text-text-secondary outline-none transition-colors",
         "hover:bg-brand-50 hover:text-brand-700 active:bg-brand-50",
         "focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
         className
       )}
-      data-admin-history-back={canGoBack ? "1" : "0"}
     >
       <ChevronLeft className="h-5 w-5 shrink-0" aria-hidden />
       <span>{label}</span>

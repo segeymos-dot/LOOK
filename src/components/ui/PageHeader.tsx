@@ -15,6 +15,11 @@ interface PageHeaderProps {
   /** Admin: history.back() with fallback. Does not change customer/provider link backs. */
   historyBack?: boolean;
   backFallbackHref?: string;
+  /**
+   * Stable admin parent route. When set with historyBack, always navigates here
+   * (no history.back) — use when back must land on a known page (e.g. profile).
+   */
+  historyBackHref?: string;
   action?: ReactNode;
   className?: string;
 }
@@ -25,6 +30,7 @@ export function PageHeader({
   backHref,
   historyBack = false,
   backFallbackHref,
+  historyBackHref,
   action,
   className,
 }: PageHeaderProps) {
@@ -35,6 +41,7 @@ export function PageHeader({
       <div className="flex min-w-0 flex-1 items-start gap-2">
         {historyBack ? (
           <AdminBackButton
+            href={historyBackHref}
             fallbackHref={backFallbackHref}
             className="-ml-2.5 mt-0.5"
           />
