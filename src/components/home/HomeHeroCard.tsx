@@ -1,12 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, BarChart3, Plus } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 
 interface HomeHeroCardProps {
   href: string;
-  title: string;
-  subtitle: string;
+  /** Default create-order / find-orders banner copy. Unused for `variant="admin"`. */
+  title?: string;
+  subtitle?: string;
+  /**
+   * `default` — Plus + title/subtitle + Arrow (customer/provider).
+   * `admin` — surfer image + profile-style «Admin panel» button only.
+   */
+  variant?: "default" | "admin";
+  /** Label for the admin CTA (i18n from caller). */
+  adminCtaLabel?: string;
 }
 
 const HERO_SURFER_IMAGE =
@@ -15,8 +24,15 @@ const HERO_SURFER_IMAGE =
 /**
  * Create-order (or role-specific) Home banner.
  * Surfer photograph fills the card; Plus left of text; Arrow right of surfer.
+ * Platform admin: same image, profile-style Admin panel button → /admin/stats.
  */
-export function HomeHeroCard({ href, title, subtitle }: HomeHeroCardProps) {
+export function HomeHeroCard({
+  href,
+  title = "",
+  subtitle = "",
+  variant = "default",
+  adminCtaLabel = "Admin panel",
+}: HomeHeroCardProps) {
   // Fixed px only — flex:none prevents Electron width from stretching controls.
   const plusControl = (
     <span
@@ -45,6 +61,60 @@ export function HomeHeroCard({ href, title, subtitle }: HomeHeroCardProps) {
     </span>
   );
 
+  const shellClass =
+    "relative flex h-full w-full min-w-0 items-center overflow-hidden rounded-2xl p-6 shadow-[0_16px_40px_rgba(15,23,42,0.14)]";
+  const shellStyle = {
+    height: 175,
+    minHeight: 175,
+    maxHeight: 175,
+    boxSizing: "border-box" as const,
+  };
+
+  const backgroundLayers = (
+    <>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          backgroundImage: `url('${HERO_SURFER_IMAGE}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "92% 50%",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          background:
+            "linear-gradient(90deg, rgba(6, 59, 103, 0.45) 0%, rgba(6, 59, 103, 0.22) 38%, rgba(6, 59, 103, 0) 62%)",
+        }}
+      />
+    </>
+  );
+
+  if (variant === "admin") {
+    return (
+      <div
+        className="mx-auto w-full max-w-[430px] min-w-0"
+        style={{ height: 175, minHeight: 175 }}
+      >
+        {/* Non-link shell: only the Admin panel button navigates (never /requests/new). */}
+        <div className={shellClass} style={shellStyle}>
+          {backgroundLayers}
+          <div className="relative z-[1] flex w-full min-w-0 items-center">
+            <Link href={href} className="block w-full max-w-[260px]">
+              <Button className="min-h-[48px] w-full gap-2 text-base" size="lg">
+                <BarChart3 className="h-5 w-5 shrink-0" />
+                <span className="truncate">{adminCtaLabel}</span>
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="mx-auto w-full max-w-[430px] min-w-0"
@@ -52,38 +122,11 @@ export function HomeHeroCard({ href, title, subtitle }: HomeHeroCardProps) {
     >
       <Link
         href={href}
-        className="group relative flex h-full w-full min-w-0 items-center overflow-hidden rounded-2xl p-6 shadow-[0_16px_40px_rgba(15,23,42,0.14)] transition-transform active:scale-[0.99]"
-        style={{
-          height: 175,
-          minHeight: 175,
-          maxHeight: 175,
-          boxSizing: "border-box",
-        }}
+        className={`group ${shellClass} transition-transform active:scale-[0.99]`}
+        style={shellStyle}
       >
-        {/* Surfer photograph — right-biased crop keeps free spray space for Arrow */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-0"
-          style={{
-            backgroundImage: `url('${HERO_SURFER_IMAGE}')`,
-            backgroundSize: "cover",
-            // b3820d4 used center center; that placed the surfer under the Arrow.
-            // Bias to the right so the surfer sits left of the Arrow free-space zone.
-            backgroundPosition: "92% 50%",
-            backgroundRepeat: "no-repeat",
-          }}
-        />
-        {/* Subtle left veil for title/description readability only */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-0"
-          style={{
-            background:
-              "linear-gradient(90deg, rgba(6, 59, 103, 0.45) 0%, rgba(6, 59, 103, 0.22) 38%, rgba(6, 59, 103, 0) 62%)",
-          }}
-        />
+        {backgroundLayers}
 
-        {/* Existing Plus — left of text; out of flow so text position stays unchanged */}
         <span
           className="absolute z-[1]"
           style={{
@@ -95,13 +138,10 @@ export function HomeHeroCard({ href, title, subtitle }: HomeHeroCardProps) {
           {plusControl}
         </span>
 
-        {/* Title / subtitle — pulled left toward Plus; bounded so text ends before surfer */}
         <span
           className="relative z-[1] min-w-0 shrink-0 grow-0 text-left"
           style={{
-            // Plus ends at left 24+52=76; 20px gap → text starts at 96
             paddingLeft: 96,
-            // 96 inset + ~150 text column; keep clear of surfer on the right
             maxWidth: 246,
             flex: "none",
           }}
@@ -131,7 +171,6 @@ export function HomeHeroCard({ href, title, subtitle }: HomeHeroCardProps) {
           </span>
         </span>
 
-        {/* Arrow — tucked farther right (≥16px from edge) to clear the surfer */}
         <span
           className="absolute z-[1]"
           style={{
