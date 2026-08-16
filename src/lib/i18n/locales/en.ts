@@ -971,12 +971,15 @@ export const en: TranslationDict = {
       listening: "Listening…",
       recognized: "Recognized: “{text}”",
       unavailable: "Voice input is not available in this browser",
-      permissionDenied: "Allow microphone access in your browser settings",
+      permissionDenied:
+        "Microphone access is blocked. Allow the microphone in your browser settings.",
+      insecure: "Microphone requires HTTPS. Open the secure site address.",
+      noMicrophone: "No microphone found on this device",
       noSpeech: "Didn’t catch that — tap the mic and try again",
       notFound: "User not found",
       orderNotFound: "Order not found",
-      unknown: "Try: open statistics, show orders, find customer…",
-      error: "Could not run that command",
+      unknown: "Could not recognize the command. Please try again.",
+      error: "Could not start voice input. Please try again.",
     },
     userStats: {
       title: "Users and visits",

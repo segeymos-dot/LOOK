@@ -39,8 +39,15 @@ export function isSpeechRecognitionSupported(): boolean {
   return getSpeechRecognitionCtor() !== null;
 }
 
+export function isSecureMicrophoneContext(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.isSecureContext === true;
+}
+
 export type SpeechDiagEvent =
   | "recognition_supported"
+  | "secure_context"
+  | "mic_permission_state"
   | "mic_start"
   | "mic_onstart"
   | "mic_onaudiostart"
@@ -166,13 +173,62 @@ export function startSpeechRecognition(
   };
 }
 
-/** Request mic permission from a user gesture (Android Chrome). */
+export type MicrophonePermissionState = "granted" | "denied" | "prompt" | "unknown";
+
+/** Read Permissions API state without prompting (when supported). */
+export async function queryMicrophonePermissionState(): Promise<MicrophonePermissionState> {
+  if (typeof navigator === "undefined" || !navigator.permissions?.query) {
+    return "unknown";
+  }
+  try {
+    const status = await navigator.permissions.query({
+      name: "microphone" as PermissionName,
+    });
+    if (status.state === "granted" || status.state === "denied" || status.state === "prompt") {
+      return status.state;
+    }
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+export type MicPermissionResult =
+  | { status: "granted" }
+  | { status: "denied" }
+  | { status: "insecure" }
+  | { status: "unsupported" }
+  | { status: "not_found" }
+  | { status: "error"; code: string };
+
+/**
+ * Request mic access from a user gesture.
+ * Shows the browser prompt when state is prompt/unknown.
+ * Returns denied ONLY for real NotAllowed / previously blocked.
+ */
 export async function ensureMicrophonePermission(
   onDiag?: (event: SpeechDiagEvent, detail?: string) => void
-): Promise<"granted" | "denied" | "unsupported"> {
+): Promise<MicPermissionResult> {
+  if (typeof window !== "undefined") {
+    const secure = isSecureMicrophoneContext();
+    onDiag?.("secure_context", secure ? "true" : "false");
+    if (!secure) {
+      return { status: "insecure" };
+    }
+  }
+
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
     onDiag?.("mic_permission_denied", "no_media_devices");
-    return "unsupported";
+    return { status: "unsupported" };
+  }
+
+  const prior = await queryMicrophonePermissionState();
+  onDiag?.("mic_permission_state", prior);
+
+  // Already blocked in browser settings — prompt will not appear.
+  if (prior === "denied") {
+    onDiag?.("mic_permission_denied", "permissions_api_denied");
+    return { status: "denied" };
   }
 
   onDiag?.("mic_permission_prompt");
@@ -180,13 +236,18 @@ export async function ensureMicrophonePermission(
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach((track) => track.stop());
     onDiag?.("mic_permission_ok");
-    return "granted";
+    return { status: "granted" };
   } catch (err) {
     const name = err instanceof DOMException ? err.name : "error";
     onDiag?.("mic_permission_denied", name);
+
     if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-      return "denied";
+      return { status: "denied" };
     }
-    return "denied";
+    if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+      return { status: "not_found" };
+    }
+    // Do not treat AbortError / NotReadableError as "denied in settings".
+    return { status: "error", code: name };
   }
 }

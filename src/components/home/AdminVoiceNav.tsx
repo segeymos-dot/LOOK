@@ -6,6 +6,7 @@ import { Mic } from "lucide-react";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import {
   ensureMicrophonePermission,
+  isSecureMicrophoneContext,
   isSpeechRecognitionSupported,
   startSpeechRecognition,
   type SpeechDiagEvent,
@@ -25,6 +26,8 @@ type Phase =
   | "unknown"
   | "error"
   | "permission_denied"
+  | "insecure"
+  | "no_microphone"
   | "unavailable";
 
 function isStagingVoiceDiag(): boolean {
@@ -42,7 +45,6 @@ function isStagingVoiceDiag(): boolean {
 
 function voiceDiag(event: SpeechDiagEvent, detail?: string) {
   if (!isStagingVoiceDiag()) return;
-  // Safe staging diagnostics only — never log audio or secrets.
   console.info("[voice-nav]", event, detail ?? "");
 }
 
@@ -69,6 +71,7 @@ export function AdminVoiceNav() {
     const ok = isSpeechRecognitionSupported();
     setSupported(ok);
     voiceDiag("recognition_supported", ok ? "true" : "false");
+    voiceDiag("secure_context", isSecureMicrophoneContext() ? "true" : "false");
     if (!ok) setPhase("unavailable");
   }, []);
 
@@ -79,51 +82,78 @@ export function AdminVoiceNav() {
     };
   }, []);
 
-  const handleTranscript = useCallback(
-    async (transcript: string) => {
-      const text = transcript.trim();
-      setHeard(text || null);
-      setPhase("processing");
+  const beginRecognition = useCallback(() => {
+    sessionRef.current?.abort();
+    sessionRef.current = startSpeechRecognition({
+      lang: locale === "ru" ? "ru-RU" : "en-US",
+      onDiag: voiceDiag,
+      onStart: () => {
+        setPhase("listening");
+      },
+      onResult: (transcript) => {
+        gotResultRef.current = true;
+        sessionRef.current = null;
+        void (async () => {
+          const text = transcript.trim();
+          setHeard(text || null);
+          setPhase("processing");
 
-      if (!text) {
-        setPhase("unknown");
-        return;
-      }
+          if (!text) {
+            setPhase("unknown");
+            return;
+          }
 
-      // Brief pause so the user can read the recognized phrase
-      await new Promise((r) => setTimeout(r, 700));
+          await new Promise((r) => setTimeout(r, 700));
 
-      const intent = parseVoiceNavIntent(text);
-      const result = await resolveVoiceNavIntent(intent);
+          const intent = parseVoiceNavIntent(text);
+          const result = await resolveVoiceNavIntent(intent);
 
-      if (result.status === "navigate") {
-        router.push(result.href);
-        setPhase("idle");
-        return;
-      }
-      if (result.status === "not_found") {
-        setPhase(intent.type === "find_order" ? "order_not_found" : "not_found");
-        return;
-      }
-      if (result.status === "error") {
-        setErrorDetail(null);
+          if (result.status === "navigate") {
+            router.push(result.href);
+            setPhase("idle");
+            return;
+          }
+          if (result.status === "not_found") {
+            setPhase(
+              intent.type === "find_order" ? "order_not_found" : "not_found"
+            );
+            return;
+          }
+          if (result.status === "error") {
+            setErrorDetail(null);
+            setPhase("error");
+            return;
+          }
+          setPhase("unknown");
+        })();
+      },
+      onError: (code) => {
+        sessionRef.current = null;
+        if (gotResultRef.current) return;
+        setErrorDetail(code);
+        if (code === "not-allowed" || code === "service-not-allowed") {
+          setPhase("permission_denied");
+          return;
+        }
+        if (code === "unsupported") {
+          setPhase("unavailable");
+          return;
+        }
+        if (code === "no-speech" || code === "aborted") {
+          setPhase("idle");
+          return;
+        }
         setPhase("error");
-        return;
-      }
-      setPhase("unknown");
-    },
-    [router]
-  );
-
-  const mapSpeechError = (code: string): Phase => {
-    if (code === "not-allowed" || code === "service-not-allowed") {
-      return "permission_denied";
-    }
-    if (code === "unsupported") {
-      return "unavailable";
-    }
-    return "error";
-  };
+      },
+      onEnd: () => {
+        sessionRef.current = null;
+        if (gotResultRef.current) return;
+        setPhase((prev) =>
+          prev === "listening" || prev === "starting" ? "idle" : prev
+        );
+      },
+    });
+  }, [locale, router]);
 
   const stopListening = useCallback(() => {
     sessionRef.current?.stop();
@@ -133,7 +163,12 @@ export function AdminVoiceNav() {
   }, []);
 
   const startListening = async () => {
-    // Support check synchronously in the tap handler (not only via useEffect).
+    if (!isSecureMicrophoneContext()) {
+      setPhase("insecure");
+      voiceDiag("secure_context", "false");
+      return;
+    }
+
     if (!isSpeechRecognitionSupported()) {
       setSupported(false);
       setPhase("unavailable");
@@ -142,7 +177,6 @@ export function AdminVoiceNav() {
     }
     setSupported(true);
 
-    // Toggle off while listening / starting
     if (phaseRef.current === "listening" || phaseRef.current === "starting") {
       stopListening();
       return;
@@ -156,47 +190,45 @@ export function AdminVoiceNav() {
     setPhase("starting");
 
     const permission = await ensureMicrophonePermission(voiceDiag);
-    if (permission === "denied") {
+
+    if (permission.status === "insecure") {
+      setPhase("insecure");
+      return;
+    }
+    if (permission.status === "unsupported") {
+      setPhase("unavailable");
+      return;
+    }
+    if (permission.status === "denied") {
+      // Real deny / previously blocked — settings message only here.
       setPhase("permission_denied");
       return;
     }
+    if (permission.status === "not_found") {
+      setPhase("no_microphone");
+      return;
+    }
+    if (permission.status === "error") {
+      // Not a settings-deny: still attempt SpeechRecognition (may work).
+      setErrorDetail(permission.code);
+      beginRecognition();
+      return;
+    }
 
-    // Still in the same user-gesture chain after getUserMedia on Chromium.
-    sessionRef.current?.abort();
-    sessionRef.current = startSpeechRecognition({
-      lang: locale === "ru" ? "ru-RU" : "en-US",
-      onDiag: voiceDiag,
-      onStart: () => {
-        setPhase("listening");
-      },
-      onResult: (transcript) => {
-        gotResultRef.current = true;
-        sessionRef.current = null;
-        void handleTranscript(transcript);
-      },
-      onError: (code) => {
-        sessionRef.current = null;
-        if (gotResultRef.current) return;
-        setErrorDetail(code);
-        setPhase(mapSpeechError(code));
-      },
-      onEnd: () => {
-        sessionRef.current = null;
-        if (gotResultRef.current) return;
-        // Ended without result (e.g. no-speech) — back to idle with chance to retry
-        setPhase((prev) =>
-          prev === "listening" || prev === "starting" ? "idle" : prev
-        );
-      },
-    });
+    // granted — start listening
+    beginRecognition();
   };
 
   const statusText = (() => {
     switch (phase) {
       case "unavailable":
         return t("admin.voiceNav.unavailable");
+      case "insecure":
+        return t("admin.voiceNav.insecure");
       case "permission_denied":
         return t("admin.voiceNav.permissionDenied");
+      case "no_microphone":
+        return t("admin.voiceNav.noMicrophone");
       case "starting":
         return t("admin.voiceNav.starting");
       case "listening":
@@ -250,6 +282,8 @@ export function AdminVoiceNav() {
             phase === "unknown" ||
             phase === "error" ||
             phase === "permission_denied" ||
+            phase === "insecure" ||
+            phase === "no_microphone" ||
             phase === "unavailable") &&
             "text-[#64748B]"
         )}

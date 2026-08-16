@@ -1,6 +1,6 @@
 /**
- * Resolve whitelist voice intents to admin navigation only.
- * Uses existing admin list APIs (requireAdminContext server-side).
+ * Resolve whitelist voice intents to existing app routes.
+ * Search intents use admin APIs (requireAdminContext server-side).
  */
 
 import { authFetch } from "@/lib/auth/client-fetch";
@@ -42,12 +42,10 @@ async function searchOrders(q: string): Promise<{ id: string }[]> {
 function listOrDetail(
   basePath: string,
   q: string,
-  items: { id: string }[],
-  totalHint?: number
+  items: { id: string }[]
 ): VoiceNavResolveResult {
-  const total = totalHint ?? items.length;
-  if (total === 0 || items.length === 0) return { status: "not_found" };
-  if (total === 1 || items.length === 1) {
+  if (items.length === 0) return { status: "not_found" };
+  if (items.length === 1) {
     return { status: "navigate", href: `${basePath}/${items[0].id}` };
   }
   return {
@@ -56,10 +54,15 @@ function listOrDetail(
   };
 }
 
+/** Existing app routes only — no invented URLs. */
 export async function resolveVoiceNavIntent(
   intent: VoiceNavIntent
 ): Promise<VoiceNavResolveResult> {
   switch (intent.type) {
+    case "open_home":
+    case "open_categories":
+      // Categories live on the home CategoryGrid (no /categories page).
+      return { status: "navigate", href: "/" };
     case "open_stats":
       return { status: "navigate", href: "/admin/stats" };
     case "open_platform":
@@ -76,6 +79,14 @@ export async function resolveVoiceNavIntent(
       return { status: "navigate", href: "/admin/providers" };
     case "open_disputes":
       return { status: "navigate", href: "/admin/disputes" };
+    case "open_chats":
+      return { status: "navigate", href: "/chat" };
+    case "open_profile":
+      return { status: "navigate", href: "/profile" };
+    case "open_search":
+      return { status: "navigate", href: "/search" };
+    case "open_create_order":
+      return { status: "navigate", href: "/requests/new" };
     case "find_customer": {
       try {
         const items = await searchUsers("customers", intent.q);
