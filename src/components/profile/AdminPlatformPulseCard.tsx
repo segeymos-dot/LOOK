@@ -33,7 +33,9 @@ export function AdminPlatformPulseCard() {
       setLoading(true);
       setError(false);
       try {
-        const res = await authFetch("/api/admin/user-stats");
+        const res = await authFetch("/api/admin/user-stats", {
+          cache: "no-store",
+        });
         const data = (await res.json()) as { stats?: AdminUserStats; error?: string };
         if (!res.ok || !data.stats) {
           if (!cancelled) {

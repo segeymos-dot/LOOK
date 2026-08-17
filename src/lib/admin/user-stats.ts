@@ -28,6 +28,7 @@ export type AdminUserStats = {
   totalVisits: number;
   visitsToday: number;
   uniqueVisitorsToday: number;
+  /** Auth login sessions for platform admins (user_sessions.created_at). */
   adminVisitsTotal: number;
   adminVisitsToday: number;
   adminVisitsByUser: AdminVisitByUser[];
@@ -36,8 +37,12 @@ export type AdminUserStats = {
   adminsCountedInOnline: boolean;
   /** Platform admins are excluded from user visit counters. */
   adminsCountedInUserVisits: boolean;
-  /** ISO day boundary used for "today" (UTC date_trunc, matches role analytics). */
+  /** ISO start of "today" in dayTimezone (Europe/Moscow calendar day). */
   dayStart: string | null;
+  /** IANA timezone used for day_start / *Today counters. */
+  dayTimezone: string | null;
+  /** Backend source for admin session counters. */
+  adminSessionSource: string | null;
 };
 
 type RpcAdminVisitByUser = {
@@ -65,6 +70,8 @@ type RpcStats = {
   admins_counted_in_online?: boolean;
   admins_counted_in_user_visits?: boolean;
   day_start?: string | null;
+  day_timezone?: string | null;
+  admin_session_source?: string | null;
 };
 
 function mapAdminVisitsByUser(
@@ -99,6 +106,8 @@ function mapStats(raw: RpcStats | null): AdminUserStats {
     adminsCountedInOnline: Boolean(raw?.admins_counted_in_online ?? false),
     adminsCountedInUserVisits: Boolean(raw?.admins_counted_in_user_visits ?? false),
     dayStart: raw?.day_start ?? null,
+    dayTimezone: raw?.day_timezone ?? null,
+    adminSessionSource: raw?.admin_session_source ?? null,
   };
 }
 
