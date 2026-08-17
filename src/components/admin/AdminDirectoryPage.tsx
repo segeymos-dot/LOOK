@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AdminSectionNav } from "@/components/admin/AdminSectionNav";
 import { AdminUserCard } from "@/components/admin/AdminUserCard";
+import { AdminActivityTable } from "@/components/admin/AdminActivityTable";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useRequirePlatformAdmin } from "@/hooks/useRequirePlatformAdmin";
 import { authFetch } from "@/lib/auth/client-fetch";
@@ -18,11 +19,17 @@ import { Search, Users } from "lucide-react";
 
 type Kind = "customers" | "providers";
 
+function parseOnlineOnlyParam(value: string | null): boolean {
+  return value === "1" || value === "true" || value === "yes";
+}
+
 function AdminDirectoryPageInner({ kind }: { kind: Kind }) {
   const { t } = useTranslation();
   const { pending, allowed } = useRequirePlatformAdmin();
   const searchParams = useSearchParams();
   const qFromUrl = searchParams.get("q") ?? "";
+  const onlineOnlyFromUrl =
+    kind === "customers" && parseOnlineOnlyParam(searchParams.get("onlineOnly"));
 
   const [q, setQ] = useState(qFromUrl);
   const [city, setCity] = useState("");
@@ -102,11 +109,27 @@ function AdminDirectoryPageInner({ kind }: { kind: Kind }) {
 
   useEffect(() => {
     if (pending || !allowed) return;
+    if (onlineOnlyFromUrl) return;
     void load();
-  }, [pending, allowed, load]);
+  }, [pending, allowed, load, onlineOnlyFromUrl]);
 
   if (pending || !allowed) return null;
 
+  if (onlineOnlyFromUrl) {
+    return (
+      <AppLayout hideNav title={title}>
+        <div className="space-y-5 p-4 pb-8">
+          <PageHeader
+            title={title}
+            subtitle={t("admin.userStats.customersOnline")}
+            historyBack
+          />
+          <AdminSectionNav activeHref={activeHref} />
+          <AdminActivityTable kind="customers" initialOnlineOnly />
+        </div>
+      </AppLayout>
+    );
+  }
 
   const totalPages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE));
 

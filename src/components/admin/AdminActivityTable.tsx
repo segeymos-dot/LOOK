@@ -31,12 +31,19 @@ function formatDate(value: string | null, locale: string) {
   }
 }
 
-export function AdminActivityTable({ kind }: { kind: Kind }) {
+export function AdminActivityTable({
+  kind,
+  initialOnlineOnly = false,
+}: {
+  kind: Kind;
+  /** Prefill «online only» (home tile / deep link). */
+  initialOnlineOnly?: boolean;
+}) {
   const { t, locale } = useTranslation();
   const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("newest");
-  const [onlineOnly, setOnlineOnly] = useState(false);
+  const [onlineOnly, setOnlineOnly] = useState(Boolean(initialOnlineOnly));
   const [neverOrdered, setNeverOrdered] = useState(false);
   const [hasActiveOrders, setHasActiveOrders] = useState(false);
   const [registeredFrom, setRegisteredFrom] = useState("");

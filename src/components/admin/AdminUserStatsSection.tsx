@@ -22,7 +22,7 @@ const METRICS: { key: MetricKey; href?: string }[] = [
   { key: "registeredCustomers", href: "/admin/customers" },
   { key: "registeredProviders", href: "/admin/providers" },
   { key: "usersOnline" },
-  { key: "customersOnline", href: "/admin/customers" },
+  { key: "customersOnline", href: "/admin/customers?onlineOnly=1" },
   { key: "providersOnline", href: "/admin/providers" },
   { key: "uniqueVisitors" },
   { key: "totalVisits" },

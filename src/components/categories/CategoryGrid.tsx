@@ -1,8 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import type { Category } from "@/types";
 import { useTranslation } from "@/components/providers/LocaleProvider";
+import { useAuth } from "@/hooks/useAuth";
+import { authFetch } from "@/lib/auth/client-fetch";
+import type { AdminUserStats } from "@/lib/admin/user-stats";
 import { getCompactCategoryLines, localizeCategoryName } from "@/lib/i18n/localize-data";
 import { cn } from "@/lib/utils";
 import {
@@ -63,9 +67,83 @@ const LEGAL_CATEGORY_SLUG = "legal";
 const OTHER_CATEGORY_SLUG = "other";
 
 const compactLabelStyle = { fontSize: "10px", lineHeight: 1.15 } as const;
+const ONLINE_POLL_MS = 30_000;
+
+/** First grid slot for platform admins: live customersOnline from user-stats. */
+function AdminCustomersOnlineTile() {
+  const { t } = useTranslation();
+  const [count, setCount] = useState<number | null>(null);
+
+  const load = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await authFetch("/api/admin/user-stats", {
+        cache: "no-store",
+        signal,
+      });
+      const data = (await res.json()) as { stats?: AdminUserStats };
+      if (!res.ok || !data.stats) return;
+      setCount(Number(data.stats.customersOnline ?? 0));
+    } catch {
+      // keep last known value on blips
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    const timer = setInterval(() => {
+      void load();
+    }, ONLINE_POLL_MS);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [load]);
+
+  const display = count === null ? "—" : String(count);
+
+  return (
+    <Link
+      href="/admin/customers?onlineOnly=1"
+      aria-label={t("home.customersOnlineAria", { count: display })}
+      className="relative flex min-w-0 flex-col items-center justify-start gap-2 p-0.5 text-center transition-transform active:scale-[0.99]"
+    >
+      <span
+        className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl"
+        style={{ backgroundColor: repairTone.tile, color: repairTone.icon }}
+      >
+        <Home className="h-5 w-5 shrink-0" aria-hidden />
+        <span
+          className="mt-0.5 font-bold tabular-nums leading-none"
+          style={{ fontSize: 13, color: repairTone.icon }}
+        >
+          {display}
+        </span>
+      </span>
+      <p
+        className="w-full text-center font-semibold text-[#111827]"
+        style={compactLabelStyle}
+      >
+        <span className="block">{t("home.customersOnlineLine1")}</span>
+        <span className="block">{t("home.customersOnlineLine2")}</span>
+      </p>
+    </Link>
+  );
+}
 
 export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
   const { locale, t } = useTranslation();
+  const { isPlatformAdmin, profileReady } = useAuth();
+  const showAdminOnlineTile = profileReady && isPlatformAdmin;
+  const repairIndex = categories.findIndex((c) => c.slug === REPAIR_CATEGORY_SLUG);
+  const adminReplaceIndex = repairIndex >= 0 ? repairIndex : 0;
 
   return (
     <div
@@ -76,7 +154,11 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
         width: "100%",
       }}
     >
-      {categories.map((category) => {
+      {categories.map((category, index) => {
+        if (showAdminOnlineTile && index === adminReplaceIndex) {
+          return <AdminCustomersOnlineTile key="admin-customers-online" />;
+        }
+
         const isRepair = category.slug === REPAIR_CATEGORY_SLUG;
         const isIt = category.slug === IT_CATEGORY_SLUG;
         const isDesign = category.slug === DESIGN_CATEGORY_SLUG;
