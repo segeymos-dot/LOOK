@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode, type SVGProps } from "react";
 import type { Category } from "@/types";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
@@ -54,6 +54,7 @@ const iconTone: Record<string, { tile: string; icon: string }> = {
 
 const defaultTone = { tile: "#DCEEFF", icon: "#1677F2" };
 const repairTone = { tile: "#EDE9FE", icon: "#6337F5" };
+const itTone = { tile: "#DCEEFF", icon: "#1677F2" };
 const allCategoriesTone = { tile: "#F1F5F9", icon: "#64748B" };
 
 /** Existing slugs (mock/DB). */
@@ -70,10 +71,20 @@ const OTHER_CATEGORY_SLUG = "other";
 const compactLabelStyle = { fontSize: "10px", lineHeight: 1.15 } as const;
 const ONLINE_POLL_MS = 30_000;
 
-/** First grid slot for platform admins: live customersOnline from user-stats. */
-function AdminCustomersOnlineTile() {
-  const { t } = useTranslation();
-  const [count, setCount] = useState<number | null>(null);
+type OnlineCounts = {
+  customers: number | null;
+  providers: number | null;
+};
+
+/**
+ * Shared poll for admin home online tiles (one /api/admin/user-stats request).
+ * Matches customers-online refresh: mount, 30s interval, visibilitychange, no-store.
+ */
+function useAdminOnlineCounts(enabled: boolean): OnlineCounts {
+  const [counts, setCounts] = useState<OnlineCounts>({
+    customers: null,
+    providers: null,
+  });
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -83,13 +94,17 @@ function AdminCustomersOnlineTile() {
       });
       const data = (await res.json()) as { stats?: AdminUserStats };
       if (!res.ok || !data.stats) return;
-      setCount(Number(data.stats.customersOnline ?? 0));
+      setCounts({
+        customers: Number(data.stats.customersOnline ?? 0),
+        providers: Number(data.stats.providersOnline ?? 0),
+      });
     } catch {
-      // keep last known value on blips
+      // keep last known values on blips
     }
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController();
     void load(controller.signal);
     const timer = setInterval(() => {
@@ -106,24 +121,75 @@ function AdminCustomersOnlineTile() {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [load]);
+  }, [enabled, load]);
 
+  return counts;
+}
+
+/** Line-style hand holding a parcel — matches Lucide stroke weight at 20–24px. */
+function HandHoldingPackageIcon({
+  className,
+  ...props
+}: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+      {...props}
+    >
+      {/* Parcel / box */}
+      <path d="M9 2.75h6l1.25 2.5v5.5H7.75V5.25L9 2.75Z" />
+      <path d="M12 2.75v4.25" />
+      <path d="M7.75 7.25h8.5" />
+      {/* Hand under parcel */}
+      <path d="M8 14.5h7.25a1.75 1.75 0 0 1 0 3.5H10" />
+      <path d="M8 14.5V12a1.5 1.5 0 0 1 3 0v2.5" />
+      <path d="M5.5 16v3.25A1.75 1.75 0 0 0 7.25 21h6" />
+      <path d="M5.5 16H8" />
+    </svg>
+  );
+}
+
+function AdminOnlineMetricTile({
+  href,
+  count,
+  tone,
+  icon,
+  line1,
+  line2,
+  ariaLabel,
+}: {
+  href: string;
+  count: number | null;
+  tone: { tile: string; icon: string };
+  icon: ReactNode;
+  line1: string;
+  line2: string;
+  ariaLabel: string;
+}) {
   const display = count === null ? "—" : String(count);
 
   return (
     <Link
-      href="/admin/customers?onlineOnly=1"
-      aria-label={t("home.customersOnlineAria", { count: display })}
+      href={href}
+      aria-label={ariaLabel}
       className="relative flex min-w-0 flex-col items-center justify-start gap-2 p-0.5 text-center transition-transform active:scale-[0.99]"
     >
       <span
         className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl"
-        style={{ backgroundColor: repairTone.tile, color: repairTone.icon }}
+        style={{ backgroundColor: tone.tile, color: tone.icon }}
       >
-        <Handshake className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
+        {icon}
         <span
           className="mt-0.5 font-bold tabular-nums leading-none"
-          style={{ fontSize: 13, color: repairTone.icon }}
+          style={{ fontSize: 13, color: tone.icon }}
         >
           {display}
         </span>
@@ -132,8 +198,8 @@ function AdminCustomersOnlineTile() {
         className="w-full text-center font-semibold text-[#111827]"
         style={compactLabelStyle}
       >
-        <span className="block">{t("home.customersOnlineLine1")}</span>
-        <span className="block">{t("home.customersOnlineLine2")}</span>
+        <span className="block">{line1}</span>
+        <span className="block">{line2}</span>
       </p>
     </Link>
   );
@@ -142,9 +208,13 @@ function AdminCustomersOnlineTile() {
 export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
   const { locale, t } = useTranslation();
   const { isPlatformAdmin, profileReady } = useAuth();
-  const showAdminOnlineTile = profileReady && isPlatformAdmin;
+  const showAdminOnlineTiles = profileReady && isPlatformAdmin;
+  const onlineCounts = useAdminOnlineCounts(Boolean(showAdminOnlineTiles));
+
   const repairIndex = categories.findIndex((c) => c.slug === REPAIR_CATEGORY_SLUG);
-  const adminReplaceIndex = repairIndex >= 0 ? repairIndex : 0;
+  const itIndex = categories.findIndex((c) => c.slug === IT_CATEGORY_SLUG);
+  const customersReplaceIndex = repairIndex >= 0 ? repairIndex : 0;
+  const providersReplaceIndex = itIndex >= 0 ? itIndex : 1;
 
   return (
     <div
@@ -156,8 +226,46 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
       }}
     >
       {categories.map((category, index) => {
-        if (showAdminOnlineTile && index === adminReplaceIndex) {
-          return <AdminCustomersOnlineTile key="admin-customers-online" />;
+        if (showAdminOnlineTiles && index === customersReplaceIndex) {
+          const display =
+            onlineCounts.customers === null
+              ? "—"
+              : String(onlineCounts.customers);
+          return (
+            <AdminOnlineMetricTile
+              key="admin-customers-online"
+              href="/admin/customers?onlineOnly=1"
+              count={onlineCounts.customers}
+              tone={repairTone}
+              icon={
+                <Handshake className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
+              }
+              line1={t("home.customersOnlineLine1")}
+              line2={t("home.customersOnlineLine2")}
+              ariaLabel={t("home.customersOnlineAria", { count: display })}
+            />
+          );
+        }
+
+        if (showAdminOnlineTiles && index === providersReplaceIndex) {
+          const display =
+            onlineCounts.providers === null
+              ? "—"
+              : String(onlineCounts.providers);
+          return (
+            <AdminOnlineMetricTile
+              key="admin-providers-online"
+              href="/admin/providers?onlineOnly=1"
+              count={onlineCounts.providers}
+              tone={itTone}
+              icon={
+                <HandHoldingPackageIcon className="h-5 w-5 shrink-0" />
+              }
+              line1={t("home.providersOnlineLine1")}
+              line2={t("home.providersOnlineLine2")}
+              ariaLabel={t("home.providersOnlineAria", { count: display })}
+            />
+          );
         }
 
         const isRepair = category.slug === REPAIR_CATEGORY_SLUG;

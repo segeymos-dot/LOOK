@@ -28,8 +28,7 @@ function AdminDirectoryPageInner({ kind }: { kind: Kind }) {
   const { pending, allowed } = useRequirePlatformAdmin();
   const searchParams = useSearchParams();
   const qFromUrl = searchParams.get("q") ?? "";
-  const onlineOnlyFromUrl =
-    kind === "customers" && parseOnlineOnlyParam(searchParams.get("onlineOnly"));
+  const onlineOnlyFromUrl = parseOnlineOnlyParam(searchParams.get("onlineOnly"));
 
   const [q, setQ] = useState(qFromUrl);
   const [city, setCity] = useState("");
@@ -121,11 +120,15 @@ function AdminDirectoryPageInner({ kind }: { kind: Kind }) {
         <div className="space-y-5 p-4 pb-8">
           <PageHeader
             title={title}
-            subtitle={t("admin.userStats.customersOnline")}
+            subtitle={
+              kind === "customers"
+                ? t("admin.userStats.customersOnline")
+                : t("admin.userStats.providersOnline")
+            }
             historyBack
           />
           <AdminSectionNav activeHref={activeHref} />
-          <AdminActivityTable kind="customers" initialOnlineOnly />
+          <AdminActivityTable kind={kind} initialOnlineOnly />
         </div>
       </AppLayout>
     );
