@@ -126,7 +126,10 @@ function useAdminOnlineCounts(enabled: boolean): OnlineCounts {
   return counts;
 }
 
-/** Line-style hand holding a parcel — matches Lucide stroke weight at 20–24px. */
+/**
+ * Line-style hand holding a parcel — redrawn for small-tile legibility.
+ * Larger, simpler silhouettes (big box + clear palm/thumb) fill the viewBox.
+ */
 function HandHoldingPackageIcon({
   className,
   ...props
@@ -137,22 +140,24 @@ function HandHoldingPackageIcon({
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       stroke="currentColor"
-      strokeWidth={2}
+      strokeWidth={2.25}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
       aria-hidden
       {...props}
     >
-      {/* Parcel / box */}
-      <path d="M9 2.75h6l1.25 2.5v5.5H7.75V5.25L9 2.75Z" />
-      <path d="M12 2.75v4.25" />
-      <path d="M7.75 7.25h8.5" />
-      {/* Hand under parcel */}
-      <path d="M8 14.5h7.25a1.75 1.75 0 0 1 0 3.5H10" />
-      <path d="M8 14.5V12a1.5 1.5 0 0 1 3 0v2.5" />
-      <path d="M5.5 16v3.25A1.75 1.75 0 0 0 7.25 21h6" />
-      <path d="M5.5 16H8" />
+      {/* Large parcel — reads clearly as a box at ~28–32px */}
+      <path d="M7 2.5h10l2 3.25v7.25H5V5.75L7 2.5Z" />
+      <path d="M12 2.5v5.5" />
+      <path d="M5 8.75h14" />
+      {/* Open palm under the box */}
+      <path d="M6.5 14.25h10a2.25 2.25 0 0 1 0 4.5H9.5" />
+      {/* Thumb / raised finger gripping the parcel */}
+      <path d="M6.5 14.25V11.5a2 2 0 0 1 4 0v2.75" />
+      {/* Wrist / forearm */}
+      <path d="M4 16.5v3.75A2.25 2.25 0 0 0 6.25 22.5h9" />
+      <path d="M4 16.5h2.5" />
     </svg>
   );
 }
@@ -165,6 +170,7 @@ function AdminOnlineMetricTile({
   line1,
   line2,
   ariaLabel,
+  emphasizeIcon = false,
 }: {
   href: string;
   count: number | null;
@@ -173,6 +179,8 @@ function AdminOnlineMetricTile({
   line1: string;
   line2: string;
   ariaLabel: string;
+  /** Larger glyph, tighter count — for denser symbols like hand+package. */
+  emphasizeIcon?: boolean;
 }) {
   const display = count === null ? "—" : String(count);
 
@@ -188,8 +196,14 @@ function AdminOnlineMetricTile({
       >
         {icon}
         <span
-          className="mt-0.5 font-bold tabular-nums leading-none"
-          style={{ fontSize: 13, color: tone.icon }}
+          className={cn(
+            "font-bold tabular-nums leading-none",
+            emphasizeIcon ? "mt-0" : "mt-0.5"
+          )}
+          style={{
+            fontSize: emphasizeIcon ? 11 : 13,
+            color: tone.icon,
+          }}
         >
           {display}
         </span>
@@ -258,8 +272,9 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
               href="/admin/providers?onlineOnly=1"
               count={onlineCounts.providers}
               tone={itTone}
+              emphasizeIcon
               icon={
-                <HandHoldingPackageIcon className="h-5 w-5 shrink-0" />
+                <HandHoldingPackageIcon className="h-8 w-8 shrink-0" />
               }
               line1={t("home.providersOnlineLine1")}
               line2={t("home.providersOnlineLine2")}
