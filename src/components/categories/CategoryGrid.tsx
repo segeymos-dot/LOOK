@@ -14,6 +14,7 @@ import {
   Camera,
   Code,
   Hammer,
+  Handshake,
   Heart,
   Home,
   MoreHorizontal,
@@ -119,7 +120,7 @@ function AdminCustomersOnlineTile() {
         className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl"
         style={{ backgroundColor: repairTone.tile, color: repairTone.icon }}
       >
-        <Home className="h-5 w-5 shrink-0" aria-hidden />
+        <Handshake className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
         <span
           className="mt-0.5 font-bold tabular-nums leading-none"
           style={{ fontSize: 13, color: repairTone.icon }}
