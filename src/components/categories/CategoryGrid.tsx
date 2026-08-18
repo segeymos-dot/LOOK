@@ -161,6 +161,7 @@ function AdminOnlineMetricTile({
   count,
   tone,
   icon,
+  centerLabel,
   lines,
   ariaLabel,
 }: {
@@ -170,12 +171,15 @@ function AdminOnlineMetricTile({
   tone: { tile: string; icon: string };
   /** Omit for count-only / empty tiles. */
   icon?: ReactNode;
+  /** Centered text mark (e.g. LOOK) when no count/icon. */
+  centerLabel?: string;
   lines: string[];
   ariaLabel: string;
 }) {
   const showCount = count !== undefined;
   const display = count === null ? "—" : showCount ? String(count) : "";
   const countOnly = showCount && !icon;
+  const showCenterLabel = Boolean(centerLabel) && !showCount && !icon;
 
   return (
     <Link
@@ -200,6 +204,17 @@ function AdminOnlineMetricTile({
             }}
           >
             {display}
+          </span>
+        ) : null}
+        {showCenterLabel ? (
+          <span
+            className="font-bold leading-none tracking-tight"
+            style={{
+              fontSize: 18,
+              color: tone.icon,
+            }}
+          >
+            {centerLabel}
           </span>
         ) : null}
       </span>
@@ -338,6 +353,7 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
               key="admin-platform"
               href="/admin/platform"
               tone={beautyTone}
+              centerLabel="LOOK"
               lines={[t("home.platformTile")]}
               ariaLabel={t("home.platformTileAria")}
             />
