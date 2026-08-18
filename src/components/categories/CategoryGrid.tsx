@@ -14,7 +14,6 @@ import {
   Camera,
   Code,
   Hammer,
-  Handshake,
   Heart,
   Home,
   MoreHorizontal,
@@ -264,9 +263,6 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
               href="/admin/customers?onlineOnly=1"
               count={metricCounts.customersOnline}
               tone={repairTone}
-              icon={
-                <Handshake className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
-              }
               lines={[
                 t("home.customersOnlineLine1"),
                 t("home.customersOnlineLine2"),
