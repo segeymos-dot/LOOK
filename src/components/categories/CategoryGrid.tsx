@@ -61,6 +61,8 @@ const beautyTone = { tile: "#FCE7F3", icon: "#DB2777" };
 const transportTone = { tile: "#CCFBF1", icon: "#0D9488" };
 const photoTone = { tile: "#FCE7F3", icon: "#C026D3" };
 const legalTone = { tile: "#E0E7FF", icon: "#4F46E5" };
+/** "other" has icon "more" (not in iconTone) → default blue tile. */
+const otherTone = { tile: "#DCEEFF", icon: "#1677F2" };
 const allCategoriesTone = { tile: "#F1F5F9", icon: "#64748B" };
 
 /** Existing slugs (mock/DB). */
@@ -89,6 +91,8 @@ type HomeMetricCounts = {
   registeredProviders: number | null;
   /** Non-trashed requests (= /admin/orders all). */
   totalOrders: number | null;
+  /** status=completed (= /admin/orders?tab=completed). */
+  completedOrders: number | null;
 };
 
 /**
@@ -104,6 +108,7 @@ function useAdminHomeMetricCounts(enabled: boolean): HomeMetricCounts {
     registeredCustomers: null,
     registeredProviders: null,
     totalOrders: null,
+    completedOrders: null,
   });
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -122,6 +127,7 @@ function useAdminHomeMetricCounts(enabled: boolean): HomeMetricCounts {
         registeredCustomers: Number(data.stats.registeredCustomers ?? 0),
         registeredProviders: Number(data.stats.registeredProviders ?? 0),
         totalOrders: Number(data.stats.totalOrders ?? 0),
+        completedOrders: Number(data.stats.completedOrders ?? 0),
       });
     } catch {
       // keep last known values on blips
@@ -226,6 +232,7 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
   const transportIndex = categories.findIndex((c) => c.slug === TRANSPORT_CATEGORY_SLUG);
   const photoIndex = categories.findIndex((c) => c.slug === PHOTO_CATEGORY_SLUG);
   const legalIndex = categories.findIndex((c) => c.slug === LEGAL_CATEGORY_SLUG);
+  const otherIndex = categories.findIndex((c) => c.slug === OTHER_CATEGORY_SLUG);
   const customersReplaceIndex = repairIndex >= 0 ? repairIndex : 0;
   const providersReplaceIndex = itIndex >= 0 ? itIndex : 1;
   const registeredReplaceIndex = designIndex >= 0 ? designIndex : 2;
@@ -234,6 +241,7 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
   const registeredCustomersReplaceIndex = transportIndex >= 0 ? transportIndex : 5;
   const registeredProvidersReplaceIndex = photoIndex >= 0 ? photoIndex : 6;
   const totalOrdersReplaceIndex = legalIndex >= 0 ? legalIndex : 7;
+  const completedOrdersReplaceIndex = otherIndex >= 0 ? otherIndex : 8;
 
   return (
     <div
@@ -396,6 +404,26 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
                 t("home.totalOrdersLine2"),
               ]}
               ariaLabel={t("home.totalOrdersAria", { count: display })}
+            />
+          );
+        }
+
+        if (showAdminOnlineTiles && index === completedOrdersReplaceIndex) {
+          const display =
+            metricCounts.completedOrders === null
+              ? "—"
+              : String(metricCounts.completedOrders);
+          return (
+            <AdminOnlineMetricTile
+              key="admin-completed-orders"
+              href="/admin/orders?tab=completed"
+              count={metricCounts.completedOrders}
+              tone={otherTone}
+              lines={[
+                t("home.completedOrdersLine1"),
+                t("home.completedOrdersLine2"),
+              ]}
+              ariaLabel={t("home.completedOrdersAria", { count: display })}
             />
           );
         }

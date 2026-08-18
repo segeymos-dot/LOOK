@@ -23,6 +23,8 @@ export type AdminUserStats = {
   registeredUsers: number;
   /** Non-trashed requests — same set as /admin/orders tab=all. */
   totalOrders: number;
+  /** status=completed, non-trashed, non-archived — /admin/orders?tab=completed. */
+  completedOrders: number;
   usersOnline: number;
   customersOnline: number;
   providersOnline: number;
@@ -62,6 +64,7 @@ type RpcStats = {
   registered_providers?: number;
   registered_users?: number;
   total_orders?: number;
+  completed_orders?: number;
   users_online?: number;
   customers_online?: number;
   providers_online?: number;
@@ -100,6 +103,7 @@ function mapStats(raw: RpcStats | null): AdminUserStats {
     registeredProviders: Number(raw?.registered_providers ?? 0),
     registeredUsers: Number(raw?.registered_users ?? 0),
     totalOrders: Number(raw?.total_orders ?? 0),
+    completedOrders: Number(raw?.completed_orders ?? 0),
     usersOnline: Number(raw?.users_online ?? 0),
     customersOnline: Number(raw?.customers_online ?? 0),
     providersOnline: Number(raw?.providers_online ?? 0),
