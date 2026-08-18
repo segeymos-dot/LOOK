@@ -55,6 +55,7 @@ const iconTone: Record<string, { tile: string; icon: string }> = {
 const defaultTone = { tile: "#DCEEFF", icon: "#1677F2" };
 const repairTone = { tile: "#EDE9FE", icon: "#6337F5" };
 const itTone = { tile: "#DCEEFF", icon: "#1677F2" };
+const designTone = { tile: "#FFEDD5", icon: "#EA580C" };
 const allCategoriesTone = { tile: "#F1F5F9", icon: "#64748B" };
 
 /** Existing slugs (mock/DB). */
@@ -71,19 +72,21 @@ const OTHER_CATEGORY_SLUG = "other";
 const compactLabelStyle = { fontSize: "10px", lineHeight: 1.15 } as const;
 const ONLINE_POLL_MS = 30_000;
 
-type OnlineCounts = {
-  customers: number | null;
-  providers: number | null;
+type HomeMetricCounts = {
+  customersOnline: number | null;
+  providersOnline: number | null;
+  registeredUsers: number | null;
 };
 
 /**
- * Shared poll for admin home online tiles (one /api/admin/user-stats request).
- * Matches customers-online refresh: mount, 30s interval, visibilitychange, no-store.
+ * Shared poll for admin home metric tiles (one /api/admin/user-stats request).
+ * Mount + 30s interval + visibilitychange, cache: no-store.
  */
-function useAdminOnlineCounts(enabled: boolean): OnlineCounts {
-  const [counts, setCounts] = useState<OnlineCounts>({
-    customers: null,
-    providers: null,
+function useAdminHomeMetricCounts(enabled: boolean): HomeMetricCounts {
+  const [counts, setCounts] = useState<HomeMetricCounts>({
+    customersOnline: null,
+    providersOnline: null,
+    registeredUsers: null,
   });
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -95,8 +98,9 @@ function useAdminOnlineCounts(enabled: boolean): OnlineCounts {
       const data = (await res.json()) as { stats?: AdminUserStats };
       if (!res.ok || !data.stats) return;
       setCounts({
-        customers: Number(data.stats.customersOnline ?? 0),
-        providers: Number(data.stats.providersOnline ?? 0),
+        customersOnline: Number(data.stats.customersOnline ?? 0),
+        providersOnline: Number(data.stats.providersOnline ?? 0),
+        registeredUsers: Number(data.stats.registeredUsers ?? 0),
       });
     } catch {
       // keep last known values on blips
@@ -131,17 +135,15 @@ function AdminOnlineMetricTile({
   count,
   tone,
   icon,
-  line1,
-  line2,
+  lines,
   ariaLabel,
 }: {
   href: string;
   count: number | null;
   tone: { tile: string; icon: string };
-  /** Omit for count-only tiles (temporary providers-online). */
+  /** Omit for count-only tiles. */
   icon?: ReactNode;
-  line1: string;
-  line2: string;
+  lines: string[];
   ariaLabel: string;
 }) {
   const display = count === null ? "—" : String(count);
@@ -175,8 +177,11 @@ function AdminOnlineMetricTile({
         className="w-full text-center font-semibold text-[#111827]"
         style={compactLabelStyle}
       >
-        <span className="block">{line1}</span>
-        <span className="block">{line2}</span>
+        {lines.map((line) => (
+          <span key={line} className="block">
+            {line}
+          </span>
+        ))}
       </p>
     </Link>
   );
@@ -186,12 +191,14 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
   const { locale, t } = useTranslation();
   const { isPlatformAdmin, profileReady } = useAuth();
   const showAdminOnlineTiles = profileReady && isPlatformAdmin;
-  const onlineCounts = useAdminOnlineCounts(Boolean(showAdminOnlineTiles));
+  const metricCounts = useAdminHomeMetricCounts(Boolean(showAdminOnlineTiles));
 
   const repairIndex = categories.findIndex((c) => c.slug === REPAIR_CATEGORY_SLUG);
   const itIndex = categories.findIndex((c) => c.slug === IT_CATEGORY_SLUG);
+  const designIndex = categories.findIndex((c) => c.slug === DESIGN_CATEGORY_SLUG);
   const customersReplaceIndex = repairIndex >= 0 ? repairIndex : 0;
   const providersReplaceIndex = itIndex >= 0 ? itIndex : 1;
+  const registeredReplaceIndex = designIndex >= 0 ? designIndex : 2;
 
   return (
     <div
@@ -205,20 +212,22 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
       {categories.map((category, index) => {
         if (showAdminOnlineTiles && index === customersReplaceIndex) {
           const display =
-            onlineCounts.customers === null
+            metricCounts.customersOnline === null
               ? "—"
-              : String(onlineCounts.customers);
+              : String(metricCounts.customersOnline);
           return (
             <AdminOnlineMetricTile
               key="admin-customers-online"
               href="/admin/customers?onlineOnly=1"
-              count={onlineCounts.customers}
+              count={metricCounts.customersOnline}
               tone={repairTone}
               icon={
                 <Handshake className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
               }
-              line1={t("home.customersOnlineLine1")}
-              line2={t("home.customersOnlineLine2")}
+              lines={[
+                t("home.customersOnlineLine1"),
+                t("home.customersOnlineLine2"),
+              ]}
               ariaLabel={t("home.customersOnlineAria", { count: display })}
             />
           );
@@ -226,18 +235,41 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
 
         if (showAdminOnlineTiles && index === providersReplaceIndex) {
           const display =
-            onlineCounts.providers === null
+            metricCounts.providersOnline === null
               ? "—"
-              : String(onlineCounts.providers);
+              : String(metricCounts.providersOnline);
           return (
             <AdminOnlineMetricTile
               key="admin-providers-online"
               href="/admin/providers?onlineOnly=1"
-              count={onlineCounts.providers}
+              count={metricCounts.providersOnline}
               tone={itTone}
-              line1={t("home.providersOnlineLine1")}
-              line2={t("home.providersOnlineLine2")}
+              lines={[
+                t("home.providersOnlineLine1"),
+                t("home.providersOnlineLine2"),
+              ]}
               ariaLabel={t("home.providersOnlineAria", { count: display })}
+            />
+          );
+        }
+
+        if (showAdminOnlineTiles && index === registeredReplaceIndex) {
+          const display =
+            metricCounts.registeredUsers === null
+              ? "—"
+              : String(metricCounts.registeredUsers);
+          return (
+            <AdminOnlineMetricTile
+              key="admin-registered-users"
+              href="/admin/customers"
+              count={metricCounts.registeredUsers}
+              tone={designTone}
+              lines={[
+                t("home.registeredUsersLine1"),
+                t("home.registeredUsersLine2"),
+                t("home.registeredUsersLine3"),
+              ]}
+              ariaLabel={t("home.registeredUsersAria", { count: display })}
             />
           );
         }

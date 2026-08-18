@@ -19,6 +19,8 @@ export type AdminVisitByUser = {
 export type AdminUserStats = {
   registeredCustomers: number;
   registeredProviders: number;
+  /** Distinct non-admin profiles (one account = one count, any role). */
+  registeredUsers: number;
   usersOnline: number;
   customersOnline: number;
   providersOnline: number;
@@ -56,6 +58,7 @@ type RpcAdminVisitByUser = {
 type RpcStats = {
   registered_customers?: number;
   registered_providers?: number;
+  registered_users?: number;
   users_online?: number;
   customers_online?: number;
   providers_online?: number;
@@ -92,6 +95,7 @@ function mapStats(raw: RpcStats | null): AdminUserStats {
   return {
     registeredCustomers: Number(raw?.registered_customers ?? 0),
     registeredProviders: Number(raw?.registered_providers ?? 0),
+    registeredUsers: Number(raw?.registered_users ?? 0),
     usersOnline: Number(raw?.users_online ?? 0),
     customersOnline: Number(raw?.customers_online ?? 0),
     providersOnline: Number(raw?.providers_online ?? 0),
