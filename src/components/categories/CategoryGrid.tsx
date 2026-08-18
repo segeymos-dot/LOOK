@@ -274,7 +274,6 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
               lines={[
                 t("home.registeredUsersLine1"),
                 t("home.registeredUsersLine2"),
-                t("home.registeredUsersLine3"),
               ]}
               ariaLabel={t("home.registeredUsersAria", { count: display })}
             />
