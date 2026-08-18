@@ -56,6 +56,7 @@ const defaultTone = { tile: "#DCEEFF", icon: "#1677F2" };
 const repairTone = { tile: "#EDE9FE", icon: "#6337F5" };
 const itTone = { tile: "#DCEEFF", icon: "#1677F2" };
 const designTone = { tile: "#FFEDD5", icon: "#EA580C" };
+const educationTone = { tile: "#DCFCE7", icon: "#16A34A" };
 const allCategoriesTone = { tile: "#F1F5F9", icon: "#64748B" };
 
 /** Existing slugs (mock/DB). */
@@ -76,6 +77,8 @@ type HomeMetricCounts = {
   customersOnline: number | null;
   providersOnline: number | null;
   registeredUsers: number | null;
+  /** Same as profile AdminPlatformPulseCard: totalVisits / total_visits. */
+  totalVisits: number | null;
 };
 
 /**
@@ -87,6 +90,7 @@ function useAdminHomeMetricCounts(enabled: boolean): HomeMetricCounts {
     customersOnline: null,
     providersOnline: null,
     registeredUsers: null,
+    totalVisits: null,
   });
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -101,6 +105,7 @@ function useAdminHomeMetricCounts(enabled: boolean): HomeMetricCounts {
         customersOnline: Number(data.stats.customersOnline ?? 0),
         providersOnline: Number(data.stats.providersOnline ?? 0),
         registeredUsers: Number(data.stats.registeredUsers ?? 0),
+        totalVisits: Number(data.stats.totalVisits ?? 0),
       });
     } catch {
       // keep last known values on blips
@@ -196,9 +201,11 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
   const repairIndex = categories.findIndex((c) => c.slug === REPAIR_CATEGORY_SLUG);
   const itIndex = categories.findIndex((c) => c.slug === IT_CATEGORY_SLUG);
   const designIndex = categories.findIndex((c) => c.slug === DESIGN_CATEGORY_SLUG);
+  const educationIndex = categories.findIndex((c) => c.slug === EDUCATION_CATEGORY_SLUG);
   const customersReplaceIndex = repairIndex >= 0 ? repairIndex : 0;
   const providersReplaceIndex = itIndex >= 0 ? itIndex : 1;
   const registeredReplaceIndex = designIndex >= 0 ? designIndex : 2;
+  const totalVisitsReplaceIndex = educationIndex >= 0 ? educationIndex : 3;
 
   return (
     <div
@@ -270,6 +277,26 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
                 t("home.registeredUsersLine3"),
               ]}
               ariaLabel={t("home.registeredUsersAria", { count: display })}
+            />
+          );
+        }
+
+        if (showAdminOnlineTiles && index === totalVisitsReplaceIndex) {
+          const display =
+            metricCounts.totalVisits === null
+              ? "—"
+              : String(metricCounts.totalVisits);
+          return (
+            <AdminOnlineMetricTile
+              key="admin-total-visits"
+              href="/admin/stats"
+              count={metricCounts.totalVisits}
+              tone={educationTone}
+              lines={[
+                t("home.totalVisitsLine1"),
+                t("home.totalVisitsLine2"),
+              ]}
+              ariaLabel={t("home.totalVisitsAria", { count: display })}
             />
           );
         }
