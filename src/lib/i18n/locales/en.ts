@@ -312,6 +312,8 @@ export const en: TranslationDict = {
     totalVisitsLine1: "Total",
     totalVisitsLine2: "visits",
     totalVisitsAria: "Total visits: {count}",
+    platformTile: "Platform",
+    platformTileAria: "Platform — stats and finance",
     trustVerified: "Verified professionals",
     trustSecure: "Secure deals",
     trustSupport: "Support 24/7",

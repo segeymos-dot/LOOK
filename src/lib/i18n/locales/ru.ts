@@ -310,6 +310,8 @@ export const ru = {
     totalVisitsLine1: "Всего",
     totalVisitsLine2: "посещений",
     totalVisitsAria: "Всего посещений: {count}",
+    platformTile: "Платформа",
+    platformTileAria: "Платформа — статистика и финансы",
     trustVerified: "Проверенные исполнители",
     trustSecure: "Безопасные сделки",
     trustSupport: "Поддержка 24/7",

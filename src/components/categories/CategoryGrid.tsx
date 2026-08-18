@@ -57,6 +57,7 @@ const repairTone = { tile: "#EDE9FE", icon: "#6337F5" };
 const itTone = { tile: "#DCEEFF", icon: "#1677F2" };
 const designTone = { tile: "#FFEDD5", icon: "#EA580C" };
 const educationTone = { tile: "#DCFCE7", icon: "#16A34A" };
+const beautyTone = { tile: "#FCE7F3", icon: "#DB2777" };
 const allCategoriesTone = { tile: "#F1F5F9", icon: "#64748B" };
 
 /** Existing slugs (mock/DB). */
@@ -144,15 +145,17 @@ function AdminOnlineMetricTile({
   ariaLabel,
 }: {
   href: string;
-  count: number | null;
+  /** Omit entirely for empty nav tiles (no number, no glyph). */
+  count?: number | null;
   tone: { tile: string; icon: string };
-  /** Omit for count-only tiles. */
+  /** Omit for count-only / empty tiles. */
   icon?: ReactNode;
   lines: string[];
   ariaLabel: string;
 }) {
-  const display = count === null ? "—" : String(count);
-  const countOnly = !icon;
+  const showCount = count !== undefined;
+  const display = count === null ? "—" : showCount ? String(count) : "";
+  const countOnly = showCount && !icon;
 
   return (
     <Link
@@ -165,18 +168,20 @@ function AdminOnlineMetricTile({
         style={{ backgroundColor: tone.tile, color: tone.icon }}
       >
         {icon}
-        <span
-          className={cn(
-            "font-bold tabular-nums leading-none",
-            icon ? "mt-0.5" : undefined
-          )}
-          style={{
-            fontSize: countOnly ? 22 : 13,
-            color: tone.icon,
-          }}
-        >
-          {display}
-        </span>
+        {showCount ? (
+          <span
+            className={cn(
+              "font-bold tabular-nums leading-none",
+              icon ? "mt-0.5" : undefined
+            )}
+            style={{
+              fontSize: countOnly ? 22 : 13,
+              color: tone.icon,
+            }}
+          >
+            {display}
+          </span>
+        ) : null}
       </span>
       <p
         className="w-full text-center font-semibold text-[#111827]"
@@ -202,10 +207,12 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
   const itIndex = categories.findIndex((c) => c.slug === IT_CATEGORY_SLUG);
   const designIndex = categories.findIndex((c) => c.slug === DESIGN_CATEGORY_SLUG);
   const educationIndex = categories.findIndex((c) => c.slug === EDUCATION_CATEGORY_SLUG);
+  const beautyIndex = categories.findIndex((c) => c.slug === BEAUTY_CATEGORY_SLUG);
   const customersReplaceIndex = repairIndex >= 0 ? repairIndex : 0;
   const providersReplaceIndex = itIndex >= 0 ? itIndex : 1;
   const registeredReplaceIndex = designIndex >= 0 ? designIndex : 2;
   const totalVisitsReplaceIndex = educationIndex >= 0 ? educationIndex : 3;
+  const platformReplaceIndex = beautyIndex >= 0 ? beautyIndex : 4;
 
   return (
     <div
@@ -296,6 +303,18 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
                 t("home.totalVisitsLine2"),
               ]}
               ariaLabel={t("home.totalVisitsAria", { count: display })}
+            />
+          );
+        }
+
+        if (showAdminOnlineTiles && index === platformReplaceIndex) {
+          return (
+            <AdminOnlineMetricTile
+              key="admin-platform"
+              href="/admin/platform"
+              tone={beautyTone}
+              lines={[t("home.platformTile")]}
+              ariaLabel={t("home.platformTileAria")}
             />
           );
         }
