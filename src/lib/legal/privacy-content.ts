@@ -43,13 +43,14 @@ export const PRIVACY_SECTIONS_RU = [
     items: [
       "имя / отображаемое имя;",
       "адрес электронной почты;",
-      "номер телефона (если указан);",
+      "номер телефона (если указан; SMS OTP-подтверждение может быть ещё не реализовано);",
       "страна и город (если указаны);",
       "пароль в защищённой форме (хешируется Supabase Auth; LOOK не хранит пароль в открытом виде) или данные Passkey / WebAuthn;",
       "выбранная роль пользователя;",
       "идентификатор аккаунта;",
       "дата регистрации;",
-      "факт и версия принятия Пользовательского соглашения и Политики конфиденциальности.",
+      "факт и версия принятия Пользовательского соглашения, Политики конфиденциальности и подтверждения ознакомления с лицензиями;",
+      "подтверждение возраста 18+ (adult_confirmed_at).",
     ],
   },
   {
@@ -191,7 +192,7 @@ export const PRIVACY_SECTIONS_RU = [
   },
   {
     title: "25. Данные несовершеннолетних",
-    lead: "LOOK не предназначен для незаконного сбора данных детей. Минимальный возраст использования должен соответствовать применимому законодательству и правилам регистрации. При обнаружении незаконно полученных данных ребёнка они удаляются в предусмотренном порядке.",
+    lead: "LOOK предназначен только для лиц 18+. LOOK не предназначен для сбора данных несовершеннолетних. При обнаружении аккаунта или данных несовершеннолетнего LOOK ограничивает доступ и удаляет/ограничивает данные с учётом применимого закона.",
   },
   {
     title: "26. Cookies и аналогичные технологии",
@@ -215,7 +216,35 @@ export const PRIVACY_SECTIONS_RU = [
   },
   {
     title: "31. Подтверждение ознакомления",
-    lead: "При регистрации Пользователь должен иметь возможность открыть и прочитать настоящую Политику. Текст подтверждения: «Я прочитал(а) и принимаю Пользовательское соглашение LOOK и подтверждаю, что ознакомился(ась) с Политикой конфиденциальности LOOK».",
+    lead: "При регистрации Пользователь должен иметь возможность открыть и прочитать настоящую Политику, Пользовательское соглашение и раздел используемых лицензий. Текст обязательного подтверждения: «Я подтверждаю, что мне исполнилось 18 лет, я прочитал(а) и принимаю Пользовательское соглашение LOOK, ознакомился(ась) с Политикой конфиденциальности LOOK и информацией об используемых лицензиях». Это подтверждение не означает согласие на маркетинговую рассылку.",
+  },
+  {
+    title: "32. Возраст и adult_confirmed_at",
+    paragraphs: [
+      "LOOK предназначен только для лиц 18+. При регистрации LOOK сохраняет факт подтверждения совершеннолетия (adult_confirmed_at) вместе с версиями юридических документов.",
+      "Дата рождения не запрашивается без необходимости, пока продукт не использует DOB. Полноценная age/KYC verification может быть внедрена отдельно.",
+    ],
+  },
+  {
+    title: "33. Фактические cookies и storage LOOK",
+    lead: "В текущей реализации LOOK использует, в частности:",
+    items: [
+      "cookies сессии Supabase Auth;",
+      "cookie look_locale (язык);",
+      "cookie look_visitor (аналитика посещений);",
+      "localStorage: look_locale, look_visitor_id, look_session_id, look_presence_tabs, look_ui_mode, look_recent_login_emails;",
+      "sessionStorage: look_register_legal_consent (временное согласие до завершения регистрации).",
+    ],
+  },
+  {
+    title: "34. Что LOOK пока НЕ собирает",
+    items: [
+      "точную GPS-геолокацию устройства;",
+      "живой видеопоток камеры;",
+      "полный PAN банковской карты и CVV/CVC;",
+      "данные сторонних маркетинговых SDK (не подключены);",
+      "SMS OTP подтверждение телефона (пока не реализовано — номер может храниться как контактные данные).",
+    ],
   },
 ] as const;
 
@@ -255,13 +284,14 @@ export const PRIVACY_SECTIONS_EN = [
     items: [
       "name / display name;",
       "email address;",
-      "phone number (if provided);",
+      "phone number (if provided; SMS OTP verification may not yet be implemented);",
       "country and city (if provided);",
       "password in protected form (hashed by Supabase Auth; LOOK does not store plaintext passwords) or Passkey / WebAuthn data;",
       "selected user role;",
       "account identifier;",
       "registration date;",
-      "acceptance timestamp and version of the Terms of Service and Privacy Policy.",
+      "acceptance timestamp and version of the Terms of Service, Privacy Policy and licenses acknowledgement;",
+      "adult confirmation (adult_confirmed_at).",
     ],
   },
   {
@@ -403,7 +433,7 @@ export const PRIVACY_SECTIONS_EN = [
   },
   {
     title: "25. Children's data",
-    lead: "LOOK is not intended for unlawful collection of children's data. Minimum age must follow applicable law and LOOK registration rules. If children's data were obtained unlawfully, it will be deleted as required.",
+    lead: "LOOK is for persons aged 18+ only and is not intended to collect minors' data. If a minor account or data is discovered, LOOK restricts access and deletes/limits data as required by applicable law.",
   },
   {
     title: "26. Cookies and similar technologies",
@@ -427,7 +457,35 @@ export const PRIVACY_SECTIONS_EN = [
   },
   {
     title: "31. Acknowledgement",
-    lead: "At registration the User must be able to open and read this Policy. Acknowledgement text: \"I have read and accept the LOOK Terms of Service and confirm that I have reviewed the LOOK Privacy Policy\".",
+    lead: "At registration the User must be able to open and read this Policy, the Terms of Service and the licenses notice. Mandatory acknowledgement text: \"I confirm that I am at least 18 years old, I have read and accept the LOOK Terms of Service, and I have reviewed the LOOK Privacy Policy and the third-party licenses information\". This acknowledgement is not marketing consent.",
+  },
+  {
+    title: "32. Age and adult_confirmed_at",
+    paragraphs: [
+      "LOOK is for persons aged 18+ only. At registration LOOK stores adult confirmation (adult_confirmed_at) together with legal document versions.",
+      "Date of birth is not requested unless the product needs DOB. Full age/KYC verification may be added separately later.",
+    ],
+  },
+  {
+    title: "33. Actual LOOK cookies and storage",
+    lead: "In the current implementation LOOK uses, among others:",
+    items: [
+      "Supabase Auth session cookies;",
+      "look_locale cookie (language);",
+      "look_visitor cookie (visit analytics);",
+      "localStorage: look_locale, look_visitor_id, look_session_id, look_presence_tabs, look_ui_mode, look_recent_login_emails;",
+      "sessionStorage: look_register_legal_consent (temporary consent until registration completes).",
+    ],
+  },
+  {
+    title: "34. What LOOK does NOT currently collect",
+    items: [
+      "precise device GPS;",
+      "live camera video stream;",
+      "full card PAN and CVV/CVC;",
+      "third-party marketing SDK data (not connected);",
+      "SMS OTP phone verification (not yet implemented — phone may be stored as contact data only).",
+    ],
   },
 ] as const;
 

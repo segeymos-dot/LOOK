@@ -85,18 +85,24 @@ function LegalAcceptBody() {
       <form onSubmit={(e) => void onSubmit(e)} className="space-y-5">
         <p className="text-sm text-text-secondary">{t("legal.acceptBody")}</p>
 
-        <div className="space-y-2 text-sm">
+        <div className="space-y-1 rounded-2xl border border-border-subtle bg-surface-muted/50 px-4 py-2">
           <Link
             href="/terms?from=legal-accept"
-            className="block font-semibold text-brand-600"
+            className="block min-h-11 py-2 text-base font-semibold text-brand-600"
           >
             {t("legal.termsLink")}
           </Link>
           <Link
             href="/privacy?from=legal-accept"
-            className="block font-semibold text-brand-600"
+            className="block min-h-11 py-2 text-base font-semibold text-brand-600"
           >
             {t("legal.privacyLink")}
+          </Link>
+          <Link
+            href="/licenses?from=legal-accept"
+            className="block min-h-11 py-2 text-base font-semibold text-brand-600"
+          >
+            {t("legal.licensesLink")}
           </Link>
         </div>
 
@@ -105,30 +111,10 @@ function LegalAcceptBody() {
             type="checkbox"
             checked={accepted}
             onChange={(e) => setAccepted(e.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-border text-brand-600 focus:ring-brand-500"
+            className="mt-0.5 h-5 w-5 shrink-0 rounded border-border text-brand-600 focus:ring-brand-500"
             required
           />
-          <span>
-            {t("legal.acceptBeforeTerms")}{" "}
-            <Link
-              href="/terms?from=legal-accept"
-              className="font-semibold text-brand-600"
-              onClick={(ev) => ev.stopPropagation()}
-            >
-              {t("legal.termsLink")}
-            </Link>{" "}
-            {t("legal.acceptBetween")}{" "}
-            <Link
-              href="/privacy?from=legal-accept"
-              className="font-semibold text-brand-600"
-              onClick={(ev) => ev.stopPropagation()}
-            >
-              {t("legal.privacyLink")}
-            </Link>
-            {t("legal.acceptAfterPrivacy")
-              ? ` ${t("legal.acceptAfterPrivacy")}`
-              : ""}
-          </span>
+          <span className="leading-snug">{t("legal.preRegisterCheckbox")}</span>
         </label>
 
         {error ? <p className="text-sm text-danger">{error}</p> : null}

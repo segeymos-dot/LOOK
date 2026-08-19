@@ -28,12 +28,12 @@ export function getProviderVerification(
   const profileComplete = Boolean(
     profile.full_name?.trim() &&
       profile.bio?.trim() &&
-      (profile.phone_verified || Boolean(profile.phone?.trim())) &&
+      Boolean(profile.phone?.trim()) &&
       (profile.skills?.trim() || (profile.portfolio_items?.length ?? 0) > 0)
   );
 
   return {
-    phoneVerified: Boolean(profile.phone_verified),
+    phoneVerified: Boolean(profile.phone_verified_at),
     emailVerified,
     profileComplete,
   };

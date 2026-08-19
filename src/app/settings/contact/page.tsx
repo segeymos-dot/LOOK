@@ -101,7 +101,7 @@ export default function SettingsContactPage() {
             onChange={(e) => setPhone(e.target.value)}
           />
           <p className="mt-1 text-xs text-text-muted">
-            {displayProfile?.phone_verified
+            {displayProfile?.phone_verified_at
               ? t("settings.contact.phoneVerified")
               : t("settings.contact.phoneUnverified")}
           </p>

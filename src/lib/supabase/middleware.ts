@@ -109,13 +109,16 @@ export async function updateSession(request: NextRequest) {
     terms_version?: string | null;
     privacy_accepted_at?: string | null;
     privacy_version?: string | null;
+    licenses_acknowledged_at?: string | null;
+    licenses_version?: string | null;
+    adult_confirmed_at?: string | null;
   } | null = null;
 
   if (user) {
     const { data } = await supabase
       .from("profiles")
       .select(
-        "is_platform_admin, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version"
+        "is_platform_admin, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, licenses_acknowledged_at, licenses_version, adult_confirmed_at"
       )
       .eq("id", user.id)
       .maybeSingle();

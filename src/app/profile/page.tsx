@@ -266,7 +266,6 @@ export default function ProfilePage() {
         city: form.city || null,
         country: form.country || null,
         phone: form.phone || null,
-        phone_verified: Boolean(form.phone?.trim()),
         avatar_url: form.avatar_url || null,
         skills: form.skills || null,
         portfolio: form.portfolio || null,
@@ -298,7 +297,6 @@ export default function ProfilePage() {
         ...resolvedProfile,
         ...form,
         role: resolvedProfile.role,
-        phone_verified: Boolean(form.phone?.trim()),
       });
     }
 

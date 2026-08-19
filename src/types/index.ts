@@ -93,6 +93,8 @@ export interface Profile {
   reviews_count: number;
   completed_orders_count: number;
   phone_verified: boolean;
+  /** Set only after real SMS/OTP verification; foresight column. */
+  phone_verified_at?: string | null;
   is_platform_admin?: boolean;
   availability_status?: "available" | "busy" | "away" | "offline";
   service_locations?: string[];
@@ -113,6 +115,9 @@ export interface Profile {
   terms_version?: string | null;
   privacy_accepted_at?: string | null;
   privacy_version?: string | null;
+  licenses_acknowledged_at?: string | null;
+  licenses_version?: string | null;
+  adult_confirmed_at?: string | null;
   created_at: string;
   updated_at: string;
 }

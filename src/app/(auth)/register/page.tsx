@@ -211,18 +211,24 @@ export default function RegisterPage() {
             {t("legal.preRegisterBody")}
           </p>
 
-          <div className="space-y-3 rounded-2xl border border-border-subtle bg-surface-muted/50 px-4 py-4">
+          <div className="space-y-1 rounded-2xl border border-border-subtle bg-surface-muted/50 px-4 py-2">
             <Link
               href="/terms?from=register"
-              className="block min-h-11 text-base font-semibold text-brand-600"
+              className="block min-h-11 py-2 text-base font-semibold text-brand-600"
             >
               {t("legal.termsLink")}
             </Link>
             <Link
               href="/privacy?from=register"
-              className="block min-h-11 text-base font-semibold text-brand-600"
+              className="block min-h-11 py-2 text-base font-semibold text-brand-600"
             >
               {t("legal.privacyLink")}
+            </Link>
+            <Link
+              href="/licenses?from=register"
+              className="block min-h-11 py-2 text-base font-semibold text-brand-600"
+            >
+              {t("legal.licensesLink")}
             </Link>
           </div>
 
@@ -234,27 +240,7 @@ export default function RegisterPage() {
               className="mt-0.5 h-5 w-5 shrink-0 rounded border-border text-brand-600 focus:ring-brand-500"
               required
             />
-            <span className="leading-snug">
-              {t("legal.acceptBeforeTerms")}{" "}
-              <Link
-                href="/terms?from=register"
-                className="font-semibold text-brand-600"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {t("legal.termsLink")}
-              </Link>{" "}
-              {t("legal.acceptBetween")}{" "}
-              <Link
-                href="/privacy?from=register"
-                className="font-semibold text-brand-600"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {t("legal.privacyLink")}
-              </Link>
-              {t("legal.acceptAfterPrivacy")
-                ? ` ${t("legal.acceptAfterPrivacy")}`
-                : ""}
-            </span>
+            <span className="leading-snug">{t("legal.preRegisterCheckbox")}</span>
           </label>
 
           {errors.acceptedTerms ? (
@@ -300,6 +286,10 @@ export default function RegisterPage() {
             {" · "}
             <Link href="/privacy?from=register" className="text-brand-600">
               {t("legal.privacyLink")}
+            </Link>
+            {" · "}
+            <Link href="/licenses?from=register" className="text-brand-600">
+              {t("legal.licensesLink")}
             </Link>
           </p>
         </div>

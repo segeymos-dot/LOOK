@@ -1,8 +1,8 @@
 import { getFinanceApiUser } from "@/lib/api/finance-auth";
 import {
-  CURRENT_PRIVACY_VERSION,
-  CURRENT_TERMS_VERSION,
-} from "@/lib/legal/versions";
+  buildLegalConsentWrite,
+  recordLegalAcceptances,
+} from "@/lib/legal/record-acceptances";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -45,18 +45,16 @@ export async function POST(request: Request) {
   }
 
   const acceptedAt = new Date().toISOString();
+  const consent = buildLegalConsentWrite(acceptedAt);
   const { data: updated, error } = await auth.supabase
     .from("profiles")
     .update({
-      terms_accepted_at: acceptedAt,
-      terms_version: CURRENT_TERMS_VERSION,
-      privacy_accepted_at: acceptedAt,
-      privacy_version: CURRENT_PRIVACY_VERSION,
+      ...consent,
       updated_at: acceptedAt,
     })
     .eq("id", auth.user.id)
     .select(
-      "terms_accepted_at, terms_version, privacy_accepted_at, privacy_version"
+      "terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, licenses_acknowledged_at, licenses_version, adult_confirmed_at"
     )
     .single();
 
@@ -69,6 +67,13 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+
+  await recordLegalAcceptances(
+    auth.supabase,
+    auth.user.id,
+    "reconsent",
+    acceptedAt
+  );
 
   return NextResponse.json({
     success: true,

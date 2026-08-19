@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "legal:notices": "node scripts/generate-third-party-notices.mjs",
     "supabase:gen-types": "supabase gen types typescript --local > src/types/database.types.ts",
     "supabase:apply-migration": "node scripts/apply-migration.mjs",
     "setup:analytics": "node scripts/setup-analytics-production.mjs",

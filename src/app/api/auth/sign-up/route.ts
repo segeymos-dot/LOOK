@@ -2,6 +2,11 @@ import { getClientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { isDuplicateConfirmedSignup } from "@/lib/auth/email-confirmation";
 import { getAuthEmailRedirectTo } from "@/lib/app-url";
 import {
+  buildLegalConsentWrite,
+  recordLegalAcceptances,
+} from "@/lib/legal/record-acceptances";
+import {
+  CURRENT_LICENSES_VERSION,
   CURRENT_PRIVACY_VERSION,
   CURRENT_TERMS_VERSION,
 } from "@/lib/legal/versions";
@@ -31,12 +36,17 @@ export async function POST(request: Request) {
 
   if (parsed.data.acceptedTerms !== true) {
     return NextResponse.json(
-      { success: false, error: "Необходимо принять условия использования" },
+      {
+        success: false,
+        error:
+          "Необходимо принять Пользовательское соглашение, Политику конфиденциальности и подтвердить возраст 18+",
+      },
       { status: 400 }
     );
   }
 
   const acceptedAt = new Date().toISOString();
+  const consent = buildLegalConsentWrite(acceptedAt);
   const emailRedirectTo = getAuthEmailRedirectTo("signup");
 
   const supabase = await createClient();
@@ -59,8 +69,11 @@ export async function POST(request: Request) {
         accepted_terms: "true",
         terms_version: CURRENT_TERMS_VERSION,
         privacy_version: CURRENT_PRIVACY_VERSION,
+        licenses_version: CURRENT_LICENSES_VERSION,
         terms_accepted_at: acceptedAt,
         privacy_accepted_at: acceptedAt,
+        licenses_acknowledged_at: acceptedAt,
+        adult_confirmed_at: acceptedAt,
       },
     },
   });
@@ -97,12 +110,16 @@ export async function POST(request: Request) {
         skills: null,
         portfolio: null,
         provider_category_slugs: [],
-        terms_accepted_at: acceptedAt,
-        terms_version: CURRENT_TERMS_VERSION,
-        privacy_accepted_at: acceptedAt,
-        privacy_version: CURRENT_PRIVACY_VERSION,
+        ...consent,
       })
       .eq("id", data.user.id);
+
+    await recordLegalAcceptances(
+      supabase,
+      data.user.id,
+      "signup",
+      acceptedAt
+    );
   }
   // Without a session (email confirm required), handle_new_user uses metadata.
 

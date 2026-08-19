@@ -78,5 +78,10 @@ export function normalizeProfile(raw: Record<string, unknown>): Profile {
     terms_version: (raw.terms_version as string | null) ?? null,
     privacy_accepted_at: (raw.privacy_accepted_at as string | null) ?? null,
     privacy_version: (raw.privacy_version as string | null) ?? null,
+    licenses_acknowledged_at:
+      (raw.licenses_acknowledged_at as string | null) ?? null,
+    licenses_version: (raw.licenses_version as string | null) ?? null,
+    adult_confirmed_at: (raw.adult_confirmed_at as string | null) ?? null,
+    phone_verified_at: (raw.phone_verified_at as string | null) ?? null,
   };
 }

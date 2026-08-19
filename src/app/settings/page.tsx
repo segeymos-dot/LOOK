@@ -84,14 +84,9 @@ export default function SettingsPage() {
           />
         )}
         <SettingsLinkRow
-          href="/terms?from=settings"
-          title={t("legal.termsLink")}
-          description={t("legal.termsSubtitle")}
-        />
-        <SettingsLinkRow
-          href="/privacy?from=settings"
-          title={t("legal.privacyLink")}
-          description={t("legal.privacySubtitle")}
+          href="/settings/legal"
+          title={t("legal.settingsLegalTitle")}
+          description={t("legal.settingsLegalDesc")}
         />
         <button
           type="button"
