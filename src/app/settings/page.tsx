@@ -83,6 +83,16 @@ export default function SettingsPage() {
             description={t("settings.sections.customerDesc")}
           />
         )}
+        <SettingsLinkRow
+          href="/terms?from=settings"
+          title={t("legal.termsLink")}
+          description={t("legal.termsSubtitle")}
+        />
+        <SettingsLinkRow
+          href="/privacy?from=settings"
+          title={t("legal.privacyLink")}
+          description={t("legal.privacySubtitle")}
+        />
         <button
           type="button"
           className="block w-full rounded-2xl border border-red-200 bg-red-50/60 px-4 py-3 text-left transition hover:bg-red-50"

@@ -109,6 +109,10 @@ export interface Profile {
     showCity?: boolean;
     showPhoneToClients?: boolean;
   } | null;
+  terms_accepted_at?: string | null;
+  terms_version?: string | null;
+  privacy_accepted_at?: string | null;
+  privacy_version?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,6 +1,7 @@
 import { getClientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { isDuplicateConfirmedSignup } from "@/lib/auth/email-confirmation";
 import { getAuthEmailRedirectTo } from "@/lib/app-url";
+import { LEGAL_DOCUMENT_VERSION } from "@/lib/legal/versions";
 import { createClient } from "@/lib/supabase/server";
 import { mapAuthError } from "@/lib/test-auth";
 import { registerSchema } from "@/lib/validations";
@@ -25,6 +26,14 @@ export async function POST(request: Request) {
     );
   }
 
+  if (parsed.data.acceptedTerms !== true) {
+    return NextResponse.json(
+      { success: false, error: "Необходимо принять условия использования" },
+      { status: 400 }
+    );
+  }
+
+  const acceptedAt = new Date().toISOString();
   const emailRedirectTo = getAuthEmailRedirectTo("signup");
 
   const supabase = await createClient();
@@ -44,6 +53,11 @@ export async function POST(request: Request) {
         skills: null,
         portfolio: null,
         provider_category_slugs: [],
+        accepted_terms: "true",
+        terms_version: LEGAL_DOCUMENT_VERSION,
+        privacy_version: LEGAL_DOCUMENT_VERSION,
+        terms_accepted_at: acceptedAt,
+        privacy_accepted_at: acceptedAt,
       },
     },
   });
@@ -80,10 +94,14 @@ export async function POST(request: Request) {
         skills: null,
         portfolio: null,
         provider_category_slugs: [],
+        terms_accepted_at: acceptedAt,
+        terms_version: LEGAL_DOCUMENT_VERSION,
+        privacy_accepted_at: acceptedAt,
+        privacy_version: LEGAL_DOCUMENT_VERSION,
       })
       .eq("id", data.user.id);
   }
-  // Without a session (email confirm required), handle_new_user uses metadata.role=customer.
+  // Without a session (email confirm required), handle_new_user uses metadata.
 
   return NextResponse.json({
     success: true,

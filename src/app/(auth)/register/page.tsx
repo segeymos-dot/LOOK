@@ -145,11 +145,11 @@ export default function RegisterPage() {
             </Link>
           </p>
           <p className="text-xs">
-            <Link href="/terms" className="text-brand-600">
+            <Link href="/terms?from=register" className="text-brand-600">
               {t("legal.termsLink")}
             </Link>
             {" · "}
-            <Link href="/privacy" className="text-brand-600">
+            <Link href="/privacy?from=register" className="text-brand-600">
               {t("legal.privacyLink")}
             </Link>
           </p>
@@ -253,16 +253,26 @@ export default function RegisterPage() {
               checked={form.acceptedTerms}
               onChange={(e) => setForm({ ...form, acceptedTerms: e.target.checked })}
               className="mt-1 h-4 w-4 rounded border-border text-brand-600 focus:ring-brand-500"
+              required
             />
             <span>
-              {t("legal.acceptPrefix")}{" "}
-              <Link href="/terms" className="font-semibold text-brand-600">
+              {t("legal.acceptBeforeTerms")}{" "}
+              <Link
+                href="/terms?from=register"
+                className="font-semibold text-brand-600"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {t("legal.termsLink")}
               </Link>{" "}
-              {t("legal.and")}{" "}
-              <Link href="/privacy" className="font-semibold text-brand-600">
+              {t("legal.acceptBetween")}{" "}
+              <Link
+                href="/privacy?from=register"
+                className="font-semibold text-brand-600"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {t("legal.privacyLink")}
               </Link>
+              {t("legal.acceptAfterPrivacy") ? ` ${t("legal.acceptAfterPrivacy")}` : ""}
             </span>
           </label>
         )}
@@ -287,7 +297,12 @@ export default function RegisterPage() {
               {t("auth.register.next")}
             </Button>
           ) : (
-            <Button type="submit" loading={loading} className="flex-1">
+            <Button
+              type="submit"
+              loading={loading}
+              disabled={!form.acceptedTerms}
+              className="flex-1"
+            >
               {t("auth.register.submit")}
             </Button>
           )}
