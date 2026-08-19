@@ -9,11 +9,18 @@ import { useTranslation } from "@/components/providers/LocaleProvider";
 import { syncClientSession } from "@/lib/auth/sync-client-session";
 import { isDemoMode } from "@/lib/config";
 import { createRegisterSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
+import {
+  clearRegisterPreConsent,
+  readRegisterPreConsent,
+  writeRegisterPreConsent,
+} from "@/lib/legal/register-preconsent";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+type Phase = "legal" | "form";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -22,10 +29,9 @@ export default function RegisterPage() {
   const demo = isDemoMode();
   const registerSchema = useMemo(() => createRegisterSchema(t), [t]);
 
-  useEffect(() => {
-    setErrors({});
-  }, [locale]);
-
+  const [hydrated, setHydrated] = useState(false);
+  const [phase, setPhase] = useState<Phase>("legal");
+  const [legalChecked, setLegalChecked] = useState(false);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -42,16 +48,54 @@ export default function RegisterPage() {
     skills: "",
     portfolio: "",
     provider_category_slugs: [] as string[],
-    acceptedTerms: false,
   });
 
   const totalSteps = 2;
+
+  useEffect(() => {
+    setErrors({});
+  }, [locale]);
+
+  useEffect(() => {
+    const existing = readRegisterPreConsent();
+    if (existing) {
+      setPhase("form");
+      setLegalChecked(true);
+    } else {
+      setPhase("legal");
+      setLegalChecked(false);
+      setStep(0);
+    }
+    setHydrated(true);
+  }, []);
+
+  const continueFromLegal = () => {
+    if (!legalChecked) {
+      setErrors({ acceptedTerms: t("validation.acceptTerms") });
+      return;
+    }
+    writeRegisterPreConsent();
+    setErrors({});
+    setStep(0);
+    setPhase("form");
+  };
+
+  const backToLegal = () => {
+    clearRegisterPreConsent();
+    setLegalChecked(false);
+    setStep(0);
+    setPhase("legal");
+    setErrors({});
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrors({});
 
-    if (!form.acceptedTerms) {
+    const preConsent = readRegisterPreConsent();
+    if (!preConsent) {
+      setPhase("legal");
+      setLegalChecked(false);
       setErrors({ acceptedTerms: t("validation.acceptTerms") });
       return;
     }
@@ -73,6 +117,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     if (demo) {
+      clearRegisterPreConsent();
       setLoading(false);
       router.push("/");
       return;
@@ -97,6 +142,8 @@ export default function RegisterPage() {
       return;
     }
 
+    clearRegisterPreConsent();
+
     if (!result.session) {
       setLoading(false);
       router.push(`/check-email?email=${encodeURIComponent(result.email ?? form.email)}`);
@@ -112,6 +159,11 @@ export default function RegisterPage() {
   };
 
   const nextStep = () => {
+    if (!readRegisterPreConsent()) {
+      setPhase("legal");
+      setLegalChecked(false);
+      return;
+    }
     if (step === 0) {
       if (form.full_name.length < 2) {
         setErrors({ full_name: t("validation.minName") });
@@ -129,6 +181,98 @@ export default function RegisterPage() {
     setErrors({});
     setStep((s) => Math.min(s + 1, totalSteps - 1));
   };
+
+  if (!hydrated) {
+    return (
+      <AuthLayout title={t("legal.preRegisterTitle")} subtitle={t("common.loading")}>
+        <p className="text-sm text-text-muted">{t("common.loading")}</p>
+      </AuthLayout>
+    );
+  }
+
+  if (phase === "legal") {
+    return (
+      <AuthLayout
+        title={t("legal.preRegisterTitle")}
+        subtitle={t("legal.preRegisterSubtitle")}
+        footer={
+          <div className="space-y-2 text-center text-sm text-text-secondary">
+            <p>
+              {t("auth.register.hasAccount")}{" "}
+              <Link href="/login" className="font-semibold text-brand-600">
+                {t("auth.register.login")}
+              </Link>
+            </p>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <p className="text-sm leading-relaxed text-text-secondary">
+            {t("legal.preRegisterBody")}
+          </p>
+
+          <div className="space-y-3 rounded-2xl border border-border-subtle bg-surface-muted/50 px-4 py-4">
+            <Link
+              href="/terms?from=register"
+              className="block min-h-11 text-base font-semibold text-brand-600"
+            >
+              {t("legal.termsLink")}
+            </Link>
+            <Link
+              href="/privacy?from=register"
+              className="block min-h-11 text-base font-semibold text-brand-600"
+            >
+              {t("legal.privacyLink")}
+            </Link>
+          </div>
+
+          <label className="flex items-start gap-3 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              checked={legalChecked}
+              onChange={(e) => setLegalChecked(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 rounded border-border text-brand-600 focus:ring-brand-500"
+              required
+            />
+            <span className="leading-snug">
+              {t("legal.acceptBeforeTerms")}{" "}
+              <Link
+                href="/terms?from=register"
+                className="font-semibold text-brand-600"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {t("legal.termsLink")}
+              </Link>{" "}
+              {t("legal.acceptBetween")}{" "}
+              <Link
+                href="/privacy?from=register"
+                className="font-semibold text-brand-600"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {t("legal.privacyLink")}
+              </Link>
+              {t("legal.acceptAfterPrivacy")
+                ? ` ${t("legal.acceptAfterPrivacy")}`
+                : ""}
+            </span>
+          </label>
+
+          {errors.acceptedTerms ? (
+            <p className="text-sm text-danger">{errors.acceptedTerms}</p>
+          ) : null}
+
+          <Button
+            type="button"
+            disabled={!legalChecked}
+            onClick={continueFromLegal}
+            className="w-full"
+          >
+            {t("legal.preRegisterContinue")}
+          </Button>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout
@@ -173,7 +317,9 @@ export default function RegisterPage() {
         ))}
       </div>
 
-      <p className="mb-4 text-sm text-text-secondary">{t("auth.register.customerDefaultHint")}</p>
+      <p className="mb-4 text-sm text-text-secondary">
+        {t("auth.register.customerDefaultHint")}
+      </p>
 
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
         {step === 0 && (
@@ -251,46 +397,22 @@ export default function RegisterPage() {
 
         {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
 
-        {step === totalSteps - 1 && (
-          <label className="flex items-start gap-3 text-sm text-text-secondary">
-            <input
-              type="checkbox"
-              checked={form.acceptedTerms}
-              onChange={(e) => setForm({ ...form, acceptedTerms: e.target.checked })}
-              className="mt-1 h-4 w-4 rounded border-border text-brand-600 focus:ring-brand-500"
-              required
-            />
-            <span>
-              {t("legal.acceptBeforeTerms")}{" "}
-              <Link
-                href="/terms?from=register"
-                className="font-semibold text-brand-600"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {t("legal.termsLink")}
-              </Link>{" "}
-              {t("legal.acceptBetween")}{" "}
-              <Link
-                href="/privacy?from=register"
-                className="font-semibold text-brand-600"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {t("legal.privacyLink")}
-              </Link>
-              {t("legal.acceptAfterPrivacy") ? ` ${t("legal.acceptAfterPrivacy")}` : ""}
-            </span>
-          </label>
-        )}
-        {errors.acceptedTerms && (
-          <p className="text-sm text-danger">{errors.acceptedTerms}</p>
-        )}
-
         <div className="flex gap-2 pt-2">
-          {step > 0 && (
+          {step > 0 ? (
             <Button
               type="button"
               variant="secondary"
               onClick={() => setStep((s) => s - 1)}
+              className="gap-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              {t("auth.register.back")}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={backToLegal}
               className="gap-1"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -302,12 +424,7 @@ export default function RegisterPage() {
               {t("auth.register.next")}
             </Button>
           ) : (
-            <Button
-              type="submit"
-              loading={loading}
-              disabled={!form.acceptedTerms}
-              className="flex-1"
-            >
+            <Button type="submit" loading={loading} className="flex-1">
               {t("auth.register.submit")}
             </Button>
           )}

@@ -91,6 +91,11 @@ export const en: TranslationDict = {
       "To continue using LOOK, please review and accept the current legal documents.",
     acceptContinue: "Continue",
     acceptSaveError: "Could not save consent. Please try again.",
+    preRegisterTitle: "Before registration",
+    preRegisterSubtitle: "Legal consent",
+    preRegisterBody:
+      "To create a LOOK account, first review the Terms of Service and Privacy Policy.",
+    preRegisterContinue: "Continue",
     and: "and",
     termsSubtitle: "LOOK Terms of Service",
     privacySubtitle: "LOOK Privacy Policy",
