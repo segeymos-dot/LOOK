@@ -51,10 +51,15 @@ export default function RegisterPage() {
     e.preventDefault();
     setErrors({});
 
+    if (!form.acceptedTerms) {
+      setErrors({ acceptedTerms: t("validation.acceptTerms") });
+      return;
+    }
+
     const parsed = registerSchema.safeParse({
       ...form,
       role: "customer",
-      acceptedTerms: form.acceptedTerms ? true : undefined,
+      acceptedTerms: true,
     });
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
@@ -79,7 +84,7 @@ export default function RegisterPage() {
       body: JSON.stringify({
         ...form,
         role: "customer",
-        acceptedTerms: form.acceptedTerms ? true : undefined,
+        acceptedTerms: true,
       }),
     });
     const result = await response.json();

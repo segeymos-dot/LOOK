@@ -83,8 +83,14 @@ export const en: TranslationDict = {
     acceptPrefix:
       "I have read and accept the LOOK Terms of Service and Privacy Policy",
     acceptBeforeTerms: "I have read and accept the",
-    acceptBetween: "and",
-    acceptAfterPrivacy: "",
+    acceptBetween: "LOOK and confirm that I have reviewed the",
+    acceptAfterPrivacy: "LOOK",
+    acceptTitle: "Updated LOOK terms",
+    acceptSubtitle: "Confirmation required",
+    acceptBody:
+      "To continue using LOOK, please review and accept the current legal documents.",
+    acceptContinue: "Continue",
+    acceptSaveError: "Could not save consent. Please try again.",
     and: "and",
     termsSubtitle: "LOOK Terms of Service",
     privacySubtitle: "LOOK Privacy Policy",

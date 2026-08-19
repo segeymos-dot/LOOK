@@ -1,6 +1,10 @@
 import { safeRedirectPath } from "@/lib/app-url";
 import { isDemoMode } from "@/lib/config";
 import {
+  isLegalConsentExemptPath,
+  needsLegalConsent,
+} from "@/lib/legal/consent";
+import {
   applyAuthCookieOptions,
   getAuthCookieOptions,
 } from "@/lib/supabase/auth-cookie-options";
@@ -30,6 +34,18 @@ function redirectWithCookies(
   return redirectResponse;
 }
 
+function jsonWithCookies(
+  body: unknown,
+  status: number,
+  supabaseResponse: NextResponse
+) {
+  const res = NextResponse.json(body, { status });
+  for (const cookie of supabaseResponse.cookies.getAll()) {
+    res.cookies.set(cookie);
+  }
+  return res;
+}
+
 export async function updateSession(request: NextRequest) {
   if (isDemoMode()) {
     return NextResponse.next({ request });
@@ -37,6 +53,7 @@ export async function updateSession(request: NextRequest) {
 
   let supabaseResponse = NextResponse.next({ request });
   const requestUrl = request.url;
+  const pathname = request.nextUrl.pathname;
 
   const supabase = createServerClient(
     getSupabaseUrl(),
@@ -69,61 +86,100 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isAuthRoute =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/register");
+    pathname.startsWith("/login") || pathname.startsWith("/register");
 
   const isProtectedRoute =
-    request.nextUrl.pathname.startsWith("/profile") ||
-    request.nextUrl.pathname.startsWith("/settings") ||
-    request.nextUrl.pathname.startsWith("/finance") ||
-    request.nextUrl.pathname.startsWith("/requests/new") ||
-    request.nextUrl.pathname.match(/^\/requests\/[^/]+\/offer\/?$/) ||
-    request.nextUrl.pathname.startsWith("/chat") ||
-    request.nextUrl.pathname.startsWith("/my");
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/finance") ||
+    pathname.startsWith("/requests/new") ||
+    pathname.match(/^\/requests\/[^/]+\/offer\/?$/) ||
+    pathname.startsWith("/chat") ||
+    pathname.startsWith("/my");
 
   if (!user && isProtectedRoute) {
-    return redirectWithCookies(
-      request,
-      "/login",
-      supabaseResponse,
-      { redirect: safeRedirectPath(request.nextUrl.pathname) }
-    );
+    return redirectWithCookies(request, "/login", supabaseResponse, {
+      redirect: safeRedirectPath(pathname),
+    });
   }
+
+  let consentProfile: {
+    is_platform_admin?: boolean | null;
+    terms_accepted_at?: string | null;
+    terms_version?: string | null;
+    privacy_accepted_at?: string | null;
+    privacy_version?: string | null;
+  } | null = null;
+
+  if (user) {
+    const { data } = await supabase
+      .from("profiles")
+      .select(
+        "is_platform_admin, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version"
+      )
+      .eq("id", user.id)
+      .maybeSingle();
+    consentProfile = data;
+  }
+
+  const mustAcceptLegal = Boolean(user && needsLegalConsent(consentProfile));
 
   if (user && isAuthRoute) {
     let nextPath = safeRedirectPath(request.nextUrl.searchParams.get("redirect"));
+    if (mustAcceptLegal) {
+      return redirectWithCookies(request, "/legal/accept", supabaseResponse, {
+        redirect: nextPath === "/" ? "/" : nextPath,
+      });
+    }
     if (nextPath === "/") {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_platform_admin")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (profile?.is_platform_admin) {
+      if (consentProfile?.is_platform_admin) {
         nextPath = "/admin/stats";
       }
     }
     return redirectWithCookies(request, nextPath, supabaseResponse);
   }
 
-  if (request.nextUrl.pathname.startsWith("/admin")) {
+  if (pathname.startsWith("/admin")) {
     if (!user) {
-      return redirectWithCookies(
-        request,
-        "/login",
-        supabaseResponse,
-        { redirect: safeRedirectPath(request.nextUrl.pathname) }
+      return redirectWithCookies(request, "/login", supabaseResponse, {
+        redirect: safeRedirectPath(pathname),
+      });
+    }
+
+    if (!consentProfile?.is_platform_admin) {
+      return redirectWithCookies(request, "/profile", supabaseResponse);
+    }
+    // Platform admins: no legal-consent gate (product decision pending).
+    return supabaseResponse;
+  }
+
+  if (user && mustAcceptLegal && !isLegalConsentExemptPath(pathname)) {
+    if (pathname.startsWith("/api/")) {
+      return jsonWithCookies(
+        {
+          success: false,
+          error: "Требуется принять актуальные юридические документы",
+          code: "LEGAL_CONSENT_REQUIRED",
+        },
+        403,
+        supabaseResponse
       );
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_platform_admin")
-      .eq("id", user.id)
-      .maybeSingle();
+    return redirectWithCookies(request, "/legal/accept", supabaseResponse, {
+      redirect: safeRedirectPath(`${pathname}${request.nextUrl.search}`),
+    });
+  }
 
-    if (!profile?.is_platform_admin) {
-      return redirectWithCookies(request, "/profile", supabaseResponse);
-    }
+  if (
+    user &&
+    !mustAcceptLegal &&
+    pathname.startsWith("/legal/accept")
+  ) {
+    const nextPath = safeRedirectPath(
+      request.nextUrl.searchParams.get("redirect")
+    );
+    return redirectWithCookies(request, nextPath, supabaseResponse);
   }
 
   return supabaseResponse;

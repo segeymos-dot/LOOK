@@ -20,7 +20,9 @@ function TermsBody() {
       ? "/register"
       : from === "settings"
         ? "/settings"
-        : "/";
+        : from === "legal-accept"
+          ? "/legal/accept"
+          : "/";
 
   return (
     <AppLayout hideNav title={t("legal.termsLink")}>

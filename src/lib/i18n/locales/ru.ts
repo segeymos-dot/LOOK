@@ -80,8 +80,14 @@ export const ru = {
     acceptPrefix:
       "Я прочитал(а) и принимаю Пользовательское соглашение и Политику конфиденциальности LOOK",
     acceptBeforeTerms: "Я прочитал(а) и принимаю",
-    acceptBetween: "и",
+    acceptBetween: "LOOK и подтверждаю, что ознакомился(ась) с",
     acceptAfterPrivacy: "LOOK",
+    acceptTitle: "Обновлённые условия LOOK",
+    acceptSubtitle: "Требуется подтверждение",
+    acceptBody:
+      "Чтобы продолжить пользоваться LOOK, пожалуйста, ознакомьтесь и примите актуальные юридические документы.",
+    acceptContinue: "Продолжить",
+    acceptSaveError: "Не удалось сохранить согласие. Попробуйте ещё раз.",
     and: "и",
     termsSubtitle: "Условия использования LOOK",
     privacySubtitle: "Политика конфиденциальности LOOK",

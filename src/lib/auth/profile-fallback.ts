@@ -74,5 +74,9 @@ export function normalizeProfile(raw: Record<string, unknown>): Profile {
       (raw.notification_preferences as Profile["notification_preferences"]) ?? {},
     privacy_preferences:
       (raw.privacy_preferences as Profile["privacy_preferences"]) ?? {},
+    terms_accepted_at: (raw.terms_accepted_at as string | null) ?? null,
+    terms_version: (raw.terms_version as string | null) ?? null,
+    privacy_accepted_at: (raw.privacy_accepted_at as string | null) ?? null,
+    privacy_version: (raw.privacy_version as string | null) ?? null,
   };
 }

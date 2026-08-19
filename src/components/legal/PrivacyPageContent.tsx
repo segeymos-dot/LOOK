@@ -22,7 +22,9 @@ function PrivacyBody() {
       ? "/register"
       : from === "settings"
         ? "/settings"
-        : "/";
+        : from === "legal-accept"
+          ? "/legal/accept"
+          : "/";
 
   const sections = getPrivacySections(locale);
   const placeholder = t("legal.placeholderPending");
