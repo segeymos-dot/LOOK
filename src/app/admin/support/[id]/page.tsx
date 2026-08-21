@@ -35,6 +35,7 @@ export default function AdminSupportDetailPage() {
   const [message, setMessage] = useState<AdminSupportTicketDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -44,7 +45,11 @@ export default function AdminSupportDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await authFetch(`/api/admin/support/${id}`);
+      const res = await authFetch(
+        `/api/admin/support/${id}`,
+        {},
+        { timeoutMs: 15000 }
+      );
       const data = await res.json();
       if (!res.ok || !data.success) {
         setError(data.error ?? t("common.error"));
@@ -72,15 +77,20 @@ export default function AdminSupportDetailPage() {
     if (!id || !reply.trim()) return;
     setSending(true);
     setError(null);
+    setSuccess(null);
     try {
-      const res = await authFetch(`/api/admin/support/${id}/replies`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: reply.trim(),
-          language: locale === "en" ? "en" : "ru",
-        }),
-      });
+      const res = await authFetch(
+        `/api/admin/support/${id}/replies`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: reply.trim(),
+            language: locale === "en" ? "en" : "ru",
+          }),
+        },
+        { timeoutMs: 20000 }
+      );
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
         setError(
@@ -90,10 +100,27 @@ export default function AdminSupportDetailPage() {
         );
         return;
       }
+
       setReply("");
-      await load();
-    } catch {
-      setError(t("admin.supportReplyError"));
+      setSuccess(t("admin.supportReplySent"));
+      setMessage((prev) => {
+        if (!prev) return prev;
+        const nextThread = [...(prev.thread ?? [])];
+        if (data.reply) nextThread.push(data.reply);
+        return {
+          ...prev,
+          ...(data.message ?? {}),
+          status: data.message?.status ?? "answered",
+          thread: nextThread,
+          unread: false,
+        };
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : t("admin.supportReplyError")
+      );
     } finally {
       setSending(false);
     }
@@ -141,6 +168,9 @@ export default function AdminSupportDetailPage() {
           <p className="text-sm text-text-muted">{t("common.loading")}</p>
         ) : null}
         {error ? <p className="text-sm text-danger">{error}</p> : null}
+        {success ? (
+          <p className="text-sm text-emerald-700">{success}</p>
+        ) : null}
 
         {message ? (
           <>
