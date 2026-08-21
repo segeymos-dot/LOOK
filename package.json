@@ -28,6 +28,8 @@
     "test:registration": "node scripts/verify-registration.mjs",
     "test:audit-migrations": "node scripts/audit-migrations.mjs",
     "test:cancel-request": "node scripts/verify-cancel-request.mjs",
+    "test:admin-support-e2e": "node scripts/verify-admin-support-e2e.mjs",
+    "cleanup:e2e-support": "node scripts/cleanup-e2e-support-tickets.mjs --env .env.staging.local",
     "desktop": "npm run desktop:install",
     "desktop:build": "bash desktop/scripts/build-mac-app.sh",
     "desktop:install": "bash desktop/scripts/install-to-desktop.sh",
