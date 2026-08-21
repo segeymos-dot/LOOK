@@ -167,6 +167,9 @@ export const ru = {
       checkEmail: "Проверьте вашу почту",
       invalidCredentials: "Неверный email или пароль",
       emailNotConfirmed: "email не подтверждён",
+      savePassword: "Сохранить пароль",
+      savePasswordHint:
+        "Разрешает менеджеру паролей браузера или устройства предложить сохранить данные. Приложение само пароль не хранит.",
     },
     register: {
       title: "Регистрация",

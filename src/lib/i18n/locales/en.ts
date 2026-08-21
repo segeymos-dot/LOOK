@@ -169,6 +169,9 @@ export const en: TranslationDict = {
       checkEmail: "Check your email",
       invalidCredentials: "Invalid email or password",
       emailNotConfirmed: "email not confirmed",
+      savePassword: "Save password",
+      savePasswordHint:
+        "Lets your browser or device password manager offer to save credentials. LOOK never stores your password itself.",
     },
     register: {
       title: "Sign up",

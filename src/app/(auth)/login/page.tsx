@@ -1,11 +1,16 @@
 "use client";
 
+import { LoginEmailField } from "@/components/auth/LoginEmailField";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  offerPasswordManagerSave,
+  readLoginCredentialsFromForm,
+} from "@/lib/auth/password-manager";
+import { rememberLoginEmail } from "@/lib/auth/recent-login-emails";
 import { syncClientSession } from "@/lib/auth/sync-client-session";
 import { isDemoMode } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
@@ -14,7 +19,7 @@ import { createLoginSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
 import { LOOK_OFFICIAL_WEBSITE_URL } from "@/lib/brand/official-site";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 function LoginForm() {
   const router = useRouter();
@@ -24,10 +29,23 @@ function LoginForm() {
   const loginSchema = useMemo(() => createLoginSchema(t), [t]);
   const redirect = safeRedirectPath(searchParams.get("redirect"));
   const demo = isDemoMode();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({ email: "", password: "" });
+  // Default on so Safari/iOS get a real form POST + Save Password sheet.
+  const [savePassword, setSavePassword] = useState(true);
+
+  useEffect(() => {
+    const code = searchParams.get("error");
+    if (!code) return;
+    setErrors({
+      form:
+        code === "too_many_attempts"
+          ? t("auth.errors.rateLimit")
+          : t("auth.login.invalidCredentials"),
+    });
+  }, [searchParams, t]);
 
   const signIn = async (email: string, password: string) => {
     const supabase = createClient();
@@ -40,12 +58,16 @@ function LoginForm() {
     return supabase.auth.signInWithPassword({ email, password });
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setErrors({});
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    const formEl = e.currentTarget;
+    const credentials = readLoginCredentialsFromForm(formEl, {
+      email: "",
+      password: "",
+    });
 
-    const parsed = loginSchema.safeParse(form);
+    const parsed = loginSchema.safeParse(credentials);
     if (!parsed.success) {
+      e.preventDefault();
       const fieldErrors: Record<string, string> = {};
       parsed.error.errors.forEach((err) => {
         if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
@@ -54,6 +76,15 @@ function LoginForm() {
       return;
     }
 
+    // Safari/iOS: real form POST + redirect triggers Save Password.
+    // Username cookie is set only after successful sign-in-form.
+    if (savePassword && !demo) {
+      setLoading(true);
+      return;
+    }
+
+    e.preventDefault();
+    setErrors({});
     setLoading(true);
 
     if (demo) {
@@ -83,6 +114,9 @@ function LoginForm() {
       return;
     }
 
+    // Successful login only — never overwrite remembered username on failure.
+    rememberLoginEmail(parsed.data.email);
+
     const synced = await syncClientSession(result.session);
     if (!synced) {
       const { error } = await signIn(parsed.data.email, parsed.data.password);
@@ -94,9 +128,17 @@ function LoginForm() {
       await syncSession();
     }
 
+    try {
+      await offerPasswordManagerSave(formRef.current, parsed.data);
+    } catch {
+      // ignore
+    }
+
     router.push(redirect);
     router.refresh();
   };
+
+  const formAction = savePassword ? "/api/auth/sign-in-form" : "/login";
 
   return (
     <AuthLayout
@@ -138,24 +180,49 @@ function LoginForm() {
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          id="email"
+      <form
+        ref={formRef}
+        method="post"
+        action={formAction}
+        onSubmit={handleSubmit}
+        className="space-y-4"
+        autoComplete="on"
+      >
+        <input type="hidden" name="redirect" value={redirect} />
+        <LoginEmailField
+          id="username"
           label={t("auth.login.email")}
-          type="email"
           placeholder="you@example.com"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
           error={errors.email}
         />
         <PasswordInput
-          id="password"
+          id="current-password"
+          name="password"
+          autoComplete="current-password"
           label={t("auth.login.password")}
           placeholder="••••••"
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
           error={errors.password}
         />
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border-subtle bg-surface-muted/60 px-3 py-3">
+          <input
+            id="save-password"
+            name="save-password"
+            type="checkbox"
+            checked={savePassword}
+            onChange={(e) => setSavePassword(e.target.checked)}
+            className="mt-1 h-4 w-4 shrink-0 rounded border-border text-brand-600 focus:ring-brand-500/30"
+            autoComplete="off"
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-text-primary">
+              {t("auth.login.savePassword")}
+            </span>
+            <span className="mt-0.5 block text-xs leading-snug text-text-muted">
+              {t("auth.login.savePasswordHint")}
+            </span>
+          </span>
+        </label>
 
         {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
         {"emailConfirm" in errors && errors.emailConfirm && (
