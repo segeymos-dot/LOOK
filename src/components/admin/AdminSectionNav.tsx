@@ -7,6 +7,7 @@ import {
   ChevronRight,
   ClipboardList,
   Scale,
+  Headphones,
   UserRound,
   Users,
   type LucideIcon,
@@ -55,6 +56,12 @@ const LINKS: {
     titleKey: "admin.nav.disputes",
     subtitleKey: "admin.nav.disputesSubtitle",
     icon: Scale,
+  },
+  {
+    href: "/admin/support",
+    titleKey: "admin.nav.support",
+    subtitleKey: "admin.nav.supportSubtitle",
+    icon: Headphones,
   },
 ];
 
