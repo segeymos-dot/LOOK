@@ -38,6 +38,7 @@ import {
   ClipboardList,
   ExternalLink,
   Globe,
+  Headphones,
   History,
   LogOut,
   Mail,
@@ -297,6 +298,12 @@ export default function ProfilePage() {
                     <Button variant="outline" className="w-full justify-start gap-2" size="sm">
                       <BarChart3 className="h-4 w-4" />
                       {t("profile.adminStats")}
+                    </Button>
+                  </Link>
+                  <Link href="/admin/support">
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <Headphones className="h-4 w-4" />
+                      {t("admin.supportTitle")}
                     </Button>
                   </Link>
                   <Link href="/admin/platform">

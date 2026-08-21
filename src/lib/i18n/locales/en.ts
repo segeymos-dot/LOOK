@@ -25,11 +25,14 @@ export const en: TranslationDict = {
     title: "LOOK Support",
     body: "Contact LOOK administration if you have a question about the app, your account, security, or the service.",
     contactAdmin: "Contact Administrator",
-    adminSlotTitle: "Administrator messaging",
-    adminSlotBody:
-      "A dedicated channel to LOOK administration is not connected yet. This screen does not open customer ↔ provider chats — those stay in the Chats tab.",
-    adminSlotHint:
-      "When the admin-support backend is ready, messaging with administrators will appear in this block.",
+    subject: "Subject",
+    message: "Message",
+    send: "Send",
+    sentSuccess: "Your message has been sent to LOOK administration",
+    subjectRequired: "Enter a subject",
+    messageRequired: "Enter a message",
+    sendError: "Could not send your request. Please try again.",
+    loginRequired: "Sign in to contact LOOK administration.",
   },
   nav: {
     home: "Home",
@@ -513,6 +516,23 @@ export const en: TranslationDict = {
     platformBalance: "Platform balance",
     platformTitle: "Platform balance",
     platformSubtitle: "Commissions, revenue and turnover (test mode)",
+    supportTitle: "Support Requests",
+    supportSubtitle: "Messages from users to LOOK administration",
+    supportDetailTitle: "Support request",
+    supportEmpty: "No support requests yet",
+    supportUser: "User",
+    supportRole: "Role",
+    supportStatusLabel: "Status",
+    supportWhen: "Date",
+    supportLanguage: "Language",
+    supportReplyLater:
+      "Replies to users will be available after a two-way channel is connected. The request is saved and visible to administration.",
+    supportStatus: {
+      new: "New",
+      read: "Read",
+      answered: "Answered",
+      closed: "Closed",
+    },
   },
   finance: {
     transactions: {

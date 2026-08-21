@@ -78,6 +78,11 @@ export default function AdminStatsPage() {
             <RefreshCw className="h-4 w-4" />
             {t("admin.refresh")}
           </Button>
+          <Link href="/admin/support" className="flex-1">
+            <Button variant="outline" className="w-full">
+              {t("admin.supportTitle")}
+            </Button>
+          </Link>
           <Link href="/admin/platform" className="flex-1">
             <Button variant="outline" className="w-full gap-2">
               <BarChart3 className="h-4 w-4" />
