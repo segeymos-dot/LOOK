@@ -9,7 +9,6 @@ import type { ReactNode } from "react";
 type OfficialSiteLinkProps = {
   className?: string;
   children?: ReactNode;
-  /** When true, show external-link icon after the label. */
   showIcon?: boolean;
 };
 

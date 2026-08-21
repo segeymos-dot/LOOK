@@ -21,6 +21,16 @@ export const en: TranslationDict = {
     officialSite: "Official LOOK Website",
     officialSiteDesc: "lookappworld.com",
   },
+  support: {
+    title: "LOOK Support",
+    body: "Contact LOOK administration if you have a question about the app, your account, security, or the service.",
+    contactAdmin: "Contact Administrator",
+    adminSlotTitle: "Administrator messaging",
+    adminSlotBody:
+      "A dedicated channel to LOOK administration is not connected yet. This screen does not open customer ↔ provider chats — those stay in the Chats tab.",
+    adminSlotHint:
+      "When the admin-support backend is ready, messaging with administrators will appear in this block.",
+  },
   nav: {
     home: "Home",
     search: "Search",
@@ -232,6 +242,10 @@ export const en: TranslationDict = {
     welcome: "Welcome to LOOK",
     hello: "Hi, {name}!",
     helloShort: "Welcome",
+    trustVerified: "Verified professionals",
+    trustSecure: "Secure deals",
+    trustSupport: "Support 24/7",
+    trustAriaLabel: "LOOK benefits",
     findProvider: "Find a provider",
     findOrders: "Find orders",
     ordersAndProviders: "Orders & providers",

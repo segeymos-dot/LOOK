@@ -19,6 +19,16 @@ export const ru = {
     officialSite: "Официальный сайт LOOK",
     officialSiteDesc: "lookappworld.com",
   },
+  support: {
+    title: "Поддержка LOOK",
+    body: "Свяжитесь с администрацией LOOK, если у вас возник вопрос по работе приложения, аккаунту, безопасности или сервису.",
+    contactAdmin: "Написать администратору",
+    adminSlotTitle: "Сообщения администрации",
+    adminSlotBody:
+      "Отдельный канал связи с администрацией LOOK ещё подключается. Здесь не открываются чаты заказчик ↔ исполнитель — они остаются во вкладке «Чаты».",
+    adminSlotHint:
+      "Когда admin-support backend будет готов, переписка с администратором появится в этом блоке.",
+  },
   nav: {
     home: "Главная",
     search: "Поиск",
@@ -230,6 +240,10 @@ export const ru = {
     welcome: "Добро пожаловать в LOOK",
     hello: "Привет, {name}!",
     helloShort: "Добро пожаловать",
+    trustVerified: "Проверенные исполнители",
+    trustSecure: "Безопасные сделки",
+    trustSupport: "Поддержка 24/7",
+    trustAriaLabel: "Преимущества LOOK",
     findProvider: "Найди исполнителя",
     findOrders: "Найди заказы",
     ordersAndProviders: "Заказы и исполнители",

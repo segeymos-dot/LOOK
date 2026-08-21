@@ -1,6 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { HomeHero } from "@/components/home/HomeHero";
-import { HomeCategoriesHeader, HomeRecentHeader, HomeEmptyRequests } from "@/components/home/HomeSections";
+import { HomeCategoriesHeader, HomeRecentHeader, HomeEmptyRequests, HomeTrustRow } from "@/components/home/HomeSections";
 import { CategoryGrid } from "@/components/categories/CategoryGrid";
 import { RequestCard } from "@/components/requests/RequestCard";
 import { isDemoMode } from "@/lib/config";
@@ -39,6 +39,10 @@ export default async function HomePage() {
     <AppLayout activePath="/">
       <div className="space-y-8 p-4">
         <HomeHero />
+
+        <section>
+          <HomeTrustRow />
+        </section>
 
         <section>
           <HomeCategoriesHeader />
