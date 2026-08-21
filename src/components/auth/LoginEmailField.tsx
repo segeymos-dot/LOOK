@@ -3,6 +3,7 @@
 import { Input } from "@/components/ui/Input";
 import {
   filterRecentLoginEmails,
+  getRememberedLoginEmail,
   MAX_RECENT_LOGIN_EMAILS,
 } from "@/lib/auth/recent-login-emails";
 import { cn } from "@/lib/utils";
@@ -26,8 +27,9 @@ type LoginEmailFieldProps = Omit<
 
 /**
  * Uncontrolled email/username field for login.
+ * Prefills the last successful login email from local storage.
  * Keeps DOM value owned by the browser (Safari AutoFill) while still offering
- * our local recent-email dropdown.
+ * a local recent-email dropdown once the user types.
  */
 export function LoginEmailField({
   label,
@@ -41,6 +43,7 @@ export function LoginEmailField({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [ready, setReady] = useState(false);
 
   const refreshSuggestions = useCallback((nextQuery: string) => {
     if (!nextQuery.trim()) {
@@ -52,6 +55,18 @@ export function LoginEmailField({
     );
     setSuggestions(next);
     return next;
+  }, []);
+
+  // Prefill last remembered email after mount (client-only). Do not use a
+  // controlled value — password managers must own the live DOM value.
+  useEffect(() => {
+    const remembered = getRememberedLoginEmail();
+    const input = inputRef.current;
+    if (input && remembered && !input.value) {
+      input.value = remembered;
+      setQuery(remembered);
+    }
+    setReady(true);
   }, []);
 
   useEffect(() => {
@@ -70,7 +85,7 @@ export function LoginEmailField({
     };
   }, []);
 
-  const showList = open && suggestions.length > 0;
+  const showList = ready && open && suggestions.length > 0;
 
   const selectEmail = (email: string) => {
     const input = inputRef.current;
@@ -102,14 +117,19 @@ export function LoginEmailField({
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck={false}
-        // Uncontrolled: Safari/Chrome own the value for Password AutoFill.
-        defaultValue=""
         error={error}
         aria-autocomplete={showList ? "list" : undefined}
         aria-controls={showList ? listId : undefined}
         aria-expanded={showList || undefined}
         onFocus={() => {
           const current = inputRef.current?.value ?? query;
+          // Only open our list when the user has typed a prefix — leave empty
+          // / exact-prefill focus to the browser password manager.
+          if (!current.trim()) {
+            setOpen(false);
+            setSuggestions([]);
+            return;
+          }
           const next = refreshSuggestions(current);
           setOpen(next.length > 0);
         }}

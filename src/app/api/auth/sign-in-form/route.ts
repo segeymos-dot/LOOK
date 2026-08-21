@@ -1,3 +1,4 @@
+import { LOOK_LAST_LOGIN_EMAIL_COOKIE } from "@/lib/auth/recent-login-emails";
 import { performPasswordSignIn } from "@/lib/auth/perform-password-sign-in";
 import { safeRedirectPath } from "@/lib/app-url";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
@@ -9,6 +10,21 @@ import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { loginSchema } from "@/lib/validations";
 import { NextResponse } from "next/server";
+
+/** Persist last login email for the next login form prefill (email only). */
+function setLastLoginEmailCookie(
+  response: NextResponse,
+  email: string,
+  requestUrl: URL
+) {
+  response.cookies.set(LOOK_LAST_LOGIN_EMAIL_COOKIE, email.trim().toLowerCase(), {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+    secure: requestUrl.protocol === "https:",
+    httpOnly: false,
+  });
+}
 
 function parseRequestCookies(request: Request): { name: string; value: string }[] {
   const raw = request.headers.get("cookie") ?? "";
@@ -95,6 +111,8 @@ export async function POST(request: Request) {
     return failRedirect("invalid_credentials", redirect);
   }
 
+  setLastLoginEmailCookie(successRedirect, parsed.data.email, requestUrl);
+
   if (redirect === "/") {
     const { data: profile } = await supabase
       .from("profiles")
@@ -111,6 +129,7 @@ export async function POST(request: Request) {
       for (const cookie of successRedirect.cookies.getAll()) {
         adminRedirect.cookies.set(cookie);
       }
+      setLastLoginEmailCookie(adminRedirect, parsed.data.email, requestUrl);
       return adminRedirect;
     }
   }

@@ -246,7 +246,7 @@ export const en: TranslationDict = {
       emailNotConfirmed: "email not confirmed",
       savePassword: "Save password",
       savePasswordHint:
-        "Next time you sign in, your device or browser can offer this password.",
+        "Lets your browser or device password manager offer to save credentials. LOOK never stores your password itself.",
       or: "or",
       passkey: "Sign in with Face ID / Passkey",
       passkeyUnsupported: "This device does not support Face ID / Passkey.",

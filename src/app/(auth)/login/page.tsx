@@ -43,7 +43,8 @@ function LoginForm() {
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [savePassword, setSavePassword] = useState(false);
+  // Default on so Safari/iOS get a real form POST + Save Password sheet.
+  const [savePassword, setSavePassword] = useState(true);
 
   useEffect(() => {
     setPasskeyAvailable(isPasskeySupported());
@@ -133,10 +134,10 @@ function LoginForm() {
       return;
     }
 
-    rememberLoginEmail(parsed.data.email);
-
     // Safari/iOS: PasswordCredential is unsupported. A real form POST + redirect
     // is what triggers the system "Save Password" sheet. Do not preventDefault.
+    // Remembered username is written only after a confirmed successful sign-in
+    // (JS path below, or look_last_login_email cookie from sign-in-form).
     if (savePassword && !demo) {
       setLoading(true);
       return;
@@ -196,6 +197,9 @@ function LoginForm() {
       setErrors({ form: t("auth.login.sessionPersistFailed") });
       return;
     }
+
+    // Successful login only — never overwrite remembered username on failure.
+    rememberLoginEmail(parsed.data.email);
 
     await syncSession();
 
@@ -269,7 +273,6 @@ function LoginForm() {
           autoComplete="current-password"
           label={t("auth.login.password")}
           placeholder="••••••"
-          defaultValue=""
           error={errors.password}
         />
 

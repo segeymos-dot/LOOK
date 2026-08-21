@@ -20,7 +20,6 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
       hint,
       id,
       autoComplete,
-      type: _type,
       defaultValue,
       value,
       ...props
@@ -43,8 +42,6 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             ref={ref}
             id={id}
             // Same DOM node: only toggle type (never remount password ↔ text).
-            type={visible ? "text" : "password"}
-            autoComplete={autoComplete ?? "current-password"}
             className={cn(
               "w-full rounded-xl border border-border bg-surface px-4 py-3 pr-12",
               "min-h-[48px] text-base text-text-primary placeholder:text-text-muted",
@@ -53,7 +50,11 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
               className
             )}
             {...props}
-            {...(isControlled ? { value } : { defaultValue: defaultValue ?? "" })}
+            // Preserve password semantics after {...props} so visibility toggle
+            // cannot lose type/autoComplete for password managers.
+            type={visible ? "text" : "password"}
+            autoComplete={autoComplete ?? "current-password"}
+            {...(isControlled ? { value } : defaultValue !== undefined ? { defaultValue } : {})}
           />
           <button
             type="button"

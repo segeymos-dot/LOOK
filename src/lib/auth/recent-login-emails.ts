@@ -5,6 +5,8 @@
  */
 
 export const LOOK_RECENT_LOGIN_EMAILS_KEY = "look_recent_login_emails";
+/** Non-HttpOnly cookie set after successful form-POST login (Safari path). */
+export const LOOK_LAST_LOGIN_EMAIL_COOKIE = "look_last_login_email";
 export const MAX_RECENT_LOGIN_EMAILS = 5;
 
 function normalizeEmail(email: string): string {
@@ -16,6 +18,30 @@ function isValidStoredEmail(value: unknown): value is string {
   const email = normalizeEmail(value);
   // Lightweight shape check — not full RFC validation.
   return email.length > 2 && email.includes("@") && !email.includes(" ");
+}
+
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  try {
+    const parts = document.cookie.split(";");
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed.startsWith(`${name}=`)) continue;
+      return decodeURIComponent(trimmed.slice(name.length + 1));
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function clearCookie(name: string): void {
+  if (typeof document === "undefined") return;
+  try {
+    document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax`;
+  } catch {
+    // ignore
+  }
 }
 
 export function readRecentLoginEmails(): string[] {
@@ -61,8 +87,27 @@ export function rememberLoginEmail(email: string): void {
 }
 
 /**
+ * After a successful HTML form POST login, the server may leave a short-lived
+ * email cookie. Absorb it into localStorage (then clear the cookie).
+ */
+export function absorbLastLoginEmailCookie(): void {
+  const fromCookie = readCookie(LOOK_LAST_LOGIN_EMAIL_COOKIE);
+  if (fromCookie && isValidStoredEmail(fromCookie)) {
+    rememberLoginEmail(fromCookie);
+  }
+  clearCookie(LOOK_LAST_LOGIN_EMAIL_COOKIE);
+}
+
+/** Most recent login email for form prefills (cookie first, then storage). */
+export function getRememberedLoginEmail(): string {
+  absorbLastLoginEmailCookie();
+  return readRecentLoginEmails()[0] ?? "";
+}
+
+/**
  * Suggestions matching the current input, most-recent first.
- * Empty query → all recent (up to max). Otherwise prefix match.
+ * Empty query → no app suggestions (lets the browser password manager own focus).
+ * Otherwise prefix match.
  */
 export function filterRecentLoginEmails(
   query: string,
@@ -70,6 +115,6 @@ export function filterRecentLoginEmails(
 ): string[] {
   const emails = readRecentLoginEmails();
   const q = normalizeEmail(query);
-  if (!q) return emails.slice(0, limit);
+  if (!q) return [];
   return emails.filter((email) => email.startsWith(q)).slice(0, limit);
 }
