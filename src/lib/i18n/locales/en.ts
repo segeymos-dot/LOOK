@@ -246,7 +246,10 @@ export const en: TranslationDict = {
       emailNotConfirmed: "email not confirmed",
       savePassword: "Save password",
       savePasswordHint:
-        "Lets your browser or device password manager offer to save credentials. LOOK never stores your password itself.",
+        "Your browser or device password manager stores credentials. LOOK never stores your password itself.",
+      devicePasswordManager: "Use device password manager",
+      devicePasswordManagerHint:
+        "Passwords are saved by your browser or device password manager. LOOK never stores your password. On iPhone, tap the password field and choose a saved credential (Face ID / Passwords).",
       or: "or",
       passkey: "Sign in with Face ID / Passkey",
       passkeyUnsupported: "This device does not support Face ID / Passkey.",

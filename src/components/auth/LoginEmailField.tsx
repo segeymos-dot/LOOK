@@ -2,9 +2,11 @@
 
 import { Input } from "@/components/ui/Input";
 import {
+  absorbLastLoginEmailCookie,
   filterRecentLoginEmails,
-  getRememberedLoginEmail,
   MAX_RECENT_LOGIN_EMAILS,
+  readRecentLoginEmails,
+  rememberLoginEmail,
 } from "@/lib/auth/recent-login-emails";
 import { cn } from "@/lib/utils";
 import {
@@ -23,25 +25,30 @@ type LoginEmailFieldProps = Omit<
   error?: string;
   /** Stable login username id for password managers (default: username). */
   id?: string;
+  /**
+   * Prefer SSR/cookie value so the username is in the first HTML paint.
+   * Safari associates saved passwords with username present in the document,
+   * not with values written later via React effects.
+   */
+  initialEmail?: string;
 };
 
 /**
  * Uncontrolled email/username field for login.
- * Prefills the last successful login email from local storage.
- * Keeps DOM value owned by the browser (Safari AutoFill) while still offering
- * a local recent-email dropdown once the user types.
+ * Prefers SSR initialEmail; falls back to local recent emails only if empty.
  */
 export function LoginEmailField({
   label,
   error,
   id = "username",
+  initialEmail = "",
   ...props
 }: LoginEmailFieldProps) {
   const listId = `${id}-suggestions`;
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialEmail);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
 
@@ -57,17 +64,24 @@ export function LoginEmailField({
     return next;
   }, []);
 
-  // Prefill last remembered email after mount (client-only). Do not use a
-  // controlled value — password managers must own the live DOM value.
   useEffect(() => {
-    const remembered = getRememberedLoginEmail();
+    absorbLastLoginEmailCookie();
+    if (initialEmail.trim()) {
+      rememberLoginEmail(initialEmail);
+    }
+
     const input = inputRef.current;
-    if (input && remembered && !input.value) {
-      input.value = remembered;
-      setQuery(remembered);
+    // Only fill from localStorage when the field is still empty — do not
+    // overwrite Safari AutoFill or the SSR defaultValue mid-hydration.
+    if (input && !input.value.trim()) {
+      const remembered = readRecentLoginEmails()[0] ?? "";
+      if (remembered) {
+        input.value = remembered;
+        setQuery(remembered);
+      }
     }
     setReady(true);
-  }, []);
+  }, [initialEmail]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
@@ -90,7 +104,6 @@ export function LoginEmailField({
   const selectEmail = (email: string) => {
     const input = inputRef.current;
     if (input) {
-      // Write into the live DOM without remounting / wiping password.
       input.value = email;
       input.dispatchEvent(new Event("input", { bubbles: true }));
     }
@@ -100,7 +113,10 @@ export function LoginEmailField({
       const password = document.getElementById(
         "current-password"
       ) as HTMLInputElement | null;
-      password?.focus();
+      if (password) {
+        password.readOnly = false;
+        password.focus();
+      }
     });
   };
 
@@ -117,14 +133,15 @@ export function LoginEmailField({
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck={false}
+        required
+        // SSR-friendly: value present on first paint for password managers.
+        defaultValue={initialEmail}
         error={error}
         aria-autocomplete={showList ? "list" : undefined}
         aria-controls={showList ? listId : undefined}
         aria-expanded={showList || undefined}
         onFocus={() => {
           const current = inputRef.current?.value ?? query;
-          // Only open our list when the user has typed a prefix — leave empty
-          // / exact-prefill focus to the browser password manager.
           if (!current.trim()) {
             setOpen(false);
             setSuggestions([]);
