@@ -28,8 +28,10 @@ type LoginFormProps = {
 
 /**
  * Password login always uses a real HTML form POST + 303 redirect.
- * Safari/iOS Password AutoFill / Save Password depends on that navigation —
- * fetch()+preventDefault and mid-submit React setState break it.
+ * Safari/iOS Password AutoFill / Save Password depends on that navigation.
+ *
+ * Passkey is a separate WebAuthn flow (outside this form). It does not fill
+ * the password field and must not be confused with iCloud Keychain AutoFill.
  */
 export function LoginForm({ initialEmail = "" }: LoginFormProps) {
   const searchParams = useSearchParams();
@@ -39,10 +41,10 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
   const redirect = safeRedirectPath(searchParams.get("redirect"));
   const demo = isDemoMode();
   const formRef = useRef<HTMLFormElement>(null);
-  const passwordRef = useRef<HTMLInputElement>(null);
 
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [passkeyNotice, setPasskeyNotice] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -61,39 +63,26 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
     setErrors({ form: mapped });
   }, [searchParams, t]);
 
-  // After username is present, move focus to password so iOS shows AutoFill /
-  // Passwords (tap / Face ID still required — Safari does not silent-fill).
-  useEffect(() => {
-    if (!initialEmail.trim()) return;
-    const id = window.setTimeout(() => {
-      passwordRef.current?.focus({ preventScroll: true });
-    }, 50);
-    return () => window.clearTimeout(id);
-  }, [initialEmail]);
-
   const handlePasskeySignIn = async () => {
     if (demo) {
       window.location.assign(redirect);
       return;
     }
-    setErrors({});
+    // Never clear password-form errors / username — Passkey is independent.
+    setPasskeyNotice(null);
     setPasskeyLoading(true);
     try {
       const { data, error } = await signInWithUserPasskey();
       if (error || !data?.session?.access_token || !data.session.refresh_token) {
         const code = passkeyErrorCode(error);
-        setErrors({
-          form:
-            code === "unsupported"
-              ? t("auth.login.passkeyUnsupported")
-              : code === "cancelled"
-                ? t("auth.login.passkeyCancelled")
-                : mapAuthErrorT(
-                    error?.message ?? t("auth.login.passkeyFailed"),
-                    t
-                  ),
-        });
         setPasskeyLoading(false);
+        // User dismissed Face ID / Passkey sheet — silent; password form stays usable.
+        if (code === "cancelled") return;
+        setPasskeyNotice(
+          code === "unsupported"
+            ? t("auth.login.passkeyUnsupported")
+            : mapAuthErrorT(error?.message ?? t("auth.login.passkeyFailed"), t)
+        );
         return;
       }
 
@@ -103,7 +92,7 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
       });
       if (!synced) {
         setPasskeyLoading(false);
-        setErrors({ form: t("auth.login.passkeyFailed") });
+        setPasskeyNotice(t("auth.login.passkeyFailed"));
         return;
       }
 
@@ -113,14 +102,12 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
     } catch (err) {
       const code = passkeyErrorCode(err);
       setPasskeyLoading(false);
-      setErrors({
-        form:
-          code === "unsupported"
-            ? t("auth.login.passkeyUnsupported")
-            : code === "cancelled"
-              ? t("auth.login.passkeyCancelled")
-              : t("auth.login.passkeyFailed"),
-      });
+      if (code === "cancelled") return;
+      setPasskeyNotice(
+        code === "unsupported"
+          ? t("auth.login.passkeyUnsupported")
+          : t("auth.login.passkeyFailed")
+      );
     }
   };
 
@@ -149,7 +136,6 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
     }
 
     // Do NOT preventDefault. Do NOT setState. Native POST → 303 redirect.
-    // Session cookies are written by /api/auth/sign-in-form (overwrites prior session).
   };
 
   return (
@@ -183,67 +169,67 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
         </div>
       }
     >
-      <form
-        ref={formRef}
-        method="post"
-        action="/api/auth/sign-in-form"
-        onSubmit={handleSubmit}
-        className="space-y-4"
-        autoComplete="on"
-      >
-        <input type="hidden" name="redirect" value={redirect} />
-        <LoginEmailField
-          id="username"
-          label={t("auth.login.email")}
-          placeholder="you@example.com"
-          error={errors.email}
-          initialEmail={initialEmail}
-        />
-        <PasswordInput
-          ref={passwordRef}
-          id="current-password"
-          name="password"
-          autoComplete="current-password"
-          label={t("auth.login.password")}
-          placeholder="••••••"
-          error={errors.password}
-          required
-          revealInLabel
-          // Helps iOS show AutoFill on focus without fighting hydration.
-          readOnly
-        />
+      <div className="space-y-4">
+        {/* Password form alone — Safari AutoFill heuristics must see a clean login form. */}
+        <form
+          ref={formRef}
+          method="post"
+          action="/api/auth/sign-in-form"
+          onSubmit={handleSubmit}
+          className="space-y-4"
+          autoComplete="on"
+        >
+          <input type="hidden" name="redirect" value={redirect} />
+          <LoginEmailField
+            id="username"
+            label={t("auth.login.email")}
+            placeholder="you@example.com"
+            error={errors.email}
+            initialEmail={initialEmail}
+          />
+          <PasswordInput
+            id="current-password"
+            name="password"
+            autoComplete="current-password"
+            label={t("auth.login.password")}
+            // Empty when no real value — never use •••••• (looks like a filled password).
+            placeholder=""
+            error={errors.password}
+            required
+            revealInLabel
+          />
 
-        <p className="rounded-xl border border-border-subtle bg-surface-muted/60 px-3 py-3 text-xs leading-snug text-text-muted">
-          <span className="block text-sm font-medium text-text-primary">
-            {t("auth.login.devicePasswordManager")}
-          </span>
-          <span className="mt-0.5 block">
-            {t("auth.login.devicePasswordManagerHint")}
-          </span>
-        </p>
+          <p className="text-xs leading-snug text-text-muted">
+            {t("auth.login.passwordAutofillHint")}
+          </p>
 
-        {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
-        {"emailConfirm" in errors && errors.emailConfirm && (
-          <Link
-            href={`/check-email?email=${encodeURIComponent(errors.emailConfirm as string)}`}
-            className="block text-center text-sm font-semibold text-brand-600"
-          >
-            {t("auth.login.checkEmail")}
-          </Link>
-        )}
+          {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
+          {"emailConfirm" in errors && errors.emailConfirm && (
+            <Link
+              href={`/check-email?email=${encodeURIComponent(errors.emailConfirm as string)}`}
+              className="block text-center text-sm font-semibold text-brand-600"
+            >
+              {t("auth.login.checkEmail")}
+            </Link>
+          )}
 
-        <div className="flex items-center justify-end">
-          <Link href="/forgot-password" className="text-sm font-semibold text-brand-600">
-            {t("auth.login.forgot")}
-          </Link>
-        </div>
+          <div className="flex items-center justify-end">
+            <Link
+              href="/forgot-password"
+              className="text-sm font-semibold text-brand-600"
+            >
+              {t("auth.login.forgot")}
+            </Link>
+          </div>
 
-        <Button type="submit" disabled={passkeyLoading} className="w-full">
-          {t("auth.login.submit")}
-        </Button>
+          <Button type="submit" disabled={passkeyLoading} className="w-full">
+            {t("auth.login.submit")}
+          </Button>
+        </form>
 
+        {/* Passkey is OUTSIDE the password form — not Password AutoFill. */}
         {passkeyAvailable && (
-          <>
+          <div className="space-y-3">
             <div className="relative py-1 text-center">
               <span className="relative z-10 bg-surface px-3 text-xs uppercase tracking-wide text-text-muted">
                 {t("auth.login.or")}
@@ -259,9 +245,15 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
             >
               {t("auth.login.passkey")}
             </Button>
-          </>
+            <p className="text-xs leading-snug text-text-muted">
+              {t("auth.login.passkeyNotPasswordHint")}
+            </p>
+            {passkeyNotice && (
+              <p className="text-sm text-danger">{passkeyNotice}</p>
+            )}
+          </div>
         )}
-      </form>
+      </div>
     </AuthLayout>
   );
 }

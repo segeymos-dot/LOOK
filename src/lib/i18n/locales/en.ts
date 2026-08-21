@@ -250,11 +250,15 @@ export const en: TranslationDict = {
       devicePasswordManager: "Use device password manager",
       devicePasswordManagerHint:
         "Passwords are saved by your browser or device password manager. LOOK never stores your password. On iPhone, tap the password field and choose a saved credential (Face ID / Passwords).",
+      passwordAutofillHint:
+        "iOS fills the password: tap the empty Password field → Passwords / keyboard → Face ID. LOOK never stores your password.",
       or: "or",
-      passkey: "Sign in with Face ID / Passkey",
-      passkeyUnsupported: "This device does not support Face ID / Passkey.",
+      passkey: "Sign in with Passkey",
+      passkeyNotPasswordHint:
+        "Passkey is passwordless sign-in. It does not fill the password field. For a normal password, tap Password and choose a saved account.",
+      passkeyUnsupported: "This device does not support Passkey.",
       passkeyCancelled: "Passkey sign-in was cancelled.",
-      passkeyFailed: "Could not sign in with Passkey. Try your password.",
+      passkeyFailed: "Could not sign in with Passkey. Use email and password.",
       sessionPersistFailed:
         "Signed in on the server, but this device could not keep the session. Try again.",
     },

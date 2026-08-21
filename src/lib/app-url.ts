@@ -1,6 +1,14 @@
 const DEFAULT_DEV_ORIGIN = "http://localhost:3000";
 export const PRODUCTION_AUTH_ORIGIN = "https://lookcruise.com";
 
+/**
+ * Stable Vercel git-branch alias for staging-preview.
+ * Prefer this over per-deployment `look-<hash>-….vercel.app` URLs when testing
+ * Safari/iOS Password AutoFill (credentials are hostname-scoped).
+ */
+export const STAGING_PREVIEW_ORIGIN =
+  "https://look-git-staging-preview-lookcruise.vercel.app";
+
 /** Supabase allow-list match is exact — no query string on signup confirmation. */
 export const PRODUCTION_SIGNUP_EMAIL_REDIRECT = `${PRODUCTION_AUTH_ORIGIN}/auth/callback`;
 export const PRODUCTION_RESET_EMAIL_REDIRECT = `${PRODUCTION_AUTH_ORIGIN}/auth/callback?next=/reset-password`;

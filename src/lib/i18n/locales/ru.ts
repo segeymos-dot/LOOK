@@ -247,11 +247,15 @@ export const ru = {
       devicePasswordManager: "Использовать сохранённый пароль устройства",
       devicePasswordManagerHint:
         "Пароль сохраняется менеджером паролей браузера или устройства. LOOK сам пароль не хранит. На iPhone нажмите поле пароля и выберите учётные данные (Face ID / Пароли).",
+      passwordAutofillHint:
+        "Пароль подставит iOS: нажмите пустое поле «Пароль» → Passwords / клавиатура → Face ID. LOOK пароль не хранит.",
       or: "или",
-      passkey: "Войти с Face ID / Passkey",
-      passkeyUnsupported: "Это устройство не поддерживает Face ID / Passkey.",
+      passkey: "Войти с Passkey",
+      passkeyNotPasswordHint:
+        "Passkey — вход без пароля. Он не заполняет поле пароля. Для обычного пароля нажмите поле «Пароль» и выберите сохранённый аккаунт.",
+      passkeyUnsupported: "Это устройство не поддерживает Passkey.",
       passkeyCancelled: "Вход с Passkey отменён.",
-      passkeyFailed: "Не удалось войти с Passkey. Попробуйте пароль.",
+      passkeyFailed: "Не удалось войти с Passkey. Используйте email и пароль.",
       sessionPersistFailed:
         "Вход на сервере прошёл, но устройство не сохранило сессию. Попробуйте ещё раз.",
     },

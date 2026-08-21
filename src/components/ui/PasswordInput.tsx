@@ -27,15 +27,13 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
       autoComplete,
       defaultValue,
       value,
+      placeholder,
       revealInLabel = false,
-      readOnly,
-      onFocus,
       ...props
     },
     ref
   ) => {
     const [visible, setVisible] = useState(false);
-    const [autofillUnlocked, setAutofillUnlocked] = useState(!readOnly);
     const { t } = useTranslation();
     const isControlled = value !== undefined;
 
@@ -80,11 +78,8 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           <input
             ref={ref}
             id={id}
-            readOnly={Boolean(readOnly) && !autofillUnlocked}
-            onFocus={(e) => {
-              setAutofillUnlocked(true);
-              onFocus?.(e);
-            }}
+            // Never default to •••••• — that looks like a filled password on iOS.
+            placeholder={placeholder ?? ""}
             className={cn(
               "w-full rounded-xl border border-border bg-surface px-4 py-3",
               !revealInLabel && "pr-12",
