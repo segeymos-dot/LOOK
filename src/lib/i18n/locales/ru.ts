@@ -1245,6 +1245,7 @@ export const ru = {
     supportReplyMessage: "Сообщение",
     supportSendReply: "Отправить ответ",
     supportClose: "Закрыть обращение",
+    supportReplySent: "Ответ отправлен пользователю",
     supportReplyError: "Не удалось отправить ответ",
     supportFromUser: "Пользователь",
     supportFromAdmin: "Администрация",

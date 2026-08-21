@@ -15,6 +15,19 @@ export type LegalConsentProfileFields = {
   adult_confirmed_at?: string | null;
 };
 
+/** Cookie set by middleware / legal-consent API so Edge does not re-query profiles every request. */
+export const LEGAL_CONSENT_COOKIE = "look_legal_ok";
+
+export function currentLegalConsentCookieValue(): string {
+  return `${CURRENT_TERMS_VERSION}|${CURRENT_PRIVACY_VERSION}|${CURRENT_LICENSES_VERSION}`;
+}
+
+export function hasValidLegalConsentCookie(
+  value: string | undefined | null
+): boolean {
+  return Boolean(value && value === currentLegalConsentCookieValue());
+}
+
 /**
  * Platform admins are exempt until product decides otherwise.
  * Regular users must accept current terms + privacy + licenses and confirm 18+.
@@ -52,11 +65,7 @@ export function isLegalConsentExemptPath(pathname: string): boolean {
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password") ||
     pathname.startsWith("/auth/") ||
-    pathname.startsWith("/api/auth/") ||
-    pathname.startsWith("/api/presence/") ||
-    pathname.startsWith("/api/analytics/") ||
-    pathname.startsWith("/api/health/") ||
-    pathname.startsWith("/api/webhooks/")
+    pathname.startsWith("/api/")
   ) {
     return true;
   }

@@ -1,8 +1,13 @@
 import { getFinanceApiUser } from "@/lib/api/finance-auth";
 import {
+  currentLegalConsentCookieValue,
+  LEGAL_CONSENT_COOKIE,
+} from "@/lib/legal/consent";
+import {
   buildLegalConsentWrite,
   recordLegalAcceptances,
 } from "@/lib/legal/record-acceptances";
+import { shouldUseSecureAuthCookies } from "@/lib/supabase/auth-cookie-options";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -75,8 +80,16 @@ export async function POST(request: Request) {
     acceptedAt
   );
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     success: true,
     consent: updated,
   });
+  res.cookies.set(LEGAL_CONSENT_COOKIE, currentLegalConsentCookieValue(), {
+    path: "/",
+    sameSite: "lax",
+    secure: shouldUseSecureAuthCookies(request.url),
+    httpOnly: true,
+    maxAge: 60 * 60 * 24 * 30,
+  });
+  return res;
 }

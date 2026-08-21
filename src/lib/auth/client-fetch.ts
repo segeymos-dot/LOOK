@@ -20,7 +20,8 @@ export async function getAuthenticatedUser() {
 
 export async function authFetch(
   input: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  options?: { timeoutMs?: number }
 ): Promise<Response> {
   const accessToken = await getAccessToken();
   if (!accessToken) {
@@ -33,5 +34,38 @@ export async function authFetch(
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${accessToken}`);
 
-  return fetch(input, { ...init, headers });
+  const timeoutMs = options?.timeoutMs;
+  if (!timeoutMs || timeoutMs <= 0) {
+    return fetch(input, { ...init, headers });
+  }
+
+  const controller = new AbortController();
+  const external = init.signal;
+  const onAbort = () => controller.abort();
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener("abort", onAbort, { once: true });
+  }
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, {
+      ...init,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Превышено время ожидания ответа сервера",
+        }),
+        { status: 504, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    if (external) external.removeEventListener("abort", onAbort);
+  }
 }

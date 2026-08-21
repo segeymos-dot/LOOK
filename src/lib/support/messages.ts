@@ -130,8 +130,10 @@ async function loadEmails(
   const admin = createAdminClient();
   if (!admin || userIds.length === 0) return map;
 
-  await Promise.all(
-    userIds.map(async (id) => {
+  // Cap + short timeout: Auth Admin API must never hang support detail/list.
+  const ids = userIds.slice(0, 20);
+  const lookups = Promise.all(
+    ids.map(async (id) => {
       try {
         const { data, error } = await admin.auth.admin.getUserById(id);
         if (error || !data.user) {
@@ -144,6 +146,11 @@ async function loadEmails(
       }
     })
   );
+
+  await Promise.race([
+    lookups,
+    new Promise<void>((resolve) => setTimeout(resolve, 1500)),
+  ]);
   return map;
 }
 
@@ -262,11 +269,12 @@ export async function listSupportTicketsForAdmin(
   const rows = (data ?? []).map((row) => asTicket(row as Record<string, unknown>));
   const userIds = [...new Set(rows.map((r) => r.user_id))];
   const ticketIds = rows.map((r) => r.id);
-  const [profiles, emails, lastMeta] = await Promise.all([
+  const [profiles, lastMeta] = await Promise.all([
     loadProfiles(supabase, userIds),
-    loadEmails(userIds),
     loadLastThreadMeta(supabase, ticketIds),
   ]);
+  // Emails are optional and can hang Auth Admin API — load only on detail.
+  const emails = new Map<string, string | null>();
 
   return {
     data: rows.map((ticket) => {

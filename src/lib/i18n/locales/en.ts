@@ -1245,6 +1245,7 @@ export const en: TranslationDict = {
     supportReplyMessage: "Message",
     supportSendReply: "Send Reply",
     supportClose: "Close request",
+    supportReplySent: "Reply sent to user",
     supportReplyError: "Could not send reply",
     supportFromUser: "User",
     supportFromAdmin: "Administration",
