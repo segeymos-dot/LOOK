@@ -175,6 +175,8 @@ export const en: TranslationDict = {
       devicePasswordManager: "Use device password manager",
       devicePasswordManagerHint:
         "Passwords are saved by your browser or device password manager. LOOK never stores your password. On iPhone, tap the password field and choose a saved credential (Face ID / Passwords).",
+      passwordAutofillHint:
+        "iOS fills the password: tap the empty Password field → Passwords / keyboard → Face ID. LOOK never stores your password.",
     },
     register: {
       title: "Sign up",

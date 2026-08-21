@@ -173,6 +173,8 @@ export const ru = {
       devicePasswordManager: "Использовать сохранённый пароль устройства",
       devicePasswordManagerHint:
         "Пароль сохраняется менеджером паролей браузера или устройства. LOOK сам пароль не хранит. На iPhone нажмите поле пароля и выберите учётные данные (Face ID / Пароли).",
+      passwordAutofillHint:
+        "Пароль подставит iOS: нажмите пустое поле «Пароль» → Passwords / клавиатура → Face ID. LOOK пароль не хранит.",
     },
     register: {
       title: "Регистрация",

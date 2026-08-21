@@ -21,8 +21,7 @@ type LoginFormProps = {
 
 /**
  * Password login always uses a real HTML form POST + 303 redirect.
- * Safari/iOS Password AutoFill / Save Password depends on that navigation —
- * fetch()+preventDefault and mid-submit React setState break it.
+ * Safari/iOS Password AutoFill / Save Password depends on that navigation.
  */
 export function LoginForm({ initialEmail = "" }: LoginFormProps) {
   const searchParams = useSearchParams();
@@ -31,7 +30,6 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
   const redirect = safeRedirectPath(searchParams.get("redirect"));
   const demo = isDemoMode();
   const formRef = useRef<HTMLFormElement>(null);
-  const passwordRef = useRef<HTMLInputElement>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -45,14 +43,6 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
           : t("auth.login.invalidCredentials"),
     });
   }, [searchParams, t]);
-
-  useEffect(() => {
-    if (!initialEmail.trim()) return;
-    const id = window.setTimeout(() => {
-      passwordRef.current?.focus({ preventScroll: true });
-    }, 50);
-    return () => window.clearTimeout(id);
-  }, [initialEmail]);
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     const formEl = e.currentTarget;
@@ -138,25 +128,18 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
           initialEmail={initialEmail}
         />
         <PasswordInput
-          ref={passwordRef}
           id="current-password"
           name="password"
           autoComplete="current-password"
           label={t("auth.login.password")}
-          placeholder="••••••"
+          placeholder=""
           error={errors.password}
           required
           revealInLabel
-          readOnly
         />
 
-        <p className="rounded-xl border border-border-subtle bg-surface-muted/60 px-3 py-3 text-xs leading-snug text-text-muted">
-          <span className="block text-sm font-medium text-text-primary">
-            {t("auth.login.devicePasswordManager")}
-          </span>
-          <span className="mt-0.5 block">
-            {t("auth.login.devicePasswordManagerHint")}
-          </span>
+        <p className="text-xs leading-snug text-text-muted">
+          {t("auth.login.passwordAutofillHint")}
         </p>
 
         {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
