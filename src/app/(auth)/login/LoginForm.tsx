@@ -2,17 +2,14 @@
 
 import { LoginEmailField } from "@/components/auth/LoginEmailField";
 import { AuthLayout } from "@/components/layout/AuthLayout";
-import { Button } from "@/components/ui/Button";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useTranslation } from "@/components/providers/LocaleProvider";
-import { readLoginCredentialsFromForm } from "@/lib/auth/password-manager";
 import { isDemoMode } from "@/lib/config";
 import { safeRedirectPath } from "@/lib/app-url";
-import { createLoginSchema } from "@/lib/i18n/client-messages";
 import { LOOK_OFFICIAL_WEBSITE_URL } from "@/lib/brand/official-site";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type LoginFormProps = {
   /** Email from look_last_login_email cookie (SSR) — helps Safari associate username. */
@@ -20,16 +17,14 @@ type LoginFormProps = {
 };
 
 /**
- * Password login always uses a real HTML form POST + 303 redirect.
- * Safari/iOS Password AutoFill / Save Password depends on that navigation.
+ * Password login: real HTML form POST to /login/submit → 303 /login/done (200 HTML).
+ * That navigation chain restores Safari/iOS "Save Password".
  */
 export function LoginForm({ initialEmail = "" }: LoginFormProps) {
   const searchParams = useSearchParams();
   const { t } = useTranslation();
-  const loginSchema = useMemo(() => createLoginSchema(t), [t]);
   const redirect = safeRedirectPath(searchParams.get("redirect"));
   const demo = isDemoMode();
-  const formRef = useRef<HTMLFormElement>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -45,30 +40,10 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
   }, [searchParams, t]);
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    const formEl = e.currentTarget;
-    const credentials = readLoginCredentialsFromForm(formEl, {
-      email: "",
-      password: "",
-    });
-
-    const parsed = loginSchema.safeParse(credentials);
-    if (!parsed.success) {
-      e.preventDefault();
-      const fieldErrors: Record<string, string> = {};
-      parsed.error.errors.forEach((err) => {
-        if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
-      });
-      setErrors(fieldErrors);
-      return;
-    }
-
     if (demo) {
       e.preventDefault();
       window.location.assign(redirect);
-      return;
     }
-
-    // Do NOT preventDefault. Do NOT setState. Native POST → 303 redirect.
   };
 
   return (
@@ -112,9 +87,8 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
       }
     >
       <form
-        ref={formRef}
         method="post"
-        action="/api/auth/sign-in-form"
+        action="/login/submit"
         onSubmit={handleSubmit}
         className="space-y-4"
         autoComplete="on"
@@ -158,9 +132,12 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
           </Link>
         </div>
 
-        <Button type="submit" className="w-full">
+        <button
+          type="submit"
+          className="gradient-brand inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold text-white shadow-sm transition-all hover:opacity-95 active:scale-[0.98] active:opacity-90"
+        >
           {t("auth.login.submit")}
-        </Button>
+        </button>
       </form>
     </AuthLayout>
   );

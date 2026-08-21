@@ -7,6 +7,21 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  const pathname = request.nextUrl.pathname;
+
+  // Password form POST owns Set-Cookie + 303 entirely.
+  if (
+    request.method === "POST" &&
+    (pathname === "/login/submit" || pathname === "/api/auth/sign-in-form")
+  ) {
+    return NextResponse.next();
+  }
+
+  // Post-login HTML bridge must stay a 200 document for Safari Save Password.
+  if (pathname === "/login/done") {
+    return NextResponse.next();
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -34,21 +49,23 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Only entry pages — not /login/submit or /login/done.
   const isAuthRoute =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/register");
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname.startsWith("/register/");
 
   const isProtectedRoute =
-    request.nextUrl.pathname.startsWith("/profile") ||
-    request.nextUrl.pathname.startsWith("/requests/new") ||
-    request.nextUrl.pathname.match(/^\/requests\/[^/]+\/offer\/?$/) ||
-    request.nextUrl.pathname.startsWith("/chat") ||
-    request.nextUrl.pathname.startsWith("/my");
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/requests/new") ||
+    pathname.match(/^\/requests\/[^/]+\/offer\/?$/) ||
+    pathname.startsWith("/chat") ||
+    pathname.startsWith("/my");
 
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("redirect", request.nextUrl.pathname);
+    url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
 
@@ -58,11 +75,11 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (request.nextUrl.pathname.startsWith("/admin")) {
+  if (pathname.startsWith("/admin")) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
-      url.searchParams.set("redirect", request.nextUrl.pathname);
+      url.searchParams.set("redirect", pathname);
       return NextResponse.redirect(url);
     }
 

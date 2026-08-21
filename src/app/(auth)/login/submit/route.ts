@@ -1,6 +1,6 @@
 import { handlePasswordFormSignIn } from "@/lib/auth/password-form-sign-in";
 
-/** @deprecated Prefer POST /login/submit — kept for older form action URLs. */
+/** Classic login form target for Safari/iOS Save Password. */
 export async function POST(request: Request) {
   return handlePasswordFormSignIn(request);
 }
