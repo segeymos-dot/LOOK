@@ -3,6 +3,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { OfficialSiteLink } from "@/components/brand/OfficialSiteLink";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Textarea } from "@/components/ui/Textarea";
@@ -10,13 +11,26 @@ import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { authFetch } from "@/lib/auth/client-fetch";
 import { LOOK_OFFICIAL_WEBSITE_URL } from "@/lib/brand/official-site";
-import { ExternalLink, Headphones, Mail } from "lucide-react";
+import type { AdminSupportTicketListItem } from "@/lib/support/types";
+import { cn } from "@/lib/utils";
+import { ExternalLink, Headphones, Inbox, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { isDemoMode } from "@/lib/config";
 
 type View = "home" | "compose" | "success";
+
+function formatWhen(iso: string, locale: string) {
+  try {
+    return new Date(iso).toLocaleString(locale === "en" ? "en-GB" : "ru-RU", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 /**
  * LOOK administrative support — separate from customer↔provider chats (/chat).
@@ -38,8 +52,10 @@ export function SupportPageContent() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tickets, setTickets] = useState<AdminSupportTicketListItem[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [ticketsError, setTicketsError] = useState<string | null>(null);
 
-  // Platform admins use the support inbox, not the user compose flow.
   useEffect(() => {
     if (!ready || !profileReady) return;
     if (isPlatformAdmin || isDemoMode()) {
@@ -53,6 +69,35 @@ export function SupportPageContent() {
     if (isProvider) return "provider" as const;
     return "customer" as const;
   }, [effectiveUiMode, isCustomer, isProvider]);
+
+  const loadTickets = useCallback(async () => {
+    if (!user) {
+      setTickets([]);
+      return;
+    }
+    setTicketsLoading(true);
+    setTicketsError(null);
+    try {
+      const res = await authFetch("/api/support/messages");
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setTicketsError(data.error ?? t("common.error"));
+        return;
+      }
+      setTickets(data.messages ?? []);
+    } catch {
+      setTicketsError(t("common.error"));
+    } finally {
+      setTicketsLoading(false);
+    }
+  }, [user, t]);
+
+  useEffect(() => {
+    if (!ready || !profileReady) return;
+    if (isPlatformAdmin || isDemoMode()) return;
+    if (view !== "home") return;
+    void loadTickets();
+  }, [ready, profileReady, isPlatformAdmin, view, loadTickets]);
 
   const resetForm = () => {
     setSubject("");
@@ -100,6 +145,7 @@ export function SupportPageContent() {
       }
       resetForm();
       setView("success");
+      void loadTickets();
     } catch {
       setError(t("support.sendError"));
     } finally {
@@ -189,7 +235,7 @@ export function SupportPageContent() {
     return (
       <AppLayout hideNav title={t("support.title")}>
         <div className="space-y-5 p-4 pb-8">
-          <PageHeader title={t("support.title")} backHref="/" />
+          <PageHeader title={t("support.title")} backHref="/support" />
           <div className="space-y-4 rounded-2xl border border-border-subtle bg-surface px-4 py-5">
             <p className="text-sm leading-relaxed text-emerald-700">
               {t("support.sentSuccess")}
@@ -237,6 +283,68 @@ export function SupportPageContent() {
             <Mail className="h-4 w-4" aria-hidden />
             {t("support.contactAdmin")}
           </Button>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Inbox className="h-4 w-4 text-brand-600" aria-hidden />
+            <h2 className="font-semibold text-text-primary">
+              {t("support.myRequests")}
+            </h2>
+          </div>
+
+          {!user ? (
+            <Card padding="md" className="text-sm text-text-secondary">
+              {t("support.loginRequired")}
+            </Card>
+          ) : ticketsLoading ? (
+            <p className="text-sm text-text-muted">{t("common.loading")}</p>
+          ) : ticketsError ? (
+            <p className="text-sm text-danger">{ticketsError}</p>
+          ) : tickets.length === 0 ? (
+            <Card padding="md" className="text-sm text-text-muted">
+              {t("support.myRequestsEmpty")}
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {tickets.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/support/${item.id}`}
+                  className="block"
+                >
+                  <Card
+                    padding="md"
+                    className={cn(
+                      "space-y-1.5 transition hover:border-brand-300 hover:bg-brand-50/30",
+                      item.unread &&
+                        "border-brand-400 bg-brand-50/40 ring-1 ring-brand-200"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="truncate font-semibold text-text-primary">
+                        {item.subject}
+                      </p>
+                      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-text-secondary">
+                        {t(`admin.supportStatus.${item.status}`)}
+                      </span>
+                    </div>
+                    {item.unread ? (
+                      <p className="text-xs font-medium text-brand-700">
+                        {t("support.adminReply")}
+                      </p>
+                    ) : null}
+                    <p className="text-xs text-text-muted">
+                      {formatWhen(
+                        item.last_activity_at || item.created_at,
+                        locale
+                      )}
+                    </p>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="space-y-2 rounded-2xl border border-border-subtle bg-surface px-4 py-4">

@@ -6,6 +6,7 @@ import {
 import {
   createSupportMessageSchema,
   insertSupportMessage,
+  listSupportTicketsForUser,
 } from "@/lib/support/messages";
 import type { UserRole } from "@/types";
 import { NextResponse } from "next/server";
@@ -23,6 +24,21 @@ function resolveRole(
   if (canActAsCustomer(profileRole ?? "customer")) return "customer";
   if (canActAsProvider(profileRole ?? "provider")) return "provider";
   return null;
+}
+
+export async function GET(request: Request) {
+  const auth = await requireAuthContext(request);
+  if ("error" in auth) return auth.error;
+
+  const result = await listSupportTicketsForUser(auth.supabase, auth.user.id);
+  if (result.error) {
+    return NextResponse.json(
+      { success: false, error: result.error },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ success: true, messages: result.data });
 }
 
 export async function POST(request: Request) {

@@ -9,7 +9,7 @@ import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { authFetch } from "@/lib/auth/client-fetch";
 import { isDemoMode } from "@/lib/config";
-import type { AdminSupportMessageWithUser } from "@/lib/support/types";
+import type { AdminSupportTicketListItem } from "@/lib/support/types";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,7 +38,7 @@ export default function AdminSupportListPage() {
   const { t, locale } = useTranslation();
   const { isPlatformAdmin, ready, profileReady } = useAuth();
   const demo = isDemoMode();
-  const [messages, setMessages] = useState<AdminSupportMessageWithUser[]>([]);
+  const [messages, setMessages] = useState<AdminSupportTicketListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,7 +109,6 @@ export default function AdminSupportListPage() {
         ) : (
           <div className="space-y-3">
             {messages.map((item) => {
-              const isNew = item.status === "new";
               const displayName =
                 item.user?.full_name?.trim() || item.user_id;
               return (
@@ -122,7 +121,8 @@ export default function AdminSupportListPage() {
                     padding="md"
                     className={cn(
                       "space-y-2 transition hover:border-brand-300 hover:bg-brand-50/30",
-                      isNew && "border-brand-400 bg-brand-50/50 ring-1 ring-brand-200"
+                      item.unread &&
+                        "border-brand-400 bg-brand-50/50 ring-1 ring-brand-200"
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -133,15 +133,14 @@ export default function AdminSupportListPage() {
                         </p>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1">
-                        {isNew ? (
+                        {item.unread ? (
                           <span className="rounded-full bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
-                            {t("admin.supportStatus.new")}
+                            {t("admin.supportUnread")}
                           </span>
-                        ) : (
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-text-secondary">
-                            {t(`admin.supportStatus.${item.status}`)}
-                          </span>
-                        )}
+                        ) : null}
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-text-secondary">
+                          {t(`admin.supportStatus.${item.status}`)}
+                        </span>
                       </div>
                     </div>
                     <p className="text-sm text-text-secondary">
@@ -152,13 +151,16 @@ export default function AdminSupportListPage() {
                         : t("role.customer")}
                     </p>
                     <p className="line-clamp-2 text-sm text-text-muted">
-                      {previewText(item.message)}
+                      {previewText(item.last_message || item.message)}
                     </p>
                     <p className="text-xs text-text-muted">
                       <span className="font-medium text-text-secondary">
-                        {t("admin.supportWhen")}:{" "}
+                        {t("admin.supportLastActivity")}:{" "}
                       </span>
-                      {formatWhen(item.created_at, locale)}
+                      {formatWhen(
+                        item.last_activity_at || item.created_at,
+                        locale
+                      )}
                     </p>
                   </Card>
                 </Link>
