@@ -43,6 +43,8 @@
     "test:admin-disputes": "node scripts/verify-admin-dispute-resolution.mjs",
     "repair:cancelled-paid-refund": "node scripts/repair-cancelled-paid-refund.mjs",
     "repair:refund-ledger": "node scripts/repair-refund-ledger.mjs",
+    "test:admin-support-e2e": "node scripts/verify-admin-support-e2e.mjs",
+    "cleanup:e2e-support": "node scripts/cleanup-e2e-support-tickets.mjs --env .env.staging.local",
     "desktop": "npm run desktop:install",
     "desktop:build": "bash desktop/scripts/build-mac-app.sh",
     "desktop:install": "bash desktop/scripts/install-to-desktop.sh",
