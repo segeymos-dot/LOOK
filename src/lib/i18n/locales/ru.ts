@@ -521,7 +521,7 @@ export const ru = {
     supportUser: "Пользователь",
     supportRole: "Роль",
     supportStatusLabel: "Статус",
-    supportWhen: "Дата",
+    supportWhen: "Дата обращения",
     supportLanguage: "Язык",
     supportReplyLater:
       "Ответ пользователю будет доступен после подключения двустороннего канала. Сейчас обращение сохранено и доступно администрации.",

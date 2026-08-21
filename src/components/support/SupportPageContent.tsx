@@ -12,7 +12,9 @@ import { authFetch } from "@/lib/auth/client-fetch";
 import { LOOK_OFFICIAL_WEBSITE_URL } from "@/lib/brand/official-site";
 import { ExternalLink, Headphones, Mail } from "lucide-react";
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { isDemoMode } from "@/lib/config";
 
 type View = "home" | "compose" | "success";
 
@@ -20,13 +22,23 @@ type View = "home" | "compose" | "success";
  * LOOK administrative support — separate from customer↔provider chats (/chat).
  */
 export function SupportPageContent() {
+  const router = useRouter();
   const { t, locale } = useTranslation();
-  const { user, ready, isCustomer, isProvider } = useAuth();
+  const { user, ready, profileReady, isCustomer, isProvider, isPlatformAdmin } =
+    useAuth();
   const [view, setView] = useState<View>("home");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Platform admins use the support inbox, not the user compose flow.
+  useEffect(() => {
+    if (!ready || !profileReady) return;
+    if (isPlatformAdmin || isDemoMode()) {
+      router.replace("/admin/support");
+    }
+  }, [ready, profileReady, isPlatformAdmin, router]);
 
   const userRole = useMemo(() => {
     if (isProvider && !isCustomer) return "provider" as const;
@@ -87,6 +99,10 @@ export function SupportPageContent() {
       setLoading(false);
     }
   };
+
+  if (ready && profileReady && (isPlatformAdmin || isDemoMode())) {
+    return null;
+  }
 
   if (view === "compose") {
     return (

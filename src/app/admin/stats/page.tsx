@@ -12,7 +12,7 @@ import type { PlatformStats } from "@/lib/analytics/platform-stats";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, RefreshCw } from "lucide-react";
+import { BarChart3, Headphones, RefreshCw } from "lucide-react";
 
 export default function AdminStatsPage() {
   const router = useRouter();
@@ -79,8 +79,9 @@ export default function AdminStatsPage() {
             {t("admin.refresh")}
           </Button>
           <Link href="/admin/support" className="flex-1">
-            <Button variant="outline" className="w-full">
-              {t("admin.supportTitle")}
+            <Button variant="outline" className="w-full gap-2">
+              <Headphones className="h-4 w-4" />
+              {t("home.trustSupport")}
             </Button>
           </Link>
           <Link href="/admin/platform" className="flex-1">

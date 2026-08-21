@@ -303,7 +303,7 @@ export default function ProfilePage() {
                   <Link href="/admin/support">
                     <Button variant="outline" className="w-full justify-start gap-2" size="sm">
                       <Headphones className="h-4 w-4" />
-                      {t("admin.supportTitle")}
+                      {t("home.trustSupport")}
                     </Button>
                   </Link>
                   <Link href="/admin/platform">

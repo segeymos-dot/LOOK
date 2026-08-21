@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { ArrowRight, Headphones, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useTranslation } from "@/components/providers/LocaleProvider";
+import { useAuth } from "@/hooks/useAuth";
+import { isDemoMode } from "@/lib/config";
 
 export function HomeSectionHeaders() {
   const { t } = useTranslation();
@@ -72,9 +74,12 @@ export function HomeRecentHeader() {
   );
 }
 
-/** Home trust row — Support opens /support, never user↔user chats. */
+/** Home trust row — Support opens admin inbox for platform admins, else /support. Never user↔user chats. */
 export function HomeTrustRow() {
   const { t } = useTranslation();
+  const { isPlatformAdmin } = useAuth();
+  const supportHref =
+    isPlatformAdmin || isDemoMode() ? "/admin/support" : "/support";
   const items = [
     {
       label: t("home.trustVerified"),
@@ -89,7 +94,7 @@ export function HomeTrustRow() {
     {
       label: t("home.trustSupport"),
       Icon: Headphones,
-      href: "/support",
+      href: supportHref,
     },
   ] as const;
 
