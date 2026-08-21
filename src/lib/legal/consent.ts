@@ -45,6 +45,7 @@ export function isLegalConsentExemptPath(pathname: string): boolean {
     pathname.startsWith("/terms") ||
     pathname.startsWith("/privacy") ||
     pathname.startsWith("/licenses") ||
+    pathname.startsWith("/support") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
     pathname.startsWith("/check-email") ||

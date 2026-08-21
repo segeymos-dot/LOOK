@@ -18,6 +18,19 @@ export const en: TranslationDict = {
     add: "Add",
     user: "User",
   },
+  brand: {
+    officialSite: "Official LOOK Website",
+  },
+  support: {
+    title: "LOOK Support",
+    body: "Contact LOOK administration if you have a question about the app, your account, security, or the service.",
+    contactAdmin: "Contact Administrator",
+    adminSlotTitle: "Administrator messaging",
+    adminSlotBody:
+      "A dedicated channel to LOOK administration is not connected yet. This screen does not open customer ↔ provider chats — those stay in the Chats tab.",
+    adminSlotHint:
+      "When the admin-support backend is ready, messaging with administrators will appear in this block.",
+  },
   nav: {
     home: "Home",
     search: "Search",

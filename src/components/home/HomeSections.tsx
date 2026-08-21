@@ -141,7 +141,7 @@ export function HomeTrustRow() {
     {
       label: t("home.trustSupport"),
       Icon: Headphones,
-      href: "/chat",
+      href: "/support",
     },
   ] as const;
 
