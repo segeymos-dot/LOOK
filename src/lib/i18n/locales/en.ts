@@ -384,7 +384,7 @@ export const en: TranslationDict = {
     completedOrdersAria: "Completed orders: {count}",
     trustVerified: "Verified professionals",
     trustSecure: "Secure deals",
-    trustSupport: "Support 24/7",
+    trustSupport: "24/7 Support",
     trustAriaLabel: "LOOK benefits",
     findProvider: "Find a provider",
     findOrders: "Find orders",
@@ -1225,7 +1225,7 @@ export const en: TranslationDict = {
     supportUser: "User",
     supportRole: "Role",
     supportStatusLabel: "Status",
-    supportWhen: "Date",
+    supportWhen: "Created",
     supportLanguage: "Language",
     supportReplyLater:
       "Replies to users will be available after a two-way channel is connected. The request is saved and visible to administration.",

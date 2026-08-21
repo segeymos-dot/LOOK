@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { authFetch } from "@/lib/auth/client-fetch";
 import { isDemoMode } from "@/lib/config";
 import type { AdminSupportMessageWithUser } from "@/lib/support/types";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -24,6 +25,12 @@ function formatWhen(iso: string, locale: string) {
   } catch {
     return iso;
   }
+}
+
+function previewText(message: string, max = 140) {
+  const trimmed = message.trim().replace(/\s+/g, " ");
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 1)}…`;
 }
 
 export default function AdminSupportListPage() {
@@ -70,7 +77,7 @@ export default function AdminSupportListPage() {
       <div className="space-y-5 p-4 pb-8">
         <PageHeader
           title={t("admin.supportTitle")}
-          subtitle={t("admin.supportSubtitle")}
+          subtitle={t("home.trustSupport")}
           backHref="/profile"
         />
 
@@ -101,39 +108,62 @@ export default function AdminSupportListPage() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {messages.map((item) => (
-              <Link key={item.id} href={`/admin/support/${item.id}`} className="block">
-                <Card
-                  padding="md"
-                  className="space-y-2 transition hover:border-brand-300 hover:bg-brand-50/30"
+            {messages.map((item) => {
+              const isNew = item.status === "new";
+              const displayName =
+                item.user?.full_name?.trim() || item.user_id;
+              return (
+                <Link
+                  key={item.id}
+                  href={`/admin/support/${item.id}`}
+                  className="block"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Headphones className="h-4 w-4 shrink-0 text-brand-600" />
-                      <p className="truncate font-semibold text-text-primary">
-                        {item.subject}
-                      </p>
+                  <Card
+                    padding="md"
+                    className={cn(
+                      "space-y-2 transition hover:border-brand-300 hover:bg-brand-50/30",
+                      isNew && "border-brand-400 bg-brand-50/50 ring-1 ring-brand-200"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Headphones className="h-4 w-4 shrink-0 text-brand-600" />
+                        <p className="truncate font-semibold text-text-primary">
+                          {item.subject}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        {isNew ? (
+                          <span className="rounded-full bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">
+                            {t("admin.supportStatus.new")}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-text-secondary">
+                            {t(`admin.supportStatus.${item.status}`)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-text-secondary">
-                      {t(`admin.supportStatus.${item.status}`)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-text-secondary">
-                    {item.user?.full_name?.trim() || item.user_id.slice(0, 8)}
-                    {" · "}
-                    {item.user_role === "provider"
-                      ? t("role.provider")
-                      : t("role.customer")}
-                  </p>
-                  <p className="line-clamp-2 text-sm text-text-muted">
-                    {item.message}
-                  </p>
-                  <p className="text-xs text-text-muted">
-                    {formatWhen(item.created_at, locale)}
-                  </p>
-                </Card>
-              </Link>
-            ))}
+                    <p className="text-sm text-text-secondary">
+                      {displayName}
+                      {" · "}
+                      {item.user_role === "provider"
+                        ? t("role.provider")
+                        : t("role.customer")}
+                    </p>
+                    <p className="line-clamp-2 text-sm text-text-muted">
+                      {previewText(item.message)}
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      <span className="font-medium text-text-secondary">
+                        {t("admin.supportWhen")}:{" "}
+                      </span>
+                      {formatWhen(item.created_at, locale)}
+                    </p>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

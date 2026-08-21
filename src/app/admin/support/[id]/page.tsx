@@ -73,7 +73,7 @@ export default function AdminSupportDetailPage() {
       <div className="space-y-5 p-4 pb-8">
         <PageHeader
           title={t("admin.supportDetailTitle")}
-          subtitle={t("admin.supportTitle")}
+          subtitle={t("home.trustSupport")}
           backHref="/admin/support"
         />
 
@@ -85,7 +85,26 @@ export default function AdminSupportDetailPage() {
         {error ? <p className="text-sm text-danger">{error}</p> : null}
 
         {message ? (
-          <Card padding="md" className="space-y-4">
+          <Card
+            padding="md"
+            className={
+              message.status === "new"
+                ? "space-y-4 border-brand-400 ring-1 ring-brand-200"
+                : "space-y-4"
+            }
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              {message.status === "new" ? (
+                <span className="rounded-full bg-brand-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+                  {t("admin.supportStatus.new")}
+                </span>
+              ) : (
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-text-secondary">
+                  {t(`admin.supportStatus.${message.status}`)}
+                </span>
+              )}
+            </div>
+
             <div className="space-y-1">
               <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
                 {t("support.subject")}
