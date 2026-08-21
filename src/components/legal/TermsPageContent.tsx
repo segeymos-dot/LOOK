@@ -1,6 +1,7 @@
 "use client";
 
 import { AppLayout } from "@/components/layout/AppLayout";
+import { OfficialSiteLink } from "@/components/brand/OfficialSiteLink";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 
@@ -44,6 +45,9 @@ export function TermsPageContent() {
             <a href="mailto:support@look.app" className="text-brand-600">
               support@look.app
             </a>
+          </p>
+          <p>
+            <OfficialSiteLink showIcon className="font-semibold" />
           </p>
         </div>
       </div>

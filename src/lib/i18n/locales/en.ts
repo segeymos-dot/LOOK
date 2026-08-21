@@ -17,6 +17,10 @@ export const en: TranslationDict = {
     add: "Add",
     user: "User",
   },
+  brand: {
+    officialSite: "Official LOOK Website",
+    officialSiteDesc: "lookappworld.com",
+  },
   nav: {
     home: "Home",
     search: "Search",
@@ -433,6 +437,7 @@ export const en: TranslationDict = {
     portfolio: "Portfolio",
     categories: "Categories",
     edit: "Edit profile",
+    officialSite: "Official LOOK Website",
     myRequests: "My requests",
     findOrders: "Find orders",
     myOffers: "My offers",

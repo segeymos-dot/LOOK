@@ -15,6 +15,7 @@ import { mockCategories } from "@/lib/mock/data";
 import { createRegisterSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
 import { createClient } from "@/lib/supabase/client";
 import type { Category, UserRole } from "@/types";
+import { LOOK_OFFICIAL_WEBSITE_URL } from "@/lib/brand/official-site";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -195,6 +196,15 @@ export default function RegisterPage() {
             <Link href="/privacy" className="text-brand-600">
               {t("legal.privacyLink")}
             </Link>
+            {" · "}
+            <a
+              href={LOOK_OFFICIAL_WEBSITE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brand-600"
+            >
+              {t("brand.officialSite")}
+            </a>
           </p>
         </div>
       }

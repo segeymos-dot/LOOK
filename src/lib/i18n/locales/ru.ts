@@ -15,6 +15,10 @@ export const ru = {
     add: "Добавить",
     user: "Пользователь",
   },
+  brand: {
+    officialSite: "Официальный сайт LOOK",
+    officialSiteDesc: "lookappworld.com",
+  },
   nav: {
     home: "Главная",
     search: "Поиск",
@@ -431,6 +435,7 @@ export const ru = {
     portfolio: "Портфолио",
     categories: "Категории",
     edit: "Редактировать профиль",
+    officialSite: "Официальный сайт LOOK",
     myRequests: "Мои запросы",
     findOrders: "Найти заказы",
     myOffers: "Мои предложения",

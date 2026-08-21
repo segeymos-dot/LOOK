@@ -11,6 +11,7 @@ import { isDemoMode } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/app-url";
 import { createLoginSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
+import { LOOK_OFFICIAL_WEBSITE_URL } from "@/lib/brand/official-site";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useMemo, useState } from "react";
@@ -124,6 +125,15 @@ function LoginForm() {
             <Link href="/privacy" className="text-brand-600">
               {t("legal.privacyLink")}
             </Link>
+            {" · "}
+            <a
+              href={LOOK_OFFICIAL_WEBSITE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brand-600"
+            >
+              {t("brand.officialSite")}
+            </a>
           </p>
         </div>
       }

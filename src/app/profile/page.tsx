@@ -19,6 +19,7 @@ import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { isDemoMode } from "@/lib/config";
+import { LOOK_OFFICIAL_WEBSITE_URL } from "@/lib/brand/official-site";
 import {
   canActAsCustomer,
   canActAsProvider,
@@ -36,6 +37,7 @@ import {
   Building2,
   ClipboardList,
   ExternalLink,
+  Globe,
   History,
   LogOut,
   Mail,
@@ -488,6 +490,16 @@ export default function ProfilePage() {
                   </Link>
                 </>
               )}
+              <a
+                href={LOOK_OFFICIAL_WEBSITE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 text-base font-semibold text-text-primary transition-all hover:border-brand-300 hover:bg-brand-50"
+              >
+                <Globe className="h-4 w-4" />
+                {t("profile.officialSite")}
+                <ExternalLink className="h-4 w-4 opacity-70" aria-hidden />
+              </a>
               <Button
                 variant="outline"
                 className="w-full gap-2"
