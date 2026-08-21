@@ -12,14 +12,13 @@ import {
   passkeyErrorCode,
   signInWithUserPasskey,
 } from "@/lib/auth/passkeys";
-import { readLoginCredentialsFromForm } from "@/lib/auth/password-manager";
 import { syncClientSession } from "@/lib/auth/sync-client-session";
 import { isDemoMode } from "@/lib/config";
 import { safeRedirectPath } from "@/lib/app-url";
-import { createLoginSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
+import { mapAuthErrorT } from "@/lib/i18n/client-messages";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type LoginFormProps = {
   /** Email from look_last_login_email cookie (SSR) — helps Safari associate username. */
@@ -27,20 +26,18 @@ type LoginFormProps = {
 };
 
 /**
- * Password login always uses a real HTML form POST + 303 redirect.
- * Safari/iOS Password AutoFill / Save Password depends on that navigation.
+ * Password login: real HTML form POST to /login/submit → 303 /login/done (200 HTML).
+ * That navigation chain is what restores Safari/iOS "Save Password".
  *
- * Passkey is a separate WebAuthn flow (outside this form). It does not fill
- * the password field and must not be confused with iCloud Keychain AutoFill.
+ * Do not use fetch/preventDefault for the password path. Do not put loading UI
+ * on the submit button during native submit. Passkey stays outside this form.
  */
 export function LoginForm({ initialEmail = "" }: LoginFormProps) {
   const searchParams = useSearchParams();
   const { syncSession } = useAuth();
   const { t } = useTranslation();
-  const loginSchema = useMemo(() => createLoginSchema(t), [t]);
   const redirect = safeRedirectPath(searchParams.get("redirect"));
   const demo = isDemoMode();
-  const formRef = useRef<HTMLFormElement>(null);
 
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
@@ -68,7 +65,6 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
       window.location.assign(redirect);
       return;
     }
-    // Never clear password-form errors / username — Passkey is independent.
     setPasskeyNotice(null);
     setPasskeyLoading(true);
     try {
@@ -76,7 +72,6 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
       if (error || !data?.session?.access_token || !data.session.refresh_token) {
         const code = passkeyErrorCode(error);
         setPasskeyLoading(false);
-        // User dismissed Face ID / Passkey sheet — silent; password form stays usable.
         if (code === "cancelled") return;
         setPasskeyNotice(
           code === "unsupported"
@@ -112,30 +107,12 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
   };
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    const formEl = e.currentTarget;
-    const credentials = readLoginCredentialsFromForm(formEl, {
-      email: "",
-      password: "",
-    });
-
-    const parsed = loginSchema.safeParse(credentials);
-    if (!parsed.success) {
-      e.preventDefault();
-      const fieldErrors: Record<string, string> = {};
-      parsed.error.errors.forEach((err) => {
-        if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
-      });
-      setErrors(fieldErrors);
-      return;
-    }
-
+    // Only intercept demo mode. Real login must be a native POST so Safari
+    // can offer Save Password — never preventDefault / fetch / setState here.
     if (demo) {
       e.preventDefault();
       window.location.assign(redirect);
-      return;
     }
-
-    // Do NOT preventDefault. Do NOT setState. Native POST → 303 redirect.
   };
 
   return (
@@ -170,11 +147,9 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
       }
     >
       <div className="space-y-4">
-        {/* Password form alone — Safari AutoFill heuristics must see a clean login form. */}
         <form
-          ref={formRef}
           method="post"
-          action="/api/auth/sign-in-form"
+          action="/login/submit"
           onSubmit={handleSubmit}
           className="space-y-4"
           autoComplete="on"
@@ -192,7 +167,6 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
             name="password"
             autoComplete="current-password"
             label={t("auth.login.password")}
-            // Empty when no real value — never use •••••• (looks like a filled password).
             placeholder=""
             error={errors.password}
             required
@@ -222,12 +196,16 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
             </Link>
           </div>
 
-          <Button type="submit" disabled={passkeyLoading} className="w-full">
+          {/* Native submit control — no loading swap that remounts during POST. */}
+          <button
+            type="submit"
+            disabled={passkeyLoading}
+            className="gradient-brand inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold text-white shadow-sm transition-all hover:opacity-95 active:scale-[0.98] active:opacity-90 disabled:pointer-events-none disabled:opacity-50"
+          >
             {t("auth.login.submit")}
-          </Button>
+          </button>
         </form>
 
-        {/* Passkey is OUTSIDE the password form — not Password AutoFill. */}
         {passkeyAvailable && (
           <div className="space-y-3">
             <div className="relative py-1 text-center">

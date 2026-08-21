@@ -70,10 +70,25 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
-  let supabaseResponse = NextResponse.next({ request });
   const requestUrl = request.url;
   const pathname = request.nextUrl.pathname;
   const isApiRoute = pathname.startsWith("/api/");
+
+  // Password form POST owns Set-Cookie + 303 entirely. Do not run getUser /
+  // cookie rewrite here — it can interfere with Safari Save Password.
+  if (
+    request.method === "POST" &&
+    (pathname === "/login/submit" || pathname === "/api/auth/sign-in-form")
+  ) {
+    return NextResponse.next();
+  }
+
+  // Post-login HTML bridge must stay a 200 document for Safari Save Password.
+  if (pathname === "/login/done") {
+    return NextResponse.next();
+  }
+
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     getSupabaseUrl(),
@@ -105,8 +120,11 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Only the login/register entry pages — not /login/submit or /login/done.
   const isAuthRoute =
-    pathname.startsWith("/login") || pathname.startsWith("/register");
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname.startsWith("/register/");
 
   const isProtectedRoute =
     pathname.startsWith("/profile") ||
