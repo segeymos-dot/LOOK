@@ -5,9 +5,16 @@ export const PRODUCTION_AUTH_ORIGIN = "https://lookcruise.com";
  * Stable Vercel git-branch alias for staging-preview.
  * Prefer this over per-deployment `look-<hash>-….vercel.app` URLs when testing
  * Safari/iOS Password AutoFill (credentials are hostname-scoped).
+ * Never use this URL in QR codes or public marketing links.
  */
 export const STAGING_PREVIEW_ORIGIN =
   "https://look-git-staging-preview-lookcruise.vercel.app";
+
+/** Permanent public entry for QR / social / ads — see `src/lib/open-link.ts`. */
+export {
+  LOOK_OPEN_PATH,
+  LOOK_PUBLIC_OPEN_URL,
+} from "@/lib/open-link";
 
 /** Supabase allow-list match is exact — no query string on signup confirmation. */
 export const PRODUCTION_SIGNUP_EMAIL_REDIRECT = `${PRODUCTION_AUTH_ORIGIN}/auth/callback`;

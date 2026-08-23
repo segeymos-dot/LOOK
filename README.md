@@ -9,6 +9,18 @@ MVP мобильного приложения для глобального ма
 - **Backend:** Supabase (Auth, PostgreSQL, Realtime)
 - **Валидация:** Zod
 
+## Домены
+
+| Роль | URL |
+|------|-----|
+| Production (приложение) | `https://lookcruise.com` |
+| Универсальная публичная ссылка (QR / соцсети / реклама) | `https://lookcruise.com/open` |
+| Маркетинговый сайт (вторичный) | `https://lookappworld.com` |
+| Staging / preview | `https://look-git-staging-preview-lookcruise.vercel.app` |
+
+`www.lookcruise.com` редиректит на `lookcruise.com` (`vercel.json`).  
+QR-коды: `assets/qr/` — всегда кодируют только `https://lookcruise.com/open` (`scripts/generate-look-qr.mjs`).
+
 ## Быстрый старт
 
 ### 1. Установка зависимостей
