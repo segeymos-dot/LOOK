@@ -107,11 +107,71 @@ export function getExpectedDevHost(): string | null {
   }
 }
 
+/** Loopback aliases that must not redirect to each other (Safari redirect loops). */
+function loopbackHostname(host: string): string | null {
+  const hostname = host.trim().toLowerCase().split(":")[0] ?? "";
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "[::1]"
+  ) {
+    return "loopback";
+  }
+  return null;
+}
+
+/**
+ * True when both Host values are the same local machine under different aliases
+ * (localhost ↔ 127.0.0.1 ↔ ::1). Redirecting between these causes relative
+ * Location loops in Safari while cookies bind to only one host.
+ */
+export function areEquivalentDevHosts(a: string, b: string): boolean {
+  if (a === b) return true;
+  const portOf = (host: string) => {
+    const idx = host.lastIndexOf(":");
+    if (idx <= 0) return "";
+    // IPv6 like [::1]:3000
+    if (host.startsWith("[")) {
+      const end = host.indexOf("]");
+      return end >= 0 && host[end + 1] === ":" ? host.slice(end + 2) : "";
+    }
+    return host.slice(idx + 1);
+  };
+  const aLoop = loopbackHostname(a);
+  const bLoop = loopbackHostname(b);
+  if (!aLoop || !bLoop) return false;
+  return portOf(a) === portOf(b);
+}
+
+/**
+ * Safe internal post-auth path. Rejects external URLs, protocol-relative URLs,
+ * auth routes (prevents login↔login loops), and nested redirect query noise.
+ */
 export function safeRedirectPath(value: string | null | undefined): string {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
     return "/";
   }
-  return value;
+
+  let path = value;
+  try {
+    const parsed = new URL(value, "http://local.invalid");
+    path = parsed.pathname || "/";
+  } catch {
+    return "/";
+  }
+
+  if (
+    path === "/login" ||
+    path === "/register" ||
+    path.startsWith("/login/") ||
+    path.startsWith("/register/") ||
+    path.startsWith("/auth/")
+  ) {
+    return "/";
+  }
+
+  return path;
 }
 
 export function getAuthEmailRedirectTo(kind: "signup" | "reset" = "signup"): string {

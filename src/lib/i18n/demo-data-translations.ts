@@ -14,6 +14,37 @@ export const CATEGORY_LABELS: Record<string, Bilingual> = {
   other: { ru: "Другое", en: "Other" },
 };
 
+/** Compact Home grid line breaks (same labels as CATEGORY_LABELS). */
+export const CATEGORY_LABEL_LINES: Record<string, { ru: string[]; en: string[] }> = {
+  repair: {
+    ru: ["Ремонт и", "Строительство"],
+    en: ["Home Repair &", "Construction"],
+  },
+  it: {
+    ru: ["IT и", "разработка"],
+    en: ["IT & Software", "Development"],
+  },
+  design: { ru: ["Дизайн"], en: ["Design"] },
+  education: { ru: ["Образование"], en: ["Education"] },
+  beauty: {
+    ru: ["Красота и", "здоровье"],
+    en: ["Beauty &", "Wellness"],
+  },
+  transport: {
+    ru: ["Транспорт и", "доставка"],
+    en: ["Transport &", "Delivery"],
+  },
+  photo: {
+    ru: ["Фото и", "видео"],
+    en: ["Photo &", "Video"],
+  },
+  legal: {
+    ru: ["Юридические", "услуги"],
+    en: ["Legal", "Services"],
+  },
+  other: { ru: ["Другое"], en: ["Other"] },
+};
+
 /** Exact-match strings stored in the demo / test database. */
 export const DEMO_STRINGS: Bilingual[] = [
   // Order titles
@@ -105,6 +136,7 @@ export const DEMO_STRINGS: Bilingual[] = [
   { ru: "Потрясающий дизайн, всё понравилось!", en: "Amazing design, loved everything!" },
   // Locations
   { ru: "Москва", en: "Moscow" },
+  { ru: "Бангкок", en: "Bangkok" },
   { ru: "Санкт-Петербург", en: "Saint Petersburg" },
   { ru: "Казань", en: "Kazan" },
   { ru: "Россия", en: "Russia" },

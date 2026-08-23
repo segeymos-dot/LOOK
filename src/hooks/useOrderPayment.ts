@@ -81,7 +81,8 @@ export function useOrderPayment(requestId: string, enabled = true) {
       return { ok: true, url: data.checkout_url };
     }
 
-    const useTestFallback = Boolean(data.test_fallback || data.demo_fallback || res.status === 503);
+    // Only follow the fake-card path when the server explicitly allows it.
+    const useTestFallback = Boolean(data.test_fallback || data.demo_fallback);
     return {
       ok: false,
       useTestFallback,

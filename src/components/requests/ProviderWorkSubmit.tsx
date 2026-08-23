@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { RevisionRequestNotice } from "@/components/requests/RevisionRequestNotice";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrderPayment } from "@/hooks/useOrderPayment";
@@ -146,9 +147,9 @@ export function ProviderWorkSubmit({
     <Card padding="md" className="border-brand-100 bg-brand-50/40">
       <h3 className="mb-2 font-semibold text-text-primary">{t("request.workSubmitTitle")}</h3>
       {revisionFeedback && (
-        <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          <strong>{t("request.customerComment")}</strong> {revisionFeedback}
-        </p>
+        <div className="mb-3">
+          <RevisionRequestNotice feedback={revisionFeedback} />
+        </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-3">
         <Textarea

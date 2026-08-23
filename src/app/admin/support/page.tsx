@@ -1,6 +1,7 @@
 "use client";
 
 import { AppLayout } from "@/components/layout/AppLayout";
+import { AdminSectionNav } from "@/components/admin/AdminSectionNav";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -79,6 +80,8 @@ export default function AdminSupportListPage() {
           subtitle={t("home.trustSupport")}
           backHref="/profile"
         />
+
+        <AdminSectionNav activeHref="/admin/support" />
 
         <div className="flex gap-2">
           <Button

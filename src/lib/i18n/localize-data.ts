@@ -1,8 +1,10 @@
 import type { Locale } from "@/lib/i18n";
 import {
   CATEGORY_LABELS,
+  CATEGORY_LABEL_LINES,
   translateDemoString,
 } from "@/lib/i18n/demo-data-translations";
+import { localizeChatMessageContent } from "@/lib/data/work-lifecycle-messages";
 import type {
   Category,
   Conversation,
@@ -17,6 +19,16 @@ import type {
 export function getCategoryLabel(slug: string, locale: Locale): string {
   const entry = CATEGORY_LABELS[slug];
   if (!entry) return slug;
+  return locale === "en" ? entry.en : entry.ru;
+}
+
+export function getCompactCategoryLines(
+  slug: string | null | undefined,
+  locale: Locale
+): string[] | null {
+  if (!slug) return null;
+  const entry = CATEGORY_LABEL_LINES[slug];
+  if (!entry) return null;
   return locale === "en" ? entry.en : entry.ru;
 }
 
@@ -124,7 +136,7 @@ export function localizeConversation(
 export function localizeMessage(message: Message, locale: Locale): Message {
   return {
     ...message,
-    content: localizeText(message.content, locale),
+    content: localizeChatMessageContent(message.content, locale),
     sender: message.sender ? localizeProfile(message.sender, locale) : message.sender,
   };
 }

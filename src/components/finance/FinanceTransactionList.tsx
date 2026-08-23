@@ -6,6 +6,14 @@ import {
   formatRelativeTimeT,
   getTransactionTypeLabelT,
 } from "@/lib/i18n/client-messages";
+import {
+  isLedgerVisibleToScope,
+  isMoneyLedgerCode,
+  resolveLedgerCode,
+  signedAmountForViewer,
+  type AmountViewer,
+  type TransactionViewerScope,
+} from "@/lib/finance/ledger";
 import { formatPrice } from "@/lib/utils";
 import type { FinanceTransaction } from "@/types";
 import { ArrowDownLeft, ArrowUpRight, Minus } from "lucide-react";
@@ -13,26 +21,45 @@ import { ArrowDownLeft, ArrowUpRight, Minus } from "lucide-react";
 interface FinanceTransactionListProps {
   transactions: FinanceTransaction[];
   emptyMessage?: string;
+  /** Controls sign presentation for the same ledger event. */
+  viewer?: AmountViewer;
+  /** Optional visibility scope; defaults to viewer (party→party, admin→admin). */
+  scope?: TransactionViewerScope;
 }
 
-function directionIcon(type: FinanceTransaction["type"]) {
-  if (type === "provider_earning" || type === "order_payment") {
-    return ArrowDownLeft;
-  }
-  if (type === "provider_payout" || type === "refund") {
-    return ArrowUpRight;
-  }
-  return Minus;
+function directionIcon(code: string, signed: number) {
+  if (!isMoneyLedgerCode(code) || signed === 0) return Minus;
+  return signed > 0 ? ArrowDownLeft : ArrowUpRight;
 }
 
 export function FinanceTransactionList({
   transactions,
   emptyMessage,
+  viewer = "admin",
+  scope,
 }: FinanceTransactionListProps) {
   const { t, locale } = useTranslation();
   const empty = emptyMessage ?? t("finance.transactions.empty");
+  const visibilityScope: TransactionViewerScope =
+    scope ?? (viewer === "party" ? "party" : viewer);
 
-  if (!transactions.length) {
+  const visible = transactions.filter((tx) => {
+    const code = String(resolveLedgerCode(tx.type, tx.ledger_code));
+    if (!isLedgerVisibleToScope(code, visibilityScope)) return false;
+    if (!isMoneyLedgerCode(code)) {
+      // System audit memos only on the admin trail.
+      return visibilityScope === "admin";
+    }
+    const signed = signedAmountForViewer(
+      code,
+      tx.amount,
+      tx.amount_signed,
+      viewer
+    );
+    return signed !== 0 || visibilityScope === "admin";
+  });
+
+  if (!visible.length) {
     return (
       <Card padding="md" className="text-center">
         <p className="text-sm text-text-muted">{empty}</p>
@@ -42,8 +69,21 @@ export function FinanceTransactionList({
 
   return (
     <div className="space-y-2">
-      {transactions.map((tx) => {
-        const Icon = directionIcon(tx.type);
+      {visible.map((tx) => {
+        const code = String(resolveLedgerCode(tx.type, tx.ledger_code));
+        const signed = signedAmountForViewer(
+          code,
+          tx.amount,
+          tx.amount_signed,
+          viewer
+        );
+        const Icon = directionIcon(code, signed);
+        const reason =
+          typeof tx.metadata?.reason === "string" &&
+          !/^[a-z0-9_]+$/i.test(tx.metadata.reason)
+            ? tx.metadata.reason
+            : null;
+
         return (
           <Card key={tx.id} padding="md" className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-text-secondary">
@@ -53,12 +93,16 @@ export function FinanceTransactionList({
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold text-text-primary">
-                    {getTransactionTypeLabelT(tx.type, t)}
+                    {getTransactionTypeLabelT(tx.type, t, tx.ledger_code)}
                   </p>
-                  <p className="text-sm text-text-secondary">{tx.description}</p>
+                  {reason ? (
+                    <p className="text-sm text-text-secondary whitespace-pre-wrap">{reason}</p>
+                  ) : null}
                 </div>
                 <p className="shrink-0 text-sm font-bold text-text-primary">
-                  {formatPrice(tx.amount, tx.currency)}
+                  {isMoneyLedgerCode(code)
+                    ? `${signed > 0 ? "+" : signed < 0 ? "−" : ""}${formatPrice(Math.abs(signed), tx.currency)}`
+                    : "—"}
                 </p>
               </div>
               <p className="mt-1 text-xs text-text-muted">

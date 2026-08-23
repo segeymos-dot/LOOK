@@ -11,20 +11,23 @@ interface BottomNavProps {
 }
 
 export function BottomNav({ activePath }: BottomNavProps) {
-  const { user, isProvider, isCustomer } = useAuth();
+  const { user, effectiveUiMode } = useAuth();
   const { t } = useTranslation();
+  // Nav follows local UI shell mode only (not profiles.role).
+  const showCustomerNav = !user || effectiveUiMode === "customer";
+  const showProviderNav = Boolean(user) && effectiveUiMode === "provider";
 
   const navItems = [
     { href: "/", icon: Home, label: t("nav.home") },
     { href: "/search", icon: Search, label: t("nav.search") },
-    isCustomer || !user
+    showCustomerNav
       ? {
           href: user ? "/requests/new" : "/login?redirect=/requests/new",
           icon: PlusCircle,
           label: t("nav.create"),
           accent: true,
         }
-      : isProvider
+      : showProviderNav
         ? { href: "/my/offers", icon: Briefcase, label: t("nav.offers") }
         : {
             href: "/login?redirect=/requests/new",

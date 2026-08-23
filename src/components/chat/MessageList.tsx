@@ -3,12 +3,9 @@
 import { cn } from "@/lib/utils";
 import {
   isWorkLifecycleMessage,
-  parseWorkRevision,
-  parseWorkSubmit,
-  WORK_ACCEPTED_PREFIX,
+  localizeChatMessageContent,
 } from "@/lib/data/work-lifecycle-messages";
 import { useTranslation } from "@/components/providers/LocaleProvider";
-import { localizeText } from "@/lib/i18n/localize-data";
 import { Avatar } from "@/components/ui/Avatar";
 import type { Message } from "@/types";
 import { Check, CheckCheck } from "lucide-react";
@@ -29,39 +26,9 @@ function formatMessageTime(iso: string, locale: string): string {
   });
 }
 
-function useLocalizedMessageContent() {
-  const { t, locale } = useTranslation();
-
-  return (content: string): string => {
-    const submit = parseWorkSubmit(content);
-    if (submit) {
-      const lines = [t("chat.workSubmitted"), "", localizeText(submit.summary.trim(), locale)];
-      if (submit.attachments.length > 0) {
-        lines.push("", t("chat.attachments"));
-        for (const attachment of submit.attachments) {
-          lines.push(`• ${attachment.name}: ${attachment.url}`);
-        }
-      }
-      return lines.join("\n");
-    }
-
-    const revision = parseWorkRevision(content);
-    if (revision) {
-      return `${t("chat.workRevision")}\n\n${localizeText(revision.feedback.trim(), locale)}`;
-    }
-
-    if (content.startsWith(WORK_ACCEPTED_PREFIX)) {
-      return t("chat.workAccepted");
-    }
-
-    return localizeText(content, locale);
-  };
-}
-
 export function MessageList({ messages, currentUserId }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { t, locale } = useTranslation();
-  const localizeContent = useLocalizedMessageContent();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -76,7 +43,7 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
         const isDelivered = Boolean(message.delivered_at ?? message.created_at);
 
         const isSystem = isWorkLifecycleMessage(message.content);
-        const displayContent = localizeContent(message.content);
+        const displayContent = localizeChatMessageContent(message.content, locale);
 
         return (
           <div

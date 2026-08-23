@@ -1,8 +1,14 @@
 import { LOOK_LAST_LOGIN_EMAIL_COOKIE } from "@/lib/auth/recent-login-emails";
+import { performPasswordSignIn } from "@/lib/auth/perform-password-sign-in";
 import { safeRedirectPath } from "@/lib/app-url";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
-import { loginSchema } from "@/lib/validations";
+import {
+  applyAuthCookieOptions,
+  getAuthCookieOptions,
+} from "@/lib/supabase/auth-cookie-options";
+import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { loginSchema } from "@/lib/validations";
 import { NextResponse } from "next/server";
 
 function setLastLoginEmailCookie(
@@ -45,7 +51,12 @@ function failRedirect(requestUrl: URL, code: string, nextPath = "/") {
 
 /**
  * HTML form POST password sign-in for Safari/iOS Password AutoFill.
- * Success → 303 /login/done (200 HTML bridge) so Safari can offer Save Password.
+ *
+ * Success returns 303 → `/login/done?next=…` (a real 200 HTML document).
+ * Safari is far more reliable at offering "Save Password" after a classic
+ * form navigation that lands on an HTML page than after an XHR/fetch login
+ * or a bare hop straight into a client-rendered app shell.
+ *
  * Password is never logged or stored by the app.
  */
 export async function handlePasswordFormSignIn(
@@ -68,45 +79,66 @@ export async function handlePasswordFormSignIn(
     formData.get("username") ?? formData.get("email") ?? ""
   ).trim();
   const password = String(formData.get("password") ?? "");
-  const nextPath = safeRedirectPath(String(formData.get("redirect") ?? ""));
+  let nextPath = safeRedirectPath(String(formData.get("redirect") ?? ""));
 
   const parsed = loginSchema.safeParse({ email, password });
   if (!parsed.success) {
     return failRedirect(requestUrl, "invalid_input", nextPath);
   }
 
+  // Bridge page: 200 HTML after form POST is what iOS Safari uses to offer Save Password.
   const doneUrl = new URL("/login/done", requestUrl.origin);
   doneUrl.searchParams.set("next", nextPath);
 
   const successRedirect = NextResponse.redirect(doneUrl, 303);
   successRedirect.headers.set("Cache-Control", "no-store");
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return parseRequestCookies(request);
-        },
-        setAll(
-          cookiesToSet: { name: string; value: string; options: CookieOptions }[]
-        ) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            successRedirect.cookies.set(name, value, options);
-          });
-        },
+  const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    cookieOptions: getAuthCookieOptions(requestUrl),
+    cookies: {
+      getAll() {
+        return parseRequestCookies(request);
       },
-    }
-  );
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: parsed.data.email,
-    password: parsed.data.password,
+      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          successRedirect.cookies.set(
+            name,
+            value,
+            applyAuthCookieOptions(options, requestUrl)
+          );
+        });
+      },
+    },
   });
 
-  if (error || !data.user || !data.session) {
+  const result = await performPasswordSignIn(supabase, {
+    email: parsed.data.email,
+    password: parsed.data.password,
+    request,
+    ip,
+  });
+
+  if (!result.ok) {
     return failRedirect(requestUrl, "invalid_credentials", nextPath);
+  }
+
+  if (nextPath === "/") {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_platform_admin")
+      .eq("id", result.user.id)
+      .maybeSingle();
+    if (profile?.is_platform_admin) {
+      nextPath = "/admin/stats";
+      doneUrl.searchParams.set("next", nextPath);
+      const adminRedirect = NextResponse.redirect(doneUrl, 303);
+      adminRedirect.headers.set("Cache-Control", "no-store");
+      for (const cookie of successRedirect.cookies.getAll()) {
+        adminRedirect.cookies.set(cookie);
+      }
+      setLastLoginEmailCookie(adminRedirect, parsed.data.email, requestUrl);
+      return adminRedirect;
+    }
   }
 
   setLastLoginEmailCookie(successRedirect, parsed.data.email, requestUrl);

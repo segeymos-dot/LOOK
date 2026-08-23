@@ -1,62 +1,40 @@
 "use client";
 
-import { CategoryMultiSelect } from "@/components/profile/CategoryMultiSelect";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { Textarea } from "@/components/ui/Textarea";
-import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { syncClientSession } from "@/lib/auth/sync-client-session";
 import { isDemoMode } from "@/lib/config";
-import { mockCategories } from "@/lib/mock/data";
 import { createRegisterSchema, mapAuthErrorT } from "@/lib/i18n/client-messages";
-import { createClient } from "@/lib/supabase/client";
-import type { Category, UserRole } from "@/types";
-import { LOOK_OFFICIAL_WEBSITE_URL } from "@/lib/brand/official-site";
+import {
+  clearRegisterPreConsent,
+  readRegisterPreConsent,
+  writeRegisterPreConsent,
+} from "@/lib/legal/register-preconsent";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Briefcase, ChevronLeft, UserCircle } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const roleIcons = {
-  customer: UserCircle,
-  provider: Briefcase,
-} as const;
+type Phase = "legal" | "form";
 
 export default function RegisterPage() {
   const router = useRouter();
   const { syncSession } = useAuth();
   const { t, locale } = useTranslation();
   const demo = isDemoMode();
-  const registerSchema = useMemo(() => createRegisterSchema(t), [t, locale]);
+  const registerSchema = useMemo(() => createRegisterSchema(t), [t]);
 
-  useEffect(() => {
-    setErrors({});
-  }, [locale]);
-
-  const roleOptions = [
-    {
-      value: "customer" as UserRole,
-      label: t("auth.register.customer"),
-      description: t("auth.register.customerDesc"),
-      icon: roleIcons.customer,
-    },
-    {
-      value: "provider" as UserRole,
-      label: t("auth.register.provider"),
-      description: t("auth.register.providerDesc"),
-      icon: roleIcons.provider,
-    },
-  ];
-
+  const [hydrated, setHydrated] = useState(false);
+  const [phase, setPhase] = useState<Phase>("legal");
+  const [legalChecked, setLegalChecked] = useState(false);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [categories, setCategories] = useState<Category[]>([]);
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -65,37 +43,67 @@ export default function RegisterPage() {
     country: "",
     city: "",
     avatar_url: "",
-    role: "customer" as UserRole,
+    role: "customer" as const,
     bio: "",
     skills: "",
     portfolio: "",
     provider_category_slugs: [] as string[],
-    acceptedTerms: false,
   });
 
+  const totalSteps = 2;
+
   useEffect(() => {
-    if (isDemoMode()) {
-      setCategories(mockCategories);
-      return;
+    setErrors({});
+  }, [locale]);
+
+  useEffect(() => {
+    const existing = readRegisterPreConsent();
+    if (existing) {
+      setPhase("form");
+      setLegalChecked(true);
+    } else {
+      setPhase("legal");
+      setLegalChecked(false);
+      setStep(0);
     }
-    const supabase = createClient();
-    supabase
-      .from("categories")
-      .select("*")
-      .order("sort_order")
-      .then(({ data }) => setCategories(data ?? []));
+    setHydrated(true);
   }, []);
 
-  const showProviderFields = form.role === "provider";
-  const totalSteps = showProviderFields ? 3 : 2;
+  const continueFromLegal = () => {
+    if (!legalChecked) {
+      setErrors({ acceptedTerms: t("validation.acceptTerms") });
+      return;
+    }
+    writeRegisterPreConsent();
+    setErrors({});
+    setStep(0);
+    setPhase("form");
+  };
+
+  const backToLegal = () => {
+    clearRegisterPreConsent();
+    setLegalChecked(false);
+    setStep(0);
+    setPhase("legal");
+    setErrors({});
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrors({});
 
+    const preConsent = readRegisterPreConsent();
+    if (!preConsent) {
+      setPhase("legal");
+      setLegalChecked(false);
+      setErrors({ acceptedTerms: t("validation.acceptTerms") });
+      return;
+    }
+
     const parsed = registerSchema.safeParse({
       ...form,
-      acceptedTerms: form.acceptedTerms ? true : undefined,
+      role: "customer",
+      acceptedTerms: true,
     });
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
@@ -109,6 +117,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     if (demo) {
+      clearRegisterPreConsent();
       setLoading(false);
       router.push("/");
       return;
@@ -119,7 +128,8 @@ export default function RegisterPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
-        acceptedTerms: form.acceptedTerms ? true : undefined,
+        role: "customer",
+        acceptedTerms: true,
       }),
     });
     const result = await response.json();
@@ -131,6 +141,8 @@ export default function RegisterPage() {
       });
       return;
     }
+
+    clearRegisterPreConsent();
 
     if (!result.session) {
       setLoading(false);
@@ -147,11 +159,12 @@ export default function RegisterPage() {
   };
 
   const nextStep = () => {
-    if (step === 0 && !form.role) {
-      setErrors({ role: t("auth.register.roleRequired") });
+    if (!readRegisterPreConsent()) {
+      setPhase("legal");
+      setLegalChecked(false);
       return;
     }
-    if (step === 1) {
+    if (step === 0) {
       if (form.full_name.length < 2) {
         setErrors({ full_name: t("validation.minName") });
         return;
@@ -168,6 +181,84 @@ export default function RegisterPage() {
     setErrors({});
     setStep((s) => Math.min(s + 1, totalSteps - 1));
   };
+
+  if (!hydrated) {
+    return (
+      <AuthLayout title={t("legal.preRegisterTitle")} subtitle={t("common.loading")}>
+        <p className="text-sm text-text-muted">{t("common.loading")}</p>
+      </AuthLayout>
+    );
+  }
+
+  if (phase === "legal") {
+    return (
+      <AuthLayout
+        title={t("legal.preRegisterTitle")}
+        subtitle={t("legal.preRegisterSubtitle")}
+        footer={
+          <div className="space-y-2 text-center text-sm text-text-secondary">
+            <p>
+              {t("auth.register.hasAccount")}{" "}
+              <Link href="/login" className="font-semibold text-brand-600">
+                {t("auth.register.login")}
+              </Link>
+            </p>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <p className="text-sm leading-relaxed text-text-secondary">
+            {t("legal.preRegisterBody")}
+          </p>
+
+          <div className="space-y-1 rounded-2xl border border-border-subtle bg-surface-muted/50 px-4 py-2">
+            <Link
+              href="/terms?from=register"
+              className="block min-h-11 py-2 text-base font-semibold text-brand-600"
+            >
+              {t("legal.termsLink")}
+            </Link>
+            <Link
+              href="/privacy?from=register"
+              className="block min-h-11 py-2 text-base font-semibold text-brand-600"
+            >
+              {t("legal.privacyLink")}
+            </Link>
+            <Link
+              href="/licenses?from=register"
+              className="block min-h-11 py-2 text-base font-semibold text-brand-600"
+            >
+              {t("legal.licensesLink")}
+            </Link>
+          </div>
+
+          <label className="flex items-start gap-3 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              checked={legalChecked}
+              onChange={(e) => setLegalChecked(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 rounded border-border text-brand-600 focus:ring-brand-500"
+              required
+            />
+            <span className="leading-snug">{t("legal.preRegisterCheckbox")}</span>
+          </label>
+
+          {errors.acceptedTerms ? (
+            <p className="text-sm text-danger">{errors.acceptedTerms}</p>
+          ) : null}
+
+          <Button
+            type="button"
+            disabled={!legalChecked}
+            onClick={continueFromLegal}
+            className="w-full"
+          >
+            {t("legal.preRegisterContinue")}
+          </Button>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout
@@ -189,22 +280,17 @@ export default function RegisterPage() {
             </Link>
           </p>
           <p className="text-xs">
-            <Link href="/terms" className="text-brand-600">
+            <Link href="/terms?from=register" className="text-brand-600">
               {t("legal.termsLink")}
             </Link>
             {" · "}
-            <Link href="/privacy" className="text-brand-600">
+            <Link href="/privacy?from=register" className="text-brand-600">
               {t("legal.privacyLink")}
             </Link>
             {" · "}
-            <a
-              href={LOOK_OFFICIAL_WEBSITE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-brand-600"
-            >
-              {t("brand.officialSite")}
-            </a>
+            <Link href="/licenses?from=register" className="text-brand-600">
+              {t("legal.licensesLink")}
+            </Link>
           </p>
         </div>
       }
@@ -221,41 +307,12 @@ export default function RegisterPage() {
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {step === 0 && (
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-text-primary">{t("auth.register.roleQuestion")}</p>
-            {roleOptions.map(({ value, label, description, icon: Icon }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setForm({ ...form, role: value })}
-                className={cn(
-                  "flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-all",
-                  form.role === value
-                    ? "border-brand-500 bg-brand-50 shadow-card"
-                    : "border-border hover:border-brand-200"
-                )}
-              >
-                <div
-                  className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                    form.role === value ? "gradient-brand text-white" : "bg-slate-100 text-text-secondary"
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-semibold text-text-primary">{label}</p>
-                  <p className="text-sm text-text-secondary">{description}</p>
-                </div>
-              </button>
-            ))}
-            {errors.role && <p className="text-sm text-danger">{errors.role}</p>}
-          </div>
-        )}
+      <p className="mb-4 text-sm text-text-secondary">
+        {t("auth.register.customerDefaultHint")}
+      </p>
 
-        {step === 1 && (
+      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+        {step === 0 && (
           <div className="space-y-4">
             <Input
               id="full_name"
@@ -267,8 +324,10 @@ export default function RegisterPage() {
             />
             <Input
               id="email"
+              name="email"
               label={t("auth.register.email")}
               type="email"
+              autoComplete="username"
               placeholder="you@example.com"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -276,6 +335,8 @@ export default function RegisterPage() {
             />
             <PasswordInput
               id="password"
+              name="password"
+              autoComplete="new-password"
               label={t("auth.register.password")}
               placeholder={t("auth.register.passwordPlaceholder")}
               value={form.password}
@@ -291,6 +352,11 @@ export default function RegisterPage() {
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               error={errors.phone}
             />
+          </div>
+        )}
+
+        {step === 1 && (
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <Input
                 id="country"
@@ -319,73 +385,24 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {step === 2 && showProviderFields && (
-          <div className="space-y-4">
-            <Textarea
-              id="bio"
-              label={t("auth.register.bio")}
-              placeholder={t("auth.register.bioPlaceholder")}
-              rows={4}
-              value={form.bio}
-              onChange={(e) => setForm({ ...form, bio: e.target.value })}
-            />
-            <Input
-              id="skills"
-              label={t("auth.register.skills")}
-              placeholder={t("auth.register.skillsPlaceholder")}
-              value={form.skills}
-              onChange={(e) => setForm({ ...form, skills: e.target.value })}
-              hint={t("auth.register.skillsHint")}
-            />
-            <Textarea
-              id="portfolio"
-              label={t("auth.register.portfolio")}
-              placeholder={t("auth.register.portfolioPlaceholder")}
-              rows={3}
-              value={form.portfolio}
-              onChange={(e) => setForm({ ...form, portfolio: e.target.value })}
-            />
-            <CategoryMultiSelect
-              categories={categories}
-              selected={form.provider_category_slugs}
-              onChange={(slugs) => setForm({ ...form, provider_category_slugs: slugs })}
-              label={t("auth.register.categories")}
-            />
-          </div>
-        )}
-
         {errors.form && <p className="text-sm text-danger">{errors.form}</p>}
 
-        {step === totalSteps - 1 && (
-          <label className="flex items-start gap-3 text-sm text-text-secondary">
-            <input
-              type="checkbox"
-              checked={form.acceptedTerms}
-              onChange={(e) => setForm({ ...form, acceptedTerms: e.target.checked })}
-              className="mt-1 h-4 w-4 rounded border-border text-brand-600 focus:ring-brand-500"
-            />
-            <span>
-              {t("legal.acceptPrefix")}{" "}
-              <Link href="/terms" className="font-semibold text-brand-600">
-                {t("legal.termsLink")}
-              </Link>{" "}
-              {t("legal.and")}{" "}
-              <Link href="/privacy" className="font-semibold text-brand-600">
-                {t("legal.privacyLink")}
-              </Link>
-            </span>
-          </label>
-        )}
-        {errors.acceptedTerms && (
-          <p className="text-sm text-danger">{errors.acceptedTerms}</p>
-        )}
-
         <div className="flex gap-2 pt-2">
-          {step > 0 && (
+          {step > 0 ? (
             <Button
               type="button"
               variant="secondary"
               onClick={() => setStep((s) => s - 1)}
+              className="gap-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              {t("auth.register.back")}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={backToLegal}
               className="gap-1"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -403,14 +420,6 @@ export default function RegisterPage() {
           )}
         </div>
       </form>
-
-      {step === 0 && form.role === "provider" && (
-        <Card variant="outline" padding="sm" className="mt-4 bg-brand-50/50">
-          <p className="text-xs leading-relaxed text-text-secondary">
-            {t("auth.register.providerHint")}
-          </p>
-        </Card>
-      )}
     </AuthLayout>
   );
 }

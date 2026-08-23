@@ -25,6 +25,8 @@ interface RequestTestPaymentProps {
   isDemo?: boolean;
   viewerUserId?: string | null;
   viewerIsCustomer?: boolean;
+  /** Server-only: ENABLE_TEST_PAYMENTS === "true". Defaults off. */
+  allowTestPayments?: boolean;
 }
 
 export function RequestTestPayment({
@@ -36,6 +38,7 @@ export function RequestTestPayment({
   isDemo = false,
   viewerUserId,
   viewerIsCustomer,
+  allowTestPayments = false,
 }: RequestTestPaymentProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -53,7 +56,7 @@ export function RequestTestPayment({
   const split = calculatePaymentSplit(grossAmount, rate);
 
   useEffect(() => {
-    if (!isOwner || requestStatus !== "in_progress") return;
+    if (!allowTestPayments || !isOwner || requestStatus !== "in_progress") return;
 
     const load = async () => {
       setLoading(true);
@@ -67,9 +70,9 @@ export function RequestTestPayment({
     };
 
     void load();
-  }, [requestId, isOwner, requestStatus]);
+  }, [allowTestPayments, requestId, isOwner, requestStatus]);
 
-  if (!isOwner || requestStatus !== "in_progress") return null;
+  if (!allowTestPayments || !isOwner || requestStatus !== "in_progress") return null;
 
   const handlePay = async () => {
     setError(null);
@@ -111,9 +114,6 @@ export function RequestTestPayment({
       <div className="mb-3 flex items-center gap-2">
         <CreditCard className="h-5 w-5 text-brand-600" />
         <h3 className="font-semibold text-text-primary">{t("finance.payment.title")}</h3>
-        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800">
-          {t("finance.payment.testBadge")}
-        </span>
       </div>
 
       {payment?.status === "paid" ? (

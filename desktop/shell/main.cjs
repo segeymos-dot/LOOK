@@ -1,13 +1,19 @@
 delete process.env.ELECTRON_RUN_AS_NODE;
 
-const { app, BrowserWindow, Menu, shell } = require("electron");
+const { app, BrowserWindow, Menu, shell, session } = require("electron");
 const { spawn, execFileSync } = require("node:child_process");
 const { readFileSync, existsSync } = require("node:fs");
 const { join } = require("node:path");
 const http = require("node:http");
 
-/** Desktop LOOK always uses its own port — never Cursor dev (:3000). */
-const PORT = process.env.LOOK_PORT ?? "3010";
+/**
+ * LOOK_DEV_MODE=1 — attach to an already-running local Next.js server
+ * (typically `npm run dev` on :3000). Never start/kill servers in this mode.
+ *
+ * Default packaged desktop mode still uses its own production port (:3010).
+ */
+const DEV_MODE = process.env.LOOK_DEV_MODE === "1";
+const PORT = process.env.LOOK_PORT ?? (DEV_MODE ? "3000" : "3010");
 const APP_URL = `http://127.0.0.1:${PORT}`;
 
 /** @type {import('node:child_process').ChildProcess | null} */
@@ -15,6 +21,7 @@ let nextProcess = null;
 /** @type {BrowserWindow | null} */
 let mainWindow = null;
 let startedOwnServer = false;
+let isCreatingWindow = false;
 
 function cleanProcessEnv() {
   const home = process.env.HOME ?? "";
@@ -157,7 +164,7 @@ function isServerUp() {
   return new Promise((resolve) => {
     const req = http.get(APP_URL, (res) => {
       res.resume();
-      resolve(true);
+      resolve(Boolean(res.statusCode && res.statusCode >= 200 && res.statusCode < 400));
     });
     req.on("error", () => resolve(false));
     req.setTimeout(1500, () => {
@@ -165,6 +172,65 @@ function isServerUp() {
       resolve(false);
     });
   });
+}
+
+function fetchText(url, timeoutMs = 5000) {
+  return new Promise((resolve) => {
+    const req = http.get(url, (res) => {
+      const chunks = [];
+      res.on("data", (chunk) => chunks.push(chunk));
+      res.on("end", () => {
+        resolve({
+          statusCode: res.statusCode ?? 0,
+          contentType: String(res.headers["content-type"] ?? ""),
+          body: Buffer.concat(chunks).toString("utf8"),
+        });
+      });
+    });
+    req.on("error", () =>
+      resolve({ statusCode: 0, contentType: "", body: "" })
+    );
+    req.setTimeout(timeoutMs, () => {
+      req.destroy();
+      resolve({ statusCode: 0, contentType: "", body: "" });
+    });
+  });
+}
+
+/**
+ * Dev readiness: HTML 200 + Next asset refs + at least one CSS chunk is text/css 200.
+ * Prevents opening Electron against a broken .next (e.g. after `next build` while `next:dev` runs).
+ */
+async function isStyledReady() {
+  const page = await fetchText(`${APP_URL}/`);
+  if (page.statusCode !== 200 || !page.body.includes("/_next/")) {
+    return false;
+  }
+
+  const cssMatch = page.body.match(
+    /href="(\/_next\/static\/[^"]+\.css[^"]*)"/
+  );
+  if (!cssMatch) {
+    return false;
+  }
+
+  const cssPath = cssMatch[1].startsWith("http")
+    ? cssMatch[1]
+    : `${APP_URL}${cssMatch[1]}`;
+  const css = await fetchText(cssPath);
+  return css.statusCode === 200 && css.contentType.includes("css");
+}
+
+async function waitForStyledReady(maxAttempts = 60) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (await isStyledReady()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(
+    `LOOK styled assets not ready at ${APP_URL} (CSS chunk missing or not text/css)`
+  );
 }
 
 /** True when the running server serves the current on-disk production build. */
@@ -242,7 +308,33 @@ function startNextServer(projectRoot) {
   });
 }
 
+async function ensureDevServerAttached() {
+  if (await isStyledReady()) {
+    return;
+  }
+
+  // Port may be open with broken assets (HTML 200 / CSS 404). Wait briefly for recovery.
+  try {
+    await waitForStyledReady(20);
+    return;
+  } catch {
+    // Fall through to error dialog.
+  }
+
+  const { dialog } = require("electron");
+  dialog.showErrorBox(
+    "LOOK",
+    `Local LOOK server is not fully ready at ${APP_URL}.\n\nThe page must serve CSS from /_next/static.\nUse the Desktop LOOK launcher, or restart:\nnpm run dev`
+  );
+  throw new Error(`LOOK styled dev server not ready at ${APP_URL}`);
+}
+
 async function ensureServerRunning() {
+  if (DEV_MODE) {
+    await ensureDevServerAttached();
+    return;
+  }
+
   const projectRoot = getProjectRoot();
   if (!existsSync(join(projectRoot, "package.json"))) {
     const { dialog } = require("electron");
@@ -274,36 +366,109 @@ async function ensureServerRunning() {
   await waitForServer();
 }
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 840,
-    minWidth: 960,
-    minHeight: 640,
-    title: "LOOK",
-    backgroundColor: "#ffffff",
-    show: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-    },
-  });
+async function clearDevHttpCache() {
+  if (!DEV_MODE) return;
+  try {
+    // HTTP cache only — keep cookies/localStorage/session for normal auth reuse.
+    await session.defaultSession.clearCache();
+  } catch (error) {
+    console.error("LOOK: failed to clear Electron HTTP cache", error);
+  }
+}
 
-  mainWindow.once("ready-to-show", () => {
-    mainWindow?.show();
-  });
+async function pageHasStylesheets(wc) {
+  try {
+    return await wc.executeJavaScript(`(() => {
+      const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+      if (!links.length) return false;
+      // Failed CSS loads leave empty sheets; require at least one with rules.
+      for (const sheet of Array.from(document.styleSheets)) {
+        try {
+          if (sheet.cssRules && sheet.cssRules.length > 0) return true;
+        } catch (_) {
+          // Cross-origin access errors should not happen on same-origin Next assets.
+        }
+      }
+      return false;
+    })()`);
+  } catch {
+    return false;
+  }
+}
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
-    return { action: "deny" };
-  });
+function focusMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return false;
+  }
 
-  void mainWindow.loadURL(APP_URL);
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
 
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-  });
+  mainWindow.show();
+  mainWindow.focus();
+  return true;
+}
+
+async function createWindow() {
+  // Never open a second BrowserWindow while one already exists.
+  if (focusMainWindow()) {
+    return;
+  }
+
+  if (isCreatingWindow) {
+    return;
+  }
+
+  isCreatingWindow = true;
+
+  try {
+    await clearDevHttpCache();
+
+    mainWindow = new BrowserWindow({
+      width: 1280,
+      height: 840,
+      minWidth: 960,
+      minHeight: 640,
+      title: "LOOK",
+      backgroundColor: "#ffffff",
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+      },
+    });
+
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+      void shell.openExternal(url);
+      return { action: "deny" };
+    });
+
+    // Always load the live local Next.js origin — never file:// in development.
+    await mainWindow.loadURL(APP_URL);
+
+    if (DEV_MODE) {
+      const styled = await pageHasStylesheets(mainWindow.webContents);
+      if (!styled) {
+        console.warn(
+          "LOOK: stylesheets missing after first load; clearing cache and reloading once"
+        );
+        await clearDevHttpCache();
+        await mainWindow.reload();
+        // Brief wait for CSS to apply after reload.
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
+    mainWindow.show();
+
+    mainWindow.on("closed", () => {
+      mainWindow = null;
+    });
+  } finally {
+    isCreatingWindow = false;
+  }
 }
 
 function stopNextServer() {
@@ -318,30 +483,59 @@ function stopNextServer() {
   }, 3000);
 }
 
-app.whenReady().then(async () => {
+async function bootMainWindow() {
   Menu.setApplicationMenu(null);
+  await ensureServerRunning();
+  await createWindow();
+}
 
-  try {
-    await ensureServerRunning();
-    createWindow();
-  } catch (error) {
-    console.error(error);
+// Official Electron single-instance guard — must run before any BrowserWindow.
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (focusMainWindow()) {
+      return;
+    }
+
+    // Window was closed but the process is still alive — open one fresh window.
+    void bootMainWindow().catch((error) => {
+      console.error(error);
+      app.quit();
+    });
+  });
+
+  app.whenReady().then(async () => {
+    try {
+      await bootMainWindow();
+    } catch (error) {
+      console.error(error);
+      app.quit();
+    }
+  });
+
+  app.on("activate", () => {
+    if (focusMainWindow()) {
+      return;
+    }
+
+    if (BrowserWindow.getAllWindows().length === 0) {
+      void bootMainWindow().catch((error) => {
+        console.error(error);
+        app.quit();
+      });
+    }
+  });
+
+  app.on("before-quit", () => {
+    stopNextServer();
+  });
+
+  // Single-window desktop app: red close button exits cleanly so relaunch
+  // starts exactly one fresh process/window (no zombie Dock icons).
+  app.on("window-all-closed", () => {
     app.quit();
-  }
-});
-
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    void ensureServerRunning().then(createWindow);
-  }
-});
-
-app.on("before-quit", () => {
-  stopNextServer();
-});
-
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
-});
+  });
+}

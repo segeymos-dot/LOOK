@@ -5,6 +5,11 @@ import { getMockOrderPayment, initDemoOrderPayment } from "@/lib/mock/order-paym
 import { getMockOffers, getMockRequest } from "@/lib/mock/data";
 import { getServerLocale } from "@/lib/i18n/server";
 import { localizeRequest } from "@/lib/i18n/localize-data";
+import { isPlatformAdmin } from "@/lib/data/finance-actions";
+import {
+  areTestPaymentsEnabled,
+  canInvokeSimulatedOrderPayment,
+} from "@/lib/payments/test-payments-guard";
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -18,6 +23,7 @@ export const dynamic = "force-dynamic";
 export default async function RequestPaymentPage({ params }: PageProps) {
   const { id } = await params;
   const locale = await getServerLocale();
+  const allowTestPayments = areTestPaymentsEnabled();
 
   if (isDemoMode()) {
     const request = getMockRequest(id);
@@ -52,6 +58,7 @@ export default async function RequestPaymentPage({ params }: PageProps) {
               grossAmount={Number(offer.price)}
               currency={offer.currency}
               initialOrderPaymentStatus={mockPay?.order_payment_status ?? "unpaid"}
+              allowTestPayments={allowTestPayments}
             />
           </Suspense>
         </div>
@@ -74,7 +81,17 @@ export default async function RequestPaymentPage({ params }: PageProps) {
 
   if (!request) notFound();
 
-  if (!user || user.id !== request.customer_id) {
+  const platformAdmin = user ? await isPlatformAdmin(supabase, user.id) : false;
+  const isOrderOwner = !!user && user.id === request.customer_id;
+  const canUseTestPayments = canInvokeSimulatedOrderPayment({
+    email: user?.email,
+    isPlatformAdmin: platformAdmin,
+    isOrderOwner,
+  });
+  const canAccessPayment =
+    !!user && (isOrderOwner || (canUseTestPayments && platformAdmin));
+
+  if (!canAccessPayment) {
     redirect(`/requests/${id}`);
   }
 
@@ -94,8 +111,9 @@ export default async function RequestPaymentPage({ params }: PageProps) {
   }
 
   const localized = localizeRequest(request, locale);
-  const grossAmount = Number(request.order_amount ?? offer.price);
-  const currency = request.currency ?? offer.currency;
+  // Display SoT: accepted offer (same as checkout / simulate).
+  const grossAmount = Number(offer.price);
+  const currency = String(offer.currency ?? "USD");
 
   return (
     <AppLayout activePath="/search" hideNav>
@@ -108,6 +126,7 @@ export default async function RequestPaymentPage({ params }: PageProps) {
             grossAmount={grossAmount}
             currency={currency}
             initialOrderPaymentStatus={request.order_payment_status ?? "unpaid"}
+            allowTestPayments={canUseTestPayments}
           />
         </Suspense>
       </div>

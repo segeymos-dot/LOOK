@@ -2,11 +2,21 @@
 
 import { ProviderOfferRespond } from "@/components/offers/ProviderOfferRespond";
 import { RequestOffersList } from "@/components/offers/RequestOffersList";
+import { SelectedProviderCard } from "@/components/providers/SelectedProviderCard";
 import { ProviderWorkSubmit } from "@/components/requests/ProviderWorkSubmit";
 import { CustomerWorkReview } from "@/components/requests/CustomerWorkReview";
 import { RequestLifecycleActions } from "@/components/requests/RequestLifecycleActions";
+import { OrderDisputeDetails } from "@/components/requests/OrderDisputeDetails";
+import { RevisionRequestNotice } from "@/components/requests/RevisionRequestNotice";
 import { OrderPaymentPanel } from "@/components/finance/OrderPaymentPanel";
-import type { Offer, RequestStatus } from "@/types";
+import type { SubmittedReviewView } from "@/components/profile/ReviewForm";
+import type {
+  Offer,
+  OrderDispute,
+  OrderPaymentStatus,
+  RefundDisputeStatus,
+  RequestStatus,
+} from "@/types";
 import { useState } from "react";
 
 export type RequestDetailSectionsProps = {
@@ -20,6 +30,15 @@ export type RequestDetailSectionsProps = {
   viewerIsCustomer?: boolean;
   viewerCanActAsProvider?: boolean;
   isDemo?: boolean;
+  initialReview?: SubmittedReviewView | null;
+  orderPaymentStatus?: OrderPaymentStatus | null;
+  refundDisputeStatus?: RefundDisputeStatus | null;
+  workSubmittedAt?: string | null;
+  hasWorkSubmission?: boolean;
+  paidAmount?: number | null;
+  revisionFeedback?: string | null;
+  initialDispute?: OrderDispute | null;
+  disputeFallbackReason?: string | null;
 };
 
 export function RequestDetailSections({
@@ -34,7 +53,15 @@ export function RequestDetailSections({
   viewerCanActAsProvider = false,
   isDemo = false,
   revisionFeedback = null,
-}: RequestDetailSectionsProps & { revisionFeedback?: string | null }) {
+  initialReview = null,
+  orderPaymentStatus = "unpaid",
+  refundDisputeStatus = "none",
+  workSubmittedAt = null,
+  hasWorkSubmission = false,
+  paidAmount = null,
+  initialDispute = null,
+  disputeFallbackReason = null,
+}: RequestDetailSectionsProps) {
   const [offers, setOffers] = useState(initialOffers);
   const acceptedOffer = offers.find((o) => o.status === "accepted");
 
@@ -45,16 +72,44 @@ export function RequestDetailSections({
     });
   };
 
+  const showDispute =
+    refundDisputeStatus === "dispute_opened" ||
+    refundDisputeStatus === "refund_rejected" ||
+    Boolean(initialDispute);
+
   return (
     <>
       <RequestLifecycleActions
         requestId={requestId}
         customerId={customerId}
         initialStatus={requestStatus}
+        orderPaymentStatus={orderPaymentStatus}
+        refundDisputeStatus={refundDisputeStatus}
+        workSubmittedAt={workSubmittedAt}
+        hasWorkSubmission={hasWorkSubmission}
+        paidAmount={paidAmount ?? (acceptedOffer ? Number(acceptedOffer.price) : null)}
+        currency={acceptedOffer?.currency ?? requestCurrency}
         viewerUserId={viewerUserId}
         viewerIsCustomer={viewerIsCustomer}
         isDemo={isDemo}
       />
+      {showDispute && (
+        <OrderDisputeDetails
+          requestId={requestId}
+          refundDisputeStatus={refundDisputeStatus}
+          orderPaymentStatus={orderPaymentStatus}
+          currency={acceptedOffer?.currency ?? requestCurrency}
+          initialDispute={initialDispute}
+          fallbackReason={disputeFallbackReason}
+        />
+      )}
+      {revisionFeedback ? <RevisionRequestNotice feedback={revisionFeedback} /> : null}
+      {acceptedOffer && viewerIsCustomer && (
+        <SelectedProviderCard
+          providerId={acceptedOffer.provider_id}
+          provider={acceptedOffer.provider}
+        />
+      )}
       {acceptedOffer && (
         <OrderPaymentPanel
           requestId={requestId}
@@ -66,6 +121,7 @@ export function RequestDetailSections({
           viewerUserId={viewerUserId}
           viewerIsCustomer={viewerIsCustomer}
           isDemo={isDemo}
+          refundDisputeStatus={refundDisputeStatus}
         />
       )}
       {acceptedOffer && (
@@ -74,7 +130,8 @@ export function RequestDetailSections({
           customerId={customerId}
           requestStatus={requestStatus}
           acceptedProviderId={acceptedOffer.provider_id}
-          revisionFeedback={revisionFeedback}
+          // Shown above as RevisionRequestNotice for all roles — avoid duplicate.
+          revisionFeedback={null}
           viewerUserId={viewerUserId}
           viewerIsCustomer={viewerIsCustomer}
           isDemo={isDemo}
@@ -115,6 +172,8 @@ export function RequestDetailSections({
         isDemo={isDemo}
         conversationByOfferId={conversationByOfferId}
         hideProviderRespond
+        initialReview={initialReview}
+        orderPaymentStatus={orderPaymentStatus}
         onOffersChange={setOffers}
       />
     </>

@@ -36,7 +36,7 @@ export async function insertChatMessage(
   let result = await supabase
     .from("messages")
     .insert(withExtras)
-    .select("*, sender:profiles(*)")
+    .select("*, sender:profiles(id, full_name, avatar_url)")
     .single();
 
   if (result.error && isMissingMessagesColumnError(result.error)) {
@@ -47,7 +47,7 @@ export async function insertChatMessage(
         sender_id: input.sender_id,
         content: input.content,
       })
-      .select("*, sender:profiles(*)")
+      .select("*, sender:profiles(id, full_name, avatar_url)")
       .single();
   }
 

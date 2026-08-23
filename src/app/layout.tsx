@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { LocaleProvider } from "@/components/providers/LocaleProvider";
 import { VisitTracker } from "@/components/analytics/VisitTracker";
+import { PresenceTracker } from "@/components/analytics/PresenceTracker";
 import { getServerTranslation } from "@/lib/i18n/server";
 import "./globals.css";
 
@@ -50,6 +51,7 @@ export default async function RootLayout({
         <LocaleProvider initialLocale={locale}>
           <AuthProvider>
             <VisitTracker />
+            <PresenceTracker />
             {children}
           </AuthProvider>
         </LocaleProvider>

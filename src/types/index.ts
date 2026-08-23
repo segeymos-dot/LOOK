@@ -11,6 +11,56 @@ export type OrderPaymentStatus =
   | "refunded"
   | "failed";
 
+/** Customer cancel / refund / dispute state on the order. */
+export type RefundDisputeStatus =
+  | "none"
+  | "refund_pending"
+  | "refunded"
+  | "dispute_opened"
+  | "refund_rejected";
+
+export type OrderDisputeStatus = "opened" | "refunded" | "rejected" | "closed";
+
+export type DisputeResolutionDecision =
+  | "full_refund_customer"
+  | "partial_refund"
+  | "release_full_payout"
+  | "split_settlement"
+  | "reject";
+
+export interface OrderDispute {
+  id: string;
+  request_id: string;
+  payment_id: string | null;
+  opened_by: string;
+  /** Exact user-entered reason (immutable after open). */
+  reason: string;
+  status: OrderDisputeStatus;
+  resolution_note: string | null;
+  resolution_decision?: DisputeResolutionDecision | null;
+  resolved_by?: string | null;
+  resolved_at: string | null;
+  customer_refund_amount?: number | null;
+  provider_release_amount?: number | null;
+  platform_fee_retained?: number | null;
+  amounts_before?: Record<string, unknown> | null;
+  amounts_after?: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  opener?: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+    role?: UserRole | null;
+  } | null;
+  resolver?: {
+    id: string;
+    full_name: string;
+    role?: UserRole | null;
+    is_platform_admin?: boolean;
+  } | null;
+}
+
 export type OrderPayoutStatus =
   | "pending"
   | "processing"
@@ -43,7 +93,31 @@ export interface Profile {
   reviews_count: number;
   completed_orders_count: number;
   phone_verified: boolean;
+  /** Set only after real SMS/OTP verification; foresight column. */
+  phone_verified_at?: string | null;
   is_platform_admin?: boolean;
+  availability_status?: "available" | "busy" | "away" | "offline";
+  service_locations?: string[];
+  public_profile_visible?: boolean;
+  default_location?: string | null;
+  payout_details_note?: string | null;
+  notification_preferences?: {
+    orderUpdates?: boolean;
+    messages?: boolean;
+    marketing?: boolean;
+    disputeUpdates?: boolean;
+  } | null;
+  privacy_preferences?: {
+    showCity?: boolean;
+    showPhoneToClients?: boolean;
+  } | null;
+  terms_accepted_at?: string | null;
+  terms_version?: string | null;
+  privacy_accepted_at?: string | null;
+  privacy_version?: string | null;
+  licenses_acknowledged_at?: string | null;
+  licenses_version?: string | null;
+  adult_confirmed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -91,6 +165,13 @@ export interface Request {
   payment_transaction_id?: string | null;
   payout_status?: OrderPayoutStatus | null;
   paid_at?: string | null;
+  refund_dispute_status?: RefundDisputeStatus;
+  refund_amount?: number | null;
+  refund_reason?: string | null;
+  refunded_at?: string | null;
+  cancellation_reason?: string | null;
+  archived_at?: string | null;
+  trashed_at?: string | null;
   created_at: string;
   updated_at: string;
   // Joined fields
@@ -203,7 +284,13 @@ export type TransactionType =
   | "platform_commission"
   | "provider_earning"
   | "provider_payout"
-  | "refund";
+  | "refund"
+  | "customer_refund"
+  | "provider_earning_reversal"
+  | "platform_commission_reversal"
+  | "provider_payout_reversal"
+  | "dispute_opened"
+  | "dispute_resolved";
 export type TransactionStatus = "pending" | "completed" | "failed" | "reversed";
 export type PayoutStatus = "pending" | "processing" | "completed" | "failed" | "cancelled";
 
@@ -249,10 +336,15 @@ export interface FinanceTransaction {
   user_id: string | null;
   provider_id: string | null;
   type: TransactionType;
+  ledger_code?: string | null;
   amount: number;
+  amount_signed?: number | null;
+  account_scope?: "customer" | "provider" | "platform" | "system" | null;
   currency: string;
   status: TransactionStatus;
+  /** Stable ledger code (not localized prose). */
   description: string;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
 }
 

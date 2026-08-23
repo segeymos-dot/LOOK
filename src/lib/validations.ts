@@ -12,7 +12,8 @@ export const registerSchema = z.object({
   full_name: z.string().min(2, "Минимум 2 символа"),
   email: z.string().email("Введите корректный email"),
   password: z.string().min(6, "Минимум 6 символов"),
-  role: z.enum(["customer", "provider"]),
+  /** Ignored by API — signup always creates customer. Kept optional for back-compat. */
+  role: z.enum(["customer", "provider"]).optional().default("customer"),
   phone: optionalString,
   country: optionalString,
   city: optionalString,

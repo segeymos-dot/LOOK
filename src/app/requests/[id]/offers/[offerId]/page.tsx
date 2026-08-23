@@ -1,5 +1,6 @@
 import { OfferDetailView } from "@/components/offers/OfferDetailView";
 import { getWorkLifecycleState } from "@/lib/data/work-lifecycle-state";
+import { getOrderDisputeForRequest } from "@/lib/data/order-disputes";
 import { getOfferForPage } from "@/lib/data/fetch-offer-server";
 import { isDemoMode } from "@/lib/config";
 import { createClient } from "@/lib/supabase/server";
@@ -60,7 +61,17 @@ export default async function OfferDetailPage({ params }: PageProps) {
   }
 
   const supabase = await createClient();
-  const lifecycle = await getWorkLifecycleState(supabase, requestId);
+  const [lifecycle, dispute, requestRes] = await Promise.all([
+    getWorkLifecycleState(supabase, requestId),
+    getOrderDisputeForRequest(supabase, requestId),
+    supabase
+      .from("requests")
+      .select(
+        "order_payment_status, refund_dispute_status, refund_reason, cancellation_reason"
+      )
+      .eq("id", requestId)
+      .maybeSingle(),
+  ]);
   const effectiveStatus = lifecycle?.effectiveStatus ?? offer.request.status;
 
   return (
@@ -73,6 +84,14 @@ export default async function OfferDetailPage({ params }: PageProps) {
       viewerUserId={userId}
       viewerIsCustomer={userId === offer.request.customer_id}
       revisionFeedback={lifecycle?.revisionFeedback ?? null}
+      orderPaymentStatus={requestRes.data?.order_payment_status ?? null}
+      refundDisputeStatus={requestRes.data?.refund_dispute_status ?? "none"}
+      initialDispute={dispute}
+      disputeFallbackReason={
+        requestRes.data?.refund_reason ??
+        requestRes.data?.cancellation_reason ??
+        null
+      }
     />
   );
 }

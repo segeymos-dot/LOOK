@@ -38,8 +38,15 @@ function formatWhen(iso: string, locale: string) {
 export function SupportPageContent() {
   const router = useRouter();
   const { t, locale } = useTranslation();
-  const { user, ready, profileReady, isCustomer, isProvider, isPlatformAdmin } =
-    useAuth();
+  const {
+    user,
+    ready,
+    profileReady,
+    isCustomer,
+    isProvider,
+    isPlatformAdmin,
+    effectiveUiMode,
+  } = useAuth();
   const [view, setView] = useState<View>("home");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
@@ -57,11 +64,11 @@ export function SupportPageContent() {
   }, [ready, profileReady, isPlatformAdmin, router]);
 
   const userRole = useMemo(() => {
-    if (isProvider && !isCustomer) return "provider" as const;
-    if (isCustomer && !isProvider) return "customer" as const;
+    if (effectiveUiMode === "provider" && isProvider) return "provider" as const;
+    if (isCustomer) return "customer" as const;
     if (isProvider) return "provider" as const;
     return "customer" as const;
-  }, [isCustomer, isProvider]);
+  }, [effectiveUiMode, isCustomer, isProvider]);
 
   const loadTickets = useCallback(async () => {
     if (!user) {

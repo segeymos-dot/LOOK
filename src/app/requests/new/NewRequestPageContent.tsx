@@ -12,14 +12,20 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { canActAsCustomer } from "@/lib/auth/roles";
 import { isDemoMode } from "@/lib/config";
+import {
+  fetchDirectedProviderCard,
+  linkRequestToProvider,
+  type DirectedProviderCard,
+} from "@/lib/data/directed-request";
 import { localizeCategoryName } from "@/lib/i18n/localize-data";
 import { createClient } from "@/lib/supabase/client";
 import { createRequestSchema, mapUserFacingErrorT } from "@/lib/i18n/client-messages";
+import { formatRating } from "@/lib/profile/provider-utils";
 import type { Category } from "@/types";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Star } from "lucide-react";
 
 export function NewRequestPageContent() {
   const router = useRouter();
@@ -31,8 +37,11 @@ export function NewRequestPageContent() {
   const requestSchema = useMemo(() => createRequestSchema(t), [t]);
 
   const [categories, setCategories] = useState<Category[]>([]);
-  const [providerName, setProviderName] = useState<string | null>(null);
-  const [providerAvatar, setProviderAvatar] = useState<string | null>(null);
+  const [directedProvider, setDirectedProvider] =
+    useState<DirectedProviderCard | null>(null);
+  const [providerStatus, setProviderStatus] = useState<
+    "idle" | "loading" | "ready" | "invalid"
+  >("idle");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -45,19 +54,45 @@ export function NewRequestPageContent() {
     deadline: "",
   });
 
+  const newRequestRedirect = useMemo(() => {
+    if (!providerId) return "/requests/new";
+    const params = new URLSearchParams({ provider: providerId });
+    if (contactIntent) params.set("intent", "contact");
+    return `/requests/new?${params.toString()}`;
+  }, [contactIntent, providerId]);
+
   useEffect(() => {
     if (isDemoMode()) {
       void import("@/lib/mock/data").then(
         ({ mockCategories, getMockProfile, getMockCategoriesForProvider }) => {
           setCategories(mockCategories);
-          if (!providerId) return;
+          if (!providerId) {
+            setDirectedProvider(null);
+            setProviderStatus("idle");
+            return;
+          }
 
+          setProviderStatus("loading");
           const provider = getMockProfile(providerId);
-          if (!provider) return;
+          if (!provider || !["provider", "both"].includes(provider.role)) {
+            setDirectedProvider(null);
+            setProviderStatus("invalid");
+            return;
+          }
 
-          setProviderName(provider.full_name);
-          setProviderAvatar(provider.avatar_url);
-          const providerCategories = getMockCategoriesForProvider(provider.provider_category_slugs);
+          setDirectedProvider({
+            id: provider.id,
+            full_name: provider.full_name,
+            avatar_url: provider.avatar_url,
+            rating: Number(provider.rating ?? 0),
+            reviews_count: Number(provider.reviews_count ?? 0),
+            completed_orders_count: Number(provider.completed_orders_count ?? 0),
+            provider_category_slugs: provider.provider_category_slugs ?? [],
+          });
+          setProviderStatus("ready");
+          const providerCategories = getMockCategoriesForProvider(
+            provider.provider_category_slugs
+          );
           if (providerCategories[0]) {
             setForm((prev) => ({ ...prev, category_id: providerCategories[0].id }));
           }
@@ -67,51 +102,71 @@ export function NewRequestPageContent() {
     }
 
     const supabase = createClient();
-    supabase
+    void supabase
       .from("categories")
       .select("*")
       .order("sort_order")
       .then(({ data }) => setCategories(data ?? []));
 
-    if (!providerId) return;
+    if (!providerId) {
+      setDirectedProvider(null);
+      setProviderStatus("idle");
+      return;
+    }
 
-    supabase
-      .from("profiles")
-      .select("full_name, avatar_url, provider_category_slugs")
-      .eq("id", providerId)
-      .single()
-      .then(({ data }) => {
-        if (!data) return;
-        setProviderName(data.full_name);
-        setProviderAvatar(data.avatar_url);
-        supabase
-          .from("categories")
-          .select("*")
-          .order("sort_order")
-          .then(({ data: allCategories }) => {
-            const slugs = Array.isArray(data.provider_category_slugs)
-              ? data.provider_category_slugs
-              : [];
-            const match = allCategories?.find((cat) => slugs.includes(cat.slug));
-            if (match) {
-              setForm((prev) => ({ ...prev, category_id: match.id }));
-            }
-          });
-      });
+    let cancelled = false;
+    setProviderStatus("loading");
+    void (async () => {
+      const card = await fetchDirectedProviderCard(supabase, providerId);
+      if (cancelled) return;
+      if (!card) {
+        setDirectedProvider(null);
+        setProviderStatus("invalid");
+        return;
+      }
+
+      setDirectedProvider(card);
+      setProviderStatus("ready");
+
+      const { data: allCategories } = await supabase
+        .from("categories")
+        .select("*")
+        .order("sort_order");
+      if (cancelled) return;
+      const match = allCategories?.find((cat) =>
+        card.provider_category_slugs.includes(cat.slug)
+      );
+      if (match) {
+        setForm((prev) => ({ ...prev, category_id: match.id }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [providerId]);
 
   const pageSubtitle = useMemo(() => {
-    if (providerName) {
+    if (directedProvider) {
       return contactIntent
-        ? t("request.contactIntent", { name: providerName })
-        : t("request.providerFor", { name: providerName });
+        ? t("request.contactIntent", { name: directedProvider.full_name })
+        : t("request.providerFor", { name: directedProvider.full_name });
     }
     return t("request.newSubtitle");
-  }, [contactIntent, providerName, t]);
+  }, [contactIntent, directedProvider, t]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrors({});
+
+    if (providerId && providerStatus === "invalid") {
+      setErrors({ form: t("request.forProviderInvalid") });
+      return;
+    }
+
+    if (providerId && providerStatus === "loading") {
+      return;
+    }
 
     const parsed = requestSchema.safeParse({
       ...form,
@@ -144,8 +199,26 @@ export function NewRequestPageContent() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      router.push("/login?redirect=/requests/new");
+      router.push(`/login?redirect=${encodeURIComponent(newRequestRedirect)}`);
       return;
+    }
+
+    if (directedProvider && directedProvider.id === user.id) {
+      setLoading(false);
+      setErrors({ form: t("request.forProviderInvalid") });
+      return;
+    }
+
+    // Re-validate provider at submit time so the link cannot use a stale/invalid id.
+    let linkProviderId: string | null = null;
+    if (providerId) {
+      const card = await fetchDirectedProviderCard(supabase, providerId);
+      if (!card || card.id === user.id) {
+        setLoading(false);
+        setErrors({ form: t("request.forProviderInvalid") });
+        return;
+      }
+      linkProviderId = card.id;
     }
 
     const { data, error } = await supabase
@@ -161,20 +234,39 @@ export function NewRequestPageContent() {
         location: parsed.data.location,
         deadline: parsed.data.deadline,
       })
-      .select()
+      .select("id")
       .single();
 
-    setLoading(false);
-
-    if (error) {
+    if (error || !data) {
+      setLoading(false);
       setErrors({
-        form: error.message.includes("row-level security")
+        form: error?.message.includes("row-level security")
           ? t("request.createForbidden")
-          : t("request.createError", { message: mapUserFacingErrorT(error.message, t) }),
+          : t("request.createError", {
+              message: mapUserFacingErrorT(error?.message ?? "", t),
+            }),
       });
       return;
     }
 
+    if (linkProviderId) {
+      const linked = await linkRequestToProvider(supabase, {
+        requestId: data.id,
+        customerId: user.id,
+        providerId: linkProviderId,
+      });
+      if (!linked.ok) {
+        setLoading(false);
+        setErrors({
+          form: t("request.createError", {
+            message: mapUserFacingErrorT(linked.error, t),
+          }),
+        });
+        return;
+      }
+    }
+
+    setLoading(false);
     router.push(`/requests/${data.id}?created=1`);
   };
 
@@ -215,15 +307,60 @@ export function NewRequestPageContent() {
           backHref={providerId ? `/providers/${providerId}` : "/"}
         />
 
-        {providerName && (
-          <Card padding="md" className="flex items-center gap-3 border-brand-100 bg-brand-50">
-            <Avatar src={providerAvatar} name={providerName} size="md" ring />
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-                {t("role.provider")}
-              </p>
-              <p className="font-semibold text-text-primary">{providerName}</p>
+        {providerId && providerStatus === "loading" && (
+          <Card padding="md" className="border-brand-200 bg-brand-50">
+            <p className="text-sm text-brand-800">{t("request.forProviderTitle")}…</p>
+          </Card>
+        )}
+
+        {providerId && providerStatus === "invalid" && (
+          <Card padding="md" className="border-amber-200 bg-warning-bg">
+            <div className="flex gap-3">
+              <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+              <p className="text-sm text-amber-900">{t("request.forProviderInvalid")}</p>
             </div>
+          </Card>
+        )}
+
+        {directedProvider && providerStatus === "ready" && (
+          <Card
+            padding="md"
+            className="border-2 border-brand-300 bg-brand-50 shadow-card"
+            data-testid="directed-provider-card"
+          >
+            <p className="mb-3 text-xs font-bold uppercase tracking-wide text-brand-800">
+              {t("request.forProviderTitle")}
+            </p>
+            <Link
+              href={`/providers/${directedProvider.id}`}
+              className="flex items-center gap-3"
+            >
+              <Avatar
+                src={directedProvider.avatar_url}
+                name={directedProvider.full_name}
+                size="lg"
+                ring
+              />
+              <div className="min-w-0">
+                <p className="truncate text-lg font-bold text-text-primary hover:text-brand-700">
+                  {directedProvider.full_name}
+                </p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+                  {t("role.provider")}
+                </p>
+                {directedProvider.rating > 0 ? (
+                  <p className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-text-primary">
+                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                    {formatRating(directedProvider.rating)}
+                    {directedProvider.reviews_count > 0 && (
+                      <span className="font-normal text-text-muted">
+                        ({t("review.count", { count: directedProvider.reviews_count })})
+                      </span>
+                    )}
+                  </p>
+                ) : null}
+              </div>
+            </Link>
           </Card>
         )}
 

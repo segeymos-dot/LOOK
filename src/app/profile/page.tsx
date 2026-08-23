@@ -1,12 +1,15 @@
 "use client";
 
-import { PaymentHistoryList } from "@/components/finance/PaymentHistoryList";
+import { BecomeProviderCard } from "@/components/auth/BecomeProviderCard";
+import { UiModeSwitch } from "@/components/auth/UiModeSwitch";
+import { ProfileFinanceBlock } from "@/components/finance/ProfileFinanceBlock";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CategoryMultiSelect } from "@/components/profile/CategoryMultiSelect";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { PortfolioEditor } from "@/components/profile/PortfolioEditor";
 import { PortfolioGallery } from "@/components/profile/PortfolioGallery";
 import { ProviderStats } from "@/components/profile/ProviderStats";
+import { AdminPlatformPulseCard } from "@/components/profile/AdminPlatformPulseCard";
 import { ReviewsList } from "@/components/profile/ReviewsList";
 import { VerificationBadges } from "@/components/profile/VerificationBadges";
 import { Avatar } from "@/components/ui/Avatar";
@@ -15,11 +18,10 @@ import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
-import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "@/components/providers/LocaleProvider";
+import { authFetch } from "@/lib/auth/session";
 import { isDemoMode } from "@/lib/config";
-import { LOOK_OFFICIAL_WEBSITE_URL } from "@/lib/brand/official-site";
 import {
   canActAsCustomer,
   canActAsProvider,
@@ -37,21 +39,35 @@ import {
   Building2,
   ClipboardList,
   ExternalLink,
-  Globe,
   Headphones,
   History,
+  Inbox,
   LogOut,
   Mail,
   MapPin,
   Phone,
   Pencil,
+  Scale,
   Search,
-  Wallet,
+  Settings,
+  Users,
+  UserRound,
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
 export default function ProfilePage() {
-  const { user, profile, displayProfile, ready, signOut, setProfile, isPlatformAdmin } = useAuth();
+  const {
+    user,
+    profile,
+    displayProfile,
+    ready,
+    syncSession,
+    signOut,
+    setProfile,
+    isPlatformAdmin,
+    effectiveUiMode,
+    canSwitchUiMode,
+  } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
   const resolvedProfile = displayProfile ?? profile;
@@ -59,8 +75,13 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /** Avoid flashing guest shell while auth cookies rehydrate after login. */
+  const [authSettled, setAuthSettled] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [incomingPendingCount, setIncomingPendingCount] = useState(0);
+  const [customerOrdersCount, setCustomerOrdersCount] = useState(0);
+  const [customerReviewsCount, setCustomerReviewsCount] = useState(0);
   const [form, setForm] = useState({
     full_name: "",
     bio: "",
@@ -74,6 +95,43 @@ export default function ProfilePage() {
     provider_category_slugs: [] as string[],
     role: "both" as "customer" | "provider" | "both",
   });
+
+  const showProviderSection = canActAsProvider(resolvedProfile?.role);
+  const showCustomerSection = canActAsCustomer(resolvedProfile?.role);
+  // Shell follows local UI mode; APIs stay role-capable for deep links.
+  const showCustomerUi =
+    showCustomerSection && effectiveUiMode === "customer";
+  const showProviderUi =
+    showProviderSection && effectiveUiMode === "provider";
+  const showCustomerLinks = showCustomerUi;
+  const showProviderLinks = showProviderUi;
+
+  useEffect(() => {
+    if (!ready) {
+      setAuthSettled(false);
+      return;
+    }
+    if (user) {
+      setAuthSettled(true);
+      return;
+    }
+
+    let cancelled = false;
+    setAuthSettled(false);
+    void (async () => {
+      try {
+        await syncSession();
+      } catch {
+        // ignore — guest UI only after grace
+      }
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      if (!cancelled) setAuthSettled(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user, syncSession]);
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -106,6 +164,75 @@ export default function ProfilePage() {
       .then(({ data }) => setReviews((data ?? []) as Review[]));
   }, [resolvedProfile]);
 
+  /** Customer-mode stats: orders as customer + reviews received as customer. */
+  useEffect(() => {
+    if (!ready || !user || !showCustomerUi) {
+      setCustomerOrdersCount(0);
+      setCustomerReviewsCount(0);
+      return;
+    }
+    if (isDemoMode()) {
+      setCustomerOrdersCount(0);
+      setCustomerReviewsCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const supabase = createClient();
+      const [ordersRes, reviewsRes] = await Promise.all([
+        authFetch(
+          "/api/orders/history?viewer=customer&tab=completed&page=1&pageSize=1"
+        ),
+        // Reviews of this user as customer (not as provider):
+        // provider profile reviews set provider_id === reviewee_id.
+        supabase
+          .from("reviews")
+          .select("id", { count: "exact", head: true })
+          .eq("reviewee_id", user.id)
+          .neq("provider_id", user.id),
+      ]);
+
+      if (cancelled) return;
+
+      if (ordersRes.ok) {
+        const data = (await ordersRes.json()) as { total?: number };
+        setCustomerOrdersCount(Number(data.total ?? 0));
+      } else {
+        setCustomerOrdersCount(0);
+      }
+
+      setCustomerReviewsCount(Number(reviewsRes.count ?? 0));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user, showCustomerUi]);
+
+  useEffect(() => {
+    if (!ready || !user || !resolvedProfile || !showProviderUi) {
+      setIncomingPendingCount(0);
+      return;
+    }
+    if (isDemoMode()) {
+      setIncomingPendingCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const res = await authFetch("/api/provider/incoming?countOnly=1");
+      if (!res.ok || cancelled) return;
+      const data = (await res.json()) as { pendingCount?: number };
+      if (!cancelled) setIncomingPendingCount(Number(data.pendingCount ?? 0));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user, resolvedProfile, showProviderUi]);
+
   useEffect(() => {
     if (resolvedProfile) {
       setForm({
@@ -133,19 +260,18 @@ export default function ProfilePage() {
 
     if (!isDemoMode()) {
       const supabase = createClient();
+      // Role is never edited here — customer→both goes through provider onboarding.
       const payload = {
         full_name: form.full_name,
         bio: form.bio || null,
         city: form.city || null,
         country: form.country || null,
         phone: form.phone || null,
-        phone_verified: Boolean(form.phone?.trim()),
         avatar_url: form.avatar_url || null,
         skills: form.skills || null,
         portfolio: form.portfolio || null,
         portfolio_items: form.portfolio_items,
         provider_category_slugs: form.provider_category_slugs,
-        role: form.role,
       };
 
       const { data, error } = await supabase
@@ -164,14 +290,14 @@ export default function ProfilePage() {
       if (data) {
         setProfile(data);
         await supabase.auth.updateUser({
-          data: { role: data.role, full_name: data.full_name },
+          data: { full_name: data.full_name },
         });
       }
     } else if (resolvedProfile) {
       setProfile({
         ...resolvedProfile,
         ...form,
-        phone_verified: Boolean(form.phone?.trim()),
+        role: resolvedProfile.role,
       });
     }
 
@@ -179,16 +305,11 @@ export default function ProfilePage() {
     setEditing(false);
   };
 
-  const showProviderSection =
-    canActAsProvider(resolvedProfile?.role) ||
-    form.role === "provider" ||
-    form.role === "both";
-
   const verification = resolvedProfile
     ? getProviderVerification(resolvedProfile, Boolean(user?.email_confirmed_at))
     : null;
 
-  if (!ready) {
+  if (!ready || !authSettled) {
     return (
       <AppLayout activePath="/profile" title={t("profile.title")}>
         <div className="flex flex-col items-center justify-center px-4 py-20">
@@ -227,10 +348,12 @@ export default function ProfilePage() {
             {resolvedProfile?.full_name ?? user?.email ?? t("profile.title")}
           </h1>
           <Chip variant="brand" className="mt-2">
-            {getRoleLabelT(resolvedProfile?.role, t)}
+            {isPlatformAdmin
+              ? t("profile.platformAdmin")
+              : getRoleLabelT(resolvedProfile?.role, t)}
           </Chip>
 
-          {showProviderSection && resolvedProfile && (
+          {!isPlatformAdmin && showProviderUi && resolvedProfile && (
             <div className="mt-4">
               <ProviderStats
                 rating={Number(resolvedProfile.rating)}
@@ -241,7 +364,18 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {verification && showProviderSection && (
+          {!isPlatformAdmin && showCustomerUi && (
+            <div className="mt-4">
+              <ProviderStats
+                rating={0}
+                completedOrders={customerOrdersCount}
+                reviewsCount={customerReviewsCount}
+                variant="compact"
+              />
+            </div>
+          )}
+
+          {!isPlatformAdmin && verification && showProviderUi && (
             <div className="mt-4">
               <VerificationBadges verification={verification} className="justify-center" />
             </div>
@@ -270,7 +404,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {showProviderSection && resolvedProfile && !editing && (
+          {!isPlatformAdmin && showProviderUi && resolvedProfile && !editing && (
             <Link href={`/providers/${resolvedProfile.id}`} className="mt-4 inline-block">
               <Button variant="outline" size="sm" className="gap-2">
                 <ExternalLink className="h-4 w-4" />
@@ -280,19 +414,44 @@ export default function ProfilePage() {
           )}
         </Card>
 
-        {!editing && (
-          <Card padding="md" className="space-y-3">
-            <h2 className="text-sm font-semibold text-text-primary">{t("profile.financeTest")}</h2>
-            <div className="grid gap-2">
-              {showProviderSection && (
-                <Link href="/my/balance">
-                  <Button variant="outline" className="w-full justify-start gap-2" size="sm">
-                    <Wallet className="h-4 w-4" />
-                    {t("profile.providerBalance")}
-                  </Button>
-                </Link>
-              )}
-              {(isPlatformAdmin || isDemoMode()) && (
+        {!editing && isPlatformAdmin && <AdminPlatformPulseCard />}
+
+        {!editing && isPlatformAdmin && (
+          <div className="space-y-2">
+            <Link href="/admin/stats" className="block">
+              <Button className="min-h-[48px] w-full gap-2 text-base" size="lg">
+                <BarChart3 className="h-5 w-5" />
+                {t("profile.adminPanel")}
+              </Button>
+            </Link>
+            <Link href="/admin/support" className="block">
+              <Button
+                variant="outline"
+                className="min-h-[48px] w-full gap-2 text-base"
+                size="lg"
+              >
+                <Headphones className="h-5 w-5" />
+                {t("home.trustSupport")}
+              </Button>
+            </Link>
+          </div>
+        )}
+
+        {!editing && !isPlatformAdmin && canSwitchUiMode && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-text-muted">{t("uiMode.hint")}</p>
+            <UiModeSwitch />
+          </div>
+        )}
+
+        {!editing && !isPlatformAdmin && <BecomeProviderCard />}
+
+        {!editing && !isPlatformAdmin && (showProviderUi || showCustomerUi) && (
+          <ProfileFinanceBlock
+            showProvider={showProviderUi}
+            showCustomer={showCustomerUi}
+            adminLinks={
+              isDemoMode() ? (
                 <>
                   <Link href="/admin/stats">
                     <Button variant="outline" className="w-full justify-start gap-2" size="sm">
@@ -312,17 +471,34 @@ export default function ProfilePage() {
                       {t("profile.adminPlatform")}
                     </Button>
                   </Link>
+                  <Link href="/admin/orders">
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <ClipboardList className="h-4 w-4" />
+                      {t("profile.allOrderHistory")}
+                    </Button>
+                  </Link>
+                  <Link href="/admin/disputes">
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <Scale className="h-4 w-4" />
+                      {t("profile.adminDisputes")}
+                    </Button>
+                  </Link>
+                  <Link href="/admin/customers">
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <Users className="h-4 w-4" />
+                      {t("profile.adminCustomers")}
+                    </Button>
+                  </Link>
+                  <Link href="/admin/providers">
+                    <Button variant="outline" className="w-full justify-start gap-2" size="sm">
+                      <UserRound className="h-4 w-4" />
+                      {t("profile.adminProviders")}
+                    </Button>
+                  </Link>
                 </>
-              )}
-              <Link href="/finance/transactions">
-                <Button variant="outline" className="w-full justify-start gap-2" size="sm">
-                  <History className="h-4 w-4" />
-                  {t("profile.transactions")}
-                </Button>
-              </Link>
-            </div>
-            <PaymentHistoryList />
-          </Card>
+              ) : undefined
+            }
+          />
         )}
 
         {editing ? (
@@ -370,20 +546,17 @@ export default function ProfilePage() {
                 value={form.bio}
                 onChange={(e) => setForm({ ...form, bio: e.target.value })}
               />
-              <Select
-                id="role"
-                label={t("profile.role")}
-                value={form.role}
-                onChange={(e) =>
-                  setForm({ ...form, role: e.target.value as typeof form.role })
-                }
-              >
-                <option value="customer">{t("role.customer")}</option>
-                <option value="provider">{t("role.provider")}</option>
-                <option value="both">{t("role.both")}</option>
-              </Select>
+              <div>
+                <p className="mb-1 text-sm font-medium text-text-primary">
+                  {t("profile.role")}
+                </p>
+                <p className="rounded-xl border border-border-subtle bg-slate-50 px-3 py-2 text-sm text-text-secondary">
+                  {getRoleLabelT(resolvedProfile?.role, t)}
+                </p>
+                <p className="mt-1 text-xs text-text-muted">{t("profile.roleLockedHint")}</p>
+              </div>
 
-              {(form.role === "provider" || form.role === "both") && user && (
+              {showProviderUi && user && (
                 <>
                   <Input
                     id="skills"
@@ -436,13 +609,13 @@ export default function ProfilePage() {
           </Card>
         ) : (
           <>
-            {resolvedProfile?.bio && (
+            {!isPlatformAdmin && resolvedProfile?.bio && (
               <Card padding="md">
                 <p className="text-sm leading-relaxed text-text-secondary">{resolvedProfile.bio}</p>
               </Card>
             )}
 
-            {showProviderSection && resolvedProfile?.skills && (
+            {!isPlatformAdmin && showProviderUi && resolvedProfile?.skills && (
               <Card padding="md">
                 <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("profile.skills")}</h3>
                 <div className="flex flex-wrap gap-2">
@@ -453,7 +626,7 @@ export default function ProfilePage() {
               </Card>
             )}
 
-            {showProviderSection && resolvedProfile?.portfolio?.trim() && (
+            {!isPlatformAdmin && showProviderUi && resolvedProfile?.portfolio?.trim() && (
               <Card padding="md">
                 <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("profile.portfolio")}</h3>
                 <p className="whitespace-pre-line text-sm leading-relaxed text-text-secondary">
@@ -462,27 +635,59 @@ export default function ProfilePage() {
               </Card>
             )}
 
-            {showProviderSection &&
+            {!isPlatformAdmin &&
+              showProviderUi &&
               resolvedProfile &&
               (resolvedProfile.portfolio_items?.length ?? 0) > 0 && (
               <PortfolioGallery items={resolvedProfile.portfolio_items} />
             )}
 
-            {showProviderSection && reviews.length > 0 && (
+            {!isPlatformAdmin && showProviderUi && reviews.length > 0 && (
               <ReviewsList reviews={reviews} />
             )}
 
             <div className="space-y-2">
-              {canActAsCustomer(resolvedProfile?.role) && (
-                <Link href="/my/requests">
-                  <Button variant="secondary" className="w-full gap-2">
-                    <ClipboardList className="h-5 w-5" />
-                    {t("profile.myRequests")}
-                  </Button>
-                </Link>
-              )}
-              {canActAsProvider(resolvedProfile?.role) && (
+              {!isPlatformAdmin && showCustomerLinks && (
                 <>
+                  <Link href="/my/orders">
+                    <Button variant="secondary" className="w-full gap-2">
+                      <History className="h-5 w-5" />
+                      {t("profile.orderHistory")}
+                    </Button>
+                  </Link>
+                  <Link href="/my/requests">
+                    <Button variant="secondary" className="w-full gap-2">
+                      <ClipboardList className="h-5 w-5" />
+                      {t("profile.myRequests")}
+                    </Button>
+                  </Link>
+                </>
+              )}
+              {!isPlatformAdmin && showProviderLinks && (
+                <>
+                  <Link href="/my/incoming">
+                    <Button variant="secondary" className="w-full gap-2">
+                      <Inbox className="h-5 w-5" />
+                      <span className="flex-1 text-left">
+                        {incomingPendingCount > 0
+                          ? t("profile.incomingOrdersCount", {
+                              count: incomingPendingCount,
+                            })
+                          : t("profile.incomingOrders")}
+                      </span>
+                      {incomingPendingCount > 0 && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1.5 text-xs font-bold text-white">
+                          {incomingPendingCount}
+                        </span>
+                      )}
+                    </Button>
+                  </Link>
+                  <Link href="/my/work">
+                    <Button variant="secondary" className="w-full gap-2">
+                      <History className="h-5 w-5" />
+                      {t("profile.workHistory")}
+                    </Button>
+                  </Link>
                   <Link href="/search">
                     <Button variant="secondary" className="w-full gap-2">
                       <Search className="h-5 w-5" />
@@ -497,16 +702,12 @@ export default function ProfilePage() {
                   </Link>
                 </>
               )}
-              <a
-                href={LOOK_OFFICIAL_WEBSITE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 text-base font-semibold text-text-primary transition-all hover:border-brand-300 hover:bg-brand-50"
-              >
-                <Globe className="h-4 w-4" />
-                {t("profile.officialSite")}
-                <ExternalLink className="h-4 w-4 opacity-70" aria-hidden />
-              </a>
+              <Link href="/settings">
+                <Button variant="outline" className="w-full gap-2">
+                  <Settings className="h-4 w-4" />
+                  {t("profile.settings")}
+                </Button>
+              </Link>
               <Button
                 variant="outline"
                 className="w-full gap-2"
@@ -524,8 +725,9 @@ export default function ProfilePage() {
                 disabled={!user}
                 onClick={async () => {
                   if (!user) return;
-                  await signOut();
-                  router.push("/");
+                  await signOut({ scope: "local" });
+                  router.replace("/login");
+                  router.refresh();
                 }}
               >
                 <LogOut className="h-4 w-4" />

@@ -12,7 +12,13 @@ import { authFetch } from "@/lib/auth/session";
 import { isDemoMode } from "@/lib/config";
 import { getMockConversation } from "@/lib/mock/data";
 import { localizeText } from "@/lib/i18n/localize-data";
-import type { RequestStatus, WorkAttachment } from "@/types";
+import type {
+  OrderDispute,
+  OrderPaymentStatus,
+  RefundDisputeStatus,
+  RequestStatus,
+  WorkAttachment,
+} from "@/types";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -26,6 +32,10 @@ type LifecycleInfo = {
   acceptedProviderId: string | null;
   grossAmount: number;
   currency: string;
+  orderPaymentStatus?: OrderPaymentStatus;
+  refundDisputeStatus?: RefundDisputeStatus;
+  dispute?: OrderDispute | null;
+  disputeFallbackReason?: string | null;
 };
 
 export default function ChatDetailPage() {
@@ -36,6 +46,7 @@ export default function ChatDetailPage() {
   const { messages, loading, sendMessage } = useMessages(id, user?.id);
   const [otherUserName, setOtherUserName] = useState("");
   const [otherUserAvatar, setOtherUserAvatar] = useState<string | null>(null);
+  const [otherProviderId, setOtherProviderId] = useState<string | null>(null);
   const [requestTitle, setRequestTitle] = useState("");
   const [requestId, setRequestId] = useState<string | null>(null);
   const [lifecycle, setLifecycle] = useState<LifecycleInfo | null>(null);
@@ -51,10 +62,14 @@ export default function ChatDetailPage() {
     if (isDemoMode()) {
       const data = getMockConversation(id);
       if (data && user) {
-        const other =
-          data.customer_id === user.id ? data.provider : data.customer;
+        const viewerIsCustomer = data.customer_id === user.id;
+        const other = viewerIsCustomer ? data.provider : data.customer;
         setOtherUserName(other?.full_name ?? "");
         setOtherUserAvatar(other?.avatar_url ?? null);
+        // Only link to public provider profile when the other party is the provider.
+        setOtherProviderId(
+          viewerIsCustomer ? (data.provider_id ?? data.provider?.id ?? null) : null
+        );
         setRequestTitle(data.request?.title ?? "");
         setRequestId(data.request_id);
       }
@@ -68,18 +83,22 @@ export default function ChatDetailPage() {
       const { conversation: data } = (await response.json()) as {
         conversation?: {
           customer_id: string;
+          provider_id?: string;
           request_id: string;
-          provider?: { full_name: string; avatar_url?: string | null };
+          provider?: { id?: string; full_name: string; avatar_url?: string | null };
           customer?: { full_name: string; avatar_url?: string | null };
           request?: { id: string; title: string };
         };
       };
 
       if (data && user) {
-        const other =
-          data.customer_id === user.id ? data.provider : data.customer;
+        const viewerIsCustomer = data.customer_id === user.id;
+        const other = viewerIsCustomer ? data.provider : data.customer;
         setOtherUserName(other?.full_name ?? "");
         setOtherUserAvatar(other?.avatar_url ?? null);
+        setOtherProviderId(
+          viewerIsCustomer ? (data.provider_id ?? data.provider?.id ?? null) : null
+        );
         setRequestTitle(data.request?.title ?? "");
         const reqId = data.request?.id ?? data.request_id;
         setRequestId(reqId);
@@ -119,14 +138,32 @@ export default function ChatDetailPage() {
           >
             <ChevronLeft className="h-5 w-5" />
           </Link>
-          <Avatar src={otherUserAvatar} name={otherUserName || "?"} size="md" ring />
+          {otherProviderId ? (
+            <Link href={`/providers/${otherProviderId}`} className="shrink-0">
+              <Avatar src={otherUserAvatar} name={otherUserName || "?"} size="md" ring />
+            </Link>
+          ) : (
+            <Avatar src={otherUserAvatar} name={otherUserName || "?"} size="md" ring />
+          )}
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold text-text-primary">{otherUserName}</p>
-            {requestTitle && (
-              <Link href={requestId ? `/requests/${requestId}` : "/search"} className="truncate text-xs text-brand-600 hover:underline">
+            {otherProviderId ? (
+              <Link
+                href={`/providers/${otherProviderId}`}
+                className="block truncate font-semibold text-text-primary hover:text-brand-600"
+              >
+                {otherUserName}
+              </Link>
+            ) : (
+              <p className="truncate font-semibold text-text-primary">{otherUserName}</p>
+            )}
+            {requestTitle ? (
+              <Link
+                href={requestId ? `/requests/${requestId}` : "/search"}
+                className="truncate text-xs text-brand-600 hover:underline"
+              >
                 {localizeText(requestTitle, locale)}
               </Link>
-            )}
+            ) : null}
           </div>
         </div>
         <DemoBanner />
@@ -134,7 +171,9 @@ export default function ChatDetailPage() {
 
       {lifecycle &&
         lifecycle.effectiveStatus !== "open" &&
-        lifecycle.effectiveStatus !== "cancelled" && (
+        (lifecycle.effectiveStatus !== "cancelled" ||
+          lifecycle.refundDisputeStatus === "dispute_opened" ||
+          Boolean(lifecycle.dispute)) && (
           <div className="border-b border-border-subtle bg-surface p-3">
             <OrderWorkLifecyclePanel
               requestId={lifecycle.requestId}
@@ -144,6 +183,10 @@ export default function ChatDetailPage() {
               currency={lifecycle.currency}
               acceptedProviderId={lifecycle.acceptedProviderId}
               revisionFeedback={lifecycle.revisionFeedback}
+              orderPaymentStatus={lifecycle.orderPaymentStatus ?? null}
+              refundDisputeStatus={lifecycle.refundDisputeStatus ?? "none"}
+              initialDispute={lifecycle.dispute ?? null}
+              disputeFallbackReason={lifecycle.disputeFallbackReason ?? null}
               viewerUserId={user?.id ?? null}
               viewerIsCustomer={user?.id === lifecycle.customerId}
               onSuccess={handleLifecycleChange}

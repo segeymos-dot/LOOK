@@ -29,7 +29,7 @@ export async function GET(
 
   const { data, error } = await supabase
     .from("messages")
-    .select("*, sender:profiles(*)")
+    .select("*, sender:profiles(id, full_name, avatar_url)")
     .eq("conversation_id", id)
     .order("created_at", { ascending: true });
 

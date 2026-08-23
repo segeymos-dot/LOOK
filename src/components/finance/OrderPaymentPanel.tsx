@@ -16,8 +16,8 @@ import { formatPrice } from "@/lib/utils";
 import { CreditCard, ShieldCheck, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { OrderPaymentStatusBadge } from "@/components/finance/OrderPaymentStatusBadge";
-import type { RequestStatus } from "@/types";
+import { OrderFinanceStatusBadge } from "@/components/finance/OrderFinanceStatusBadge";
+import type { RefundDisputeStatus, RequestStatus } from "@/types";
 
 interface OrderPaymentPanelProps {
   requestId: string;
@@ -29,6 +29,7 @@ interface OrderPaymentPanelProps {
   viewerUserId?: string | null;
   viewerIsCustomer?: boolean;
   isDemo?: boolean;
+  refundDisputeStatus?: RefundDisputeStatus | null;
   onPaid?: () => void;
 }
 
@@ -42,6 +43,7 @@ export function OrderPaymentPanel({
   viewerUserId,
   viewerIsCustomer,
   isDemo = false,
+  refundDisputeStatus = "none",
   onPaid,
 }: OrderPaymentPanelProps) {
   const router = useRouter();
@@ -84,7 +86,10 @@ export function OrderPaymentPanel({
               <h3 className="font-semibold text-blue-900">
                 {t("finance.orderPaymentStatus.completed")}
               </h3>
-              <OrderPaymentStatusBadge status="completed" />
+              <OrderFinanceStatusBadge
+                orderPaymentStatus="completed"
+                refundDisputeStatus={refundDisputeStatus}
+              />
             </div>
             {payment && (
               <p className="text-sm text-blue-900">
@@ -106,7 +111,10 @@ export function OrderPaymentPanel({
             <p className="font-semibold text-text-primary">{t("finance.payment.title")}</p>
             <p className="text-sm text-text-secondary">{t("finance.payment.checkoutInProgress")}</p>
           </div>
-          <OrderPaymentStatusBadge status="payment_pending" />
+          <OrderFinanceStatusBadge
+            orderPaymentStatus="payment_pending"
+            refundDisputeStatus={refundDisputeStatus}
+          />
         </div>
         <Link href={paymentPageHref} className="mt-3 block">
           <Button className="w-full gap-2" variant="secondary">
@@ -126,10 +134,10 @@ export function OrderPaymentPanel({
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-semibold text-emerald-900">{t("finance.paymentStatus.paid")}</h3>
-              <OrderPaymentStatusBadge status="paid" />
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-800">
-                {t("finance.payment.testBadge")}
-              </span>
+              <OrderFinanceStatusBadge
+                orderPaymentStatus="paid"
+                refundDisputeStatus={refundDisputeStatus}
+              />
             </div>
             <p className="text-sm text-emerald-800">
               {formatPrice(payment.amount_gross, payment.currency)} ·{" "}
@@ -166,7 +174,10 @@ export function OrderPaymentPanel({
           <div className="flex-1">
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <p className="font-semibold text-text-primary">{t("finance.payment.awaitingPayment")}</p>
-              <OrderPaymentStatusBadge status="unpaid" />
+              <OrderFinanceStatusBadge
+                orderPaymentStatus="unpaid"
+                refundDisputeStatus={refundDisputeStatus}
+              />
             </div>
             <p className="text-sm text-text-secondary">
               {t("finance.payment.providerWaiting", {
@@ -186,9 +197,6 @@ export function OrderPaymentPanel({
       <div className="mb-3 flex items-center gap-2">
         <CreditCard className="h-5 w-5 text-brand-600" />
         <h3 className="font-semibold text-text-primary">{t("finance.payment.title")}</h3>
-        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800">
-          {t("finance.payment.testBadge")}
-        </span>
       </div>
 
       <p className="mb-3 text-sm text-text-secondary">

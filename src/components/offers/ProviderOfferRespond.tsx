@@ -185,7 +185,9 @@ export function ProviderOfferRespond({
 
       const { data: savedOffer } = await supabase
         .from("offers")
-        .select("*, provider:profiles(*)")
+        .select(
+          "*, provider:profiles(id, full_name, avatar_url, role, rating, reviews_count, completed_orders_count)"
+        )
         .eq("id", result.offerId)
         .single();
 

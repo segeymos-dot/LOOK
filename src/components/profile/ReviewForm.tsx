@@ -3,19 +3,54 @@
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Textarea } from "@/components/ui/Textarea";
-import { StarPicker } from "@/components/profile/StarRating";
+import { StarPicker, StarRating } from "@/components/profile/StarRating";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { authFetch } from "@/lib/auth/client-fetch";
 import { isDemoMode } from "@/lib/config";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+
+export type SubmittedReviewView = {
+  rating: number;
+  comment: string;
+};
 
 interface ReviewFormProps {
   revieweeId: string;
   requestId: string;
   title?: string;
   placeholder?: string;
-  onSuccess?: () => void;
+  existingReview?: SubmittedReviewView | null;
+  onSuccess?: (review: SubmittedReviewView) => void;
+}
+
+function SubmittedReviewCard({
+  title,
+  review,
+}: {
+  title: string;
+  review: SubmittedReviewView;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <Card padding="md" className="border-emerald-200 bg-success-bg">
+      <h3 className="mb-1 font-semibold text-text-primary">{title}</h3>
+      <p className="mb-3 text-sm text-emerald-800">{t("review.thanks")}</p>
+      <div className="space-y-3">
+        <div>
+          <p className="mb-1 text-sm font-medium text-text-primary">{t("review.rating")}</p>
+          <StarRating rating={review.rating} size="md" showValue />
+        </div>
+        {review.comment.trim() ? (
+          <div>
+            <p className="mb-1 text-sm font-medium text-text-primary">{t("review.comment")}</p>
+            <p className="whitespace-pre-wrap text-sm text-text-secondary">{review.comment}</p>
+          </div>
+        ) : null}
+      </div>
+    </Card>
+  );
 }
 
 export function ReviewForm({
@@ -23,6 +58,7 @@ export function ReviewForm({
   requestId,
   title,
   placeholder,
+  existingReview = null,
   onSuccess,
 }: ReviewFormProps) {
   const router = useRouter();
@@ -33,17 +69,29 @@ export function ReviewForm({
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [submittedReview, setSubmittedReview] = useState<SubmittedReviewView | null>(
+    existingReview
+  );
+
+  useEffect(() => {
+    if (existingReview) {
+      setSubmittedReview(existingReview);
+    }
+  }, [existingReview]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submittedReview) return;
+
     setError(null);
     setLoading(true);
 
+    const nextReview: SubmittedReviewView = { rating, comment };
+
     try {
       if (isDemoMode()) {
-        setDone(true);
-        onSuccess?.();
+        setSubmittedReview(nextReview);
+        onSuccess?.(nextReview);
         return;
       }
 
@@ -55,12 +103,22 @@ export function ReviewForm({
 
       const result = await response.json();
       if (!response.ok || !result.success) {
+        if (response.status === 409) {
+          setSubmittedReview(nextReview);
+          onSuccess?.(nextReview);
+          router.refresh();
+          return;
+        }
         setError(result.error ?? t("common.error"));
         return;
       }
 
-      setDone(true);
-      onSuccess?.();
+      const saved: SubmittedReviewView = {
+        rating: result.review?.rating ?? rating,
+        comment: result.review?.comment ?? comment,
+      };
+      setSubmittedReview(saved);
+      onSuccess?.(saved);
       router.refresh();
     } catch {
       setError(t("common.error"));
@@ -69,12 +127,8 @@ export function ReviewForm({
     }
   };
 
-  if (done) {
-    return (
-      <Card padding="md" className="border-emerald-200 bg-success-bg text-center">
-        <p className="text-sm font-medium text-emerald-800">{t("review.thanks")}</p>
-      </Card>
-    );
+  if (submittedReview) {
+    return <SubmittedReviewCard title={resolvedTitle} review={submittedReview} />;
   }
 
   return (

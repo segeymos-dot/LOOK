@@ -33,5 +33,9 @@ export function mapUserFacingError(message: string): string {
     return "Не удалось выполнить вход. Попробуйте позже или зарегистрируйтесь заново.";
   }
 
+  if (lower.includes("invalid api key") || lower.includes("no api key found")) {
+    return "Неверный ключ Supabase. Для Preview проверьте NEXT_PUBLIC_SUPABASE_URL и publishable/anon key (LOOK Staging), затем сделайте Redeploy — NEXT_PUBLIC_* подхватываются только при сборке.";
+  }
+
   return message;
 }

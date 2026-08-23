@@ -17,9 +17,16 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const { getSupabasePublicEnvFingerprint, getSupabaseServiceRoleKey } =
+    await import("@/lib/supabase/env");
+  const fingerprint = getSupabasePublicEnvFingerprint();
+
   return NextResponse.json({
-    hasServiceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    hasServiceRole: Boolean(getSupabaseServiceRoleKey()),
     hasDbUrl: Boolean(process.env.SUPABASE_DB_URL || process.env.DATABASE_URL),
     hasAccessToken: Boolean(process.env.SUPABASE_ACCESS_TOKEN),
+    supabaseUrlHost: fingerprint.urlHost,
+    anonKeyKind: fingerprint.anonKeyKind,
+    anonKeyLength: fingerprint.anonKeyLength,
   });
 }

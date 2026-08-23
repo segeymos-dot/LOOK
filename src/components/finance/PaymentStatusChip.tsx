@@ -1,14 +1,15 @@
 "use client";
 
 import { useOrderPayment } from "@/hooks/useOrderPayment";
-import { OrderPaymentStatusBadge } from "@/components/finance/OrderPaymentStatusBadge";
+import { OrderFinanceStatusBadge } from "@/components/finance/OrderFinanceStatusBadge";
 import { cn } from "@/lib/utils";
-import type { OrderPaymentStatus, RequestStatus } from "@/types";
+import type { OrderPaymentStatus, RefundDisputeStatus, RequestStatus } from "@/types";
 
 interface PaymentStatusChipProps {
   requestId: string;
   requestStatus: RequestStatus;
   orderPaymentStatus?: OrderPaymentStatus;
+  refundDisputeStatus?: RefundDisputeStatus | null;
   className?: string;
 }
 
@@ -16,12 +17,14 @@ export function PaymentStatusChip({
   requestId,
   requestStatus,
   orderPaymentStatus,
+  refundDisputeStatus = "none",
   className,
 }: PaymentStatusChipProps) {
   const enabled =
     requestStatus === "in_progress" ||
     requestStatus === "pending_review" ||
-    requestStatus === "completed";
+    requestStatus === "completed" ||
+    requestStatus === "cancelled";
 
   const { orderPaymentStatus: liveStatus, loading } = useOrderPayment(
     requestId,
@@ -35,10 +38,18 @@ export function PaymentStatusChip({
   if (orderPaymentStatus == null && loading) return null;
 
   if (status === "unpaid" && requestStatus === "completed") return null;
+  if (
+    status === "unpaid" &&
+    requestStatus === "cancelled" &&
+    (!refundDisputeStatus || refundDisputeStatus === "none")
+  ) {
+    return null;
+  }
 
   return (
-    <OrderPaymentStatusBadge
-      status={status}
+    <OrderFinanceStatusBadge
+      orderPaymentStatus={status}
+      refundDisputeStatus={refundDisputeStatus}
       className={cn(className)}
     />
   );

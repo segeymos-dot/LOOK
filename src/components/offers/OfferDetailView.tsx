@@ -13,7 +13,13 @@ import { getMockConversationForOffer, mockCurrentUser } from "@/lib/mock/data";
 import { mapOfferActionError } from "@/lib/offers/offer-action-errors";
 import { formatRelativeTimeT } from "@/lib/i18n/client-messages";
 import { formatPrice } from "@/lib/utils";
-import type { Offer, RequestStatus } from "@/types";
+import type {
+  Offer,
+  OrderDispute,
+  OrderPaymentStatus,
+  RefundDisputeStatus,
+  RequestStatus,
+} from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -27,6 +33,10 @@ interface OfferDetailViewProps {
   viewerUserId?: string | null;
   viewerIsCustomer?: boolean;
   revisionFeedback?: string | null;
+  orderPaymentStatus?: OrderPaymentStatus | null;
+  refundDisputeStatus?: RefundDisputeStatus | null;
+  initialDispute?: OrderDispute | null;
+  disputeFallbackReason?: string | null;
   isDemo?: boolean;
 }
 
@@ -39,6 +49,10 @@ export function OfferDetailView({
   viewerUserId = null,
   viewerIsCustomer,
   revisionFeedback = null,
+  orderPaymentStatus = null,
+  refundDisputeStatus = "none",
+  initialDispute = null,
+  disputeFallbackReason = null,
   isDemo = false,
 }: OfferDetailViewProps) {
   const router = useRouter();
@@ -263,6 +277,10 @@ export function OfferDetailView({
             currency={offer.currency}
             acceptedProviderId={offer.provider_id}
             revisionFeedback={revisionFeedback}
+            orderPaymentStatus={orderPaymentStatus}
+            refundDisputeStatus={refundDisputeStatus}
+            initialDispute={initialDispute}
+            disputeFallbackReason={disputeFallbackReason}
             viewerUserId={activeUserId}
             viewerIsCustomer={isCustomer}
             isDemo={isDemo}

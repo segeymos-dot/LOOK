@@ -1,4 +1,5 @@
 import { getWorkLifecycleState } from "@/lib/data/work-lifecycle-state";
+import { getOrderDisputeForRequest } from "@/lib/data/order-disputes";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -17,13 +18,16 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [{ data: request }, lifecycle] = await Promise.all([
+  const [{ data: request }, lifecycle, dispute] = await Promise.all([
     supabase
       .from("requests")
-      .select("id, customer_id, status, currency")
+      .select(
+        "id, customer_id, status, currency, order_payment_status, refund_dispute_status, refund_reason, cancellation_reason"
+      )
       .eq("id", requestId)
       .maybeSingle(),
     getWorkLifecycleState(supabase, requestId),
+    getOrderDisputeForRequest(supabase, requestId),
   ]);
 
   if (!request) {
@@ -53,5 +57,9 @@ export async function GET(
     acceptedProviderId: acceptedOffer?.provider_id ?? null,
     grossAmount: Number(acceptedOffer?.price ?? 0),
     currency: acceptedOffer?.currency ?? request.currency,
+    orderPaymentStatus: request.order_payment_status ?? "unpaid",
+    refundDisputeStatus: request.refund_dispute_status ?? "none",
+    dispute,
+    disputeFallbackReason: request.refund_reason ?? request.cancellation_reason ?? null,
   });
 }

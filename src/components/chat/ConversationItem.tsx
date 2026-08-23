@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { KeyboardEvent, MouseEvent } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { formatRelativeTimeT } from "@/lib/i18n/client-messages";
@@ -14,12 +16,25 @@ interface ConversationItemProps {
 }
 
 export function ConversationItem({ conversation, currentUserId }: ConversationItemProps) {
+  const router = useRouter();
   const { t, locale } = useTranslation();
   const localized = localizeConversation(conversation, locale);
-  const otherUser =
-    conversation.customer_id === currentUserId
-      ? conversation.provider
-      : conversation.customer;
+  const viewerIsCustomer = conversation.customer_id === currentUserId;
+  const otherUser = viewerIsCustomer
+    ? conversation.provider
+    : conversation.customer;
+  const providerProfileId = viewerIsCustomer ? conversation.provider_id : null;
+
+  const openProviderProfile = (e: MouseEvent | KeyboardEvent) => {
+    if (!providerProfileId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`/providers/${providerProfileId}`);
+  };
+
+  const onProviderKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") openProviderProfile(e);
+  };
 
   return (
     <Link
@@ -27,12 +42,30 @@ export function ConversationItem({ conversation, currentUserId }: ConversationIt
       className="flex items-center gap-3 border-b border-border-subtle px-4 py-4 transition-colors hover:bg-slate-50 active:bg-slate-100"
     >
       {otherUser && (
-        <Avatar src={otherUser.avatar_url} name={otherUser.full_name} size="lg" ring />
+        <span
+          role={providerProfileId ? "link" : undefined}
+          tabIndex={providerProfileId ? 0 : undefined}
+          onClick={providerProfileId ? openProviderProfile : undefined}
+          onKeyDown={providerProfileId ? onProviderKeyDown : undefined}
+          className={providerProfileId ? "shrink-0 cursor-pointer" : "shrink-0"}
+        >
+          <Avatar src={otherUser.avatar_url} name={otherUser.full_name} size="lg" ring />
+        </span>
       )}
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <p className="truncate font-semibold text-text-primary">
+          <p
+            role={providerProfileId ? "link" : undefined}
+            tabIndex={providerProfileId ? 0 : undefined}
+            onClick={providerProfileId ? openProviderProfile : undefined}
+            onKeyDown={providerProfileId ? onProviderKeyDown : undefined}
+            className={
+              providerProfileId
+                ? "truncate font-semibold text-text-primary hover:text-brand-600"
+                : "truncate font-semibold text-text-primary"
+            }
+          >
             {otherUser?.full_name ?? t("chat.unknownUser")}
           </p>
           {conversation.last_message_at && (

@@ -7,6 +7,12 @@ import {
   getMockReviewsForProvider,
 } from "@/lib/mock/data";
 import { parsePortfolioItems } from "@/lib/profile/provider-utils";
+import { getProviderPublicReputationStats } from "@/lib/profile/provider-public-stats";
+import {
+  isProviderPubliclyVisible,
+  PUBLIC_PROVIDER_PROFILE_SELECT,
+  toPublicProviderProfile,
+} from "@/lib/profile/public-provider-profile";
 import { createClient } from "@/lib/supabase/server";
 import type { Category, Profile, Review } from "@/types";
 import type { User } from "@supabase/supabase-js";
@@ -15,7 +21,7 @@ export function isMockProfileId(id: string): boolean {
   return /^user-\d+$/.test(id);
 }
 
-function normalizeProfile(profile: Profile): Profile {
+function normalizePortfolio(profile: Profile): Profile {
   return {
     ...profile,
     portfolio_items: parsePortfolioItems(profile.portfolio_items),
@@ -36,7 +42,7 @@ function getMockProviderPageData(id: string): {
   if (!profile || !canActAsProvider(profile.role)) return null;
 
   return {
-    profile: normalizeProfile(profile),
+    profile: normalizePortfolio(profile),
     reviews: getMockReviewsForProvider(id),
     categories: getMockCategoriesForProvider(profile.provider_category_slugs),
   };
@@ -60,12 +66,18 @@ function buildMockPageResult(
   user: User | null,
   id: string
 ) {
+  const isOwnProfile = user?.id === id;
   return {
-    ...mock,
+    profile: toPublicProviderProfile(normalizePortfolio(mock.profile), {
+      isOwnProfile,
+    }),
+    reviews: mock.reviews,
+    categories: mock.categories,
     chatHref: null as string | null,
     isAuthenticated: Boolean(user),
-    isOwnProfile: user?.id === id,
-    emailVerified: true,
+    isOwnProfile,
+    // Do not claim email verification to visitors.
+    emailVerified: isOwnProfile ? Boolean(user?.email_confirmed_at) : false,
   };
 }
 
@@ -90,35 +102,59 @@ export async function resolveProviderPageData(id: string): Promise<{
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", id).single();
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select(PUBLIC_PROVIDER_PROFILE_SELECT)
+    .eq("id", id)
+    .maybeSingle();
 
+  const profile = profileRow as Profile | null;
   if (!profile || !canActAsProvider(profile.role)) {
     return null;
   }
 
-  const normalizedProfile = normalizeProfile(profile as Profile);
+  const isOwnProfile = user?.id === profile.id;
+  if (!isProviderPubliclyVisible(profile, isOwnProfile)) {
+    return null;
+  }
 
-  const [reviews, categoriesRes, conversationId] = await Promise.all([
+  const basePublicProfile = toPublicProviderProfile(normalizePortfolio(profile), {
+    isOwnProfile,
+  });
+
+  const [reviews, categoriesRes, conversationId, reputation] = await Promise.all([
     getReviewsForProvider(id),
-    supabase.from("categories").select("*").order("sort_order"),
-    user ? getConversationWithProvider(user.id, id) : Promise.resolve(null),
+    supabase.from("categories").select("id, name, name_en, slug, icon, sort_order, created_at").order("sort_order"),
+    user && !isOwnProfile
+      ? getConversationWithProvider(user.id, id)
+      : Promise.resolve(null),
+    getProviderPublicReputationStats(id, {
+      completedOrdersCount: basePublicProfile.completed_orders_count,
+      rating: basePublicProfile.rating,
+      reviewsCount: basePublicProfile.reviews_count,
+    }),
   ]);
+
+  const publicProfile: Profile = {
+    ...basePublicProfile,
+    completed_orders_count: reputation.completedOrdersCount,
+    rating: reputation.rating,
+    reviews_count: reputation.reviewsCount,
+  };
 
   const categories =
     categoriesRes.data?.filter((c) =>
-      normalizedProfile.provider_category_slugs?.includes(c.slug)
+      publicProfile.provider_category_slugs?.includes(c.slug)
     ) ?? [];
 
-  const isOwnProfile = user?.id === profile.id;
-
   return {
-    profile: normalizedProfile,
+    profile: publicProfile,
     reviews,
     categories,
     chatHref: conversationId ? `/chat/${conversationId}` : null,
     isAuthenticated: Boolean(user),
     isOwnProfile,
-    emailVerified: isOwnProfile ? Boolean(user?.email_confirmed_at) : true,
+    emailVerified: isOwnProfile ? Boolean(user?.email_confirmed_at) : false,
   };
 }
 

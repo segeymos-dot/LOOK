@@ -1,0 +1,11 @@
+# Supabase local artifacts
+.branches
+.temp
+
+# Local config backups created during CLI repair / init
+config.toml.backup-*
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local

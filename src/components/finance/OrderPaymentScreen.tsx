@@ -3,10 +3,6 @@
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import {
-  OrderPaymentCheckout,
-  type CheckoutCardInput,
-} from "@/components/finance/OrderPaymentCheckout";
 import { OrderPaymentStatusBadge } from "@/components/finance/OrderPaymentStatusBadge";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,7 +14,7 @@ import {
 } from "@/lib/config/finance";
 import { formatPrice } from "@/lib/utils";
 import type { OrderPaymentStatus } from "@/types";
-import { CreditCard, Lock, ShieldCheck } from "lucide-react";
+import { CreditCard, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -30,6 +26,8 @@ interface OrderPaymentScreenProps {
   grossAmount: number;
   currency: string;
   initialOrderPaymentStatus?: OrderPaymentStatus;
+  /** Server-only: ENABLE_TEST_PAYMENTS === "true". Never from NEXT_PUBLIC_*. */
+  allowTestPayments?: boolean;
 }
 
 export function OrderPaymentScreen({
@@ -39,15 +37,18 @@ export function OrderPaymentScreen({
   grossAmount,
   currency,
   initialOrderPaymentStatus = "unpaid",
+  allowTestPayments = false,
 }: OrderPaymentScreenProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, isPlatformAdmin } = useAuth();
   const { t } = useTranslation();
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
+  const [testPaying, setTestPaying] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  /** After Stripe is unavailable on Preview, reveal explicit Test payment CTA. */
+  const [showTestFallback, setShowTestFallback] = useState(false);
   const [localOrderPaymentStatus, setLocalOrderPaymentStatus] =
     useState<OrderPaymentStatus>(initialOrderPaymentStatus);
   const confirmAttempted = useRef(false);
@@ -67,6 +68,7 @@ export function OrderPaymentScreen({
   const rate = getPlatformCommissionRate();
   const split = calculatePaymentSplit(grossAmount, rate);
   const isOwner = user?.id === customerId;
+  const canPay = isOwner || (allowTestPayments && isPlatformAdmin);
   const orderPaymentStatus = liveOrderPaymentStatus ?? localOrderPaymentStatus;
   const paid =
     isPaid || orderPaymentStatus === "paid" || orderPaymentStatus === "completed";
@@ -82,16 +84,22 @@ export function OrderPaymentScreen({
       return;
     }
 
+    // Redirect query params alone never mark the order paid.
+    // Only a verified server confirm (or webhook + refresh) can.
     if (success !== "1" || !sessionId || confirmAttempted.current) return;
     confirmAttempted.current = true;
     setConfirming(true);
     setError(null);
 
     void confirmStripeSession(sessionId)
-      .then(() => {
-        setLocalOrderPaymentStatus("paid");
-        router.replace(`/requests/${requestId}?paid=1`);
-        router.refresh();
+      .then(async (result) => {
+        if (result) {
+          setLocalOrderPaymentStatus(result.order_payment_status ?? "paid");
+          router.replace(`/requests/${requestId}?paid=1`);
+          router.refresh();
+          return;
+        }
+        await refresh();
       })
       .catch(async (e: unknown) => {
         // Webhook may have already confirmed — refresh once before showing error.
@@ -101,7 +109,7 @@ export function OrderPaymentScreen({
       .finally(() => setConfirming(false));
   }, [searchParams, confirmStripeSession, refresh, requestId, router, t]);
 
-  if (!isOwner) {
+  if (!canPay) {
     return (
       <Card padding="md">
         <p className="text-sm text-text-secondary">{t("finance.payment.unauthorized")}</p>
@@ -112,29 +120,38 @@ export function OrderPaymentScreen({
     );
   }
 
+  const runSimulatedPayment = async () => {
+    // begin_order_payment is owner-only; admins skip straight to simulate_test_payment.
+    if (isOwner) {
+      const begun = await beginPayment();
+      if (begun) setLocalOrderPaymentStatus("payment_pending");
+    }
+    await pay(`test_pay_${Date.now()}`);
+    setLocalOrderPaymentStatus("paid");
+    router.push(`/requests/${requestId}?paid=1`);
+    router.refresh();
+  };
+
   const handlePayClick = async () => {
+    if (paying || testPaying) return;
     setError(null);
     setPaying(true);
     try {
+      // Prefer real Stripe Checkout when configured.
       const checkout = await startStripeCheckout();
       if (checkout.ok) {
         window.location.href = checkout.url;
         return;
       }
 
-      if (!checkout.useTestFallback) {
+      // Preview/Staging: server signals test fallback when Stripe is missing.
+      if (allowTestPayments && checkout.useTestFallback) {
+        setShowTestFallback(true);
         setError(checkout.error);
         return;
       }
 
-      // Fallback: local test checkout when Stripe keys are not configured.
-      const begun = await beginPayment();
-      if (!begun) {
-        setError(t("finance.payment.error"));
-        return;
-      }
-      setLocalOrderPaymentStatus("payment_pending");
-      setCheckoutOpen(true);
+      setError(checkout.error);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("finance.payment.error"));
     } finally {
@@ -142,13 +159,20 @@ export function OrderPaymentScreen({
     }
   };
 
-  const handlePay = async (card: CheckoutCardInput) => {
-    const txnId = `test_txn_${Date.now()}_${card.cardNumber.replace(/\D/g, "").slice(-4)}`;
-    await pay(txnId);
-    setLocalOrderPaymentStatus("paid");
-    router.push(`/requests/${requestId}?paid=1`);
-    router.refresh();
+  const handleTestPay = async () => {
+    if (!allowTestPayments || paying || testPaying) return;
+    setError(null);
+    setTestPaying(true);
+    try {
+      await runSimulatedPayment();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("finance.payment.error"));
+    } finally {
+      setTestPaying(false);
+    }
   };
+
+  const showTestPayButton = allowTestPayments && showTestFallback;
 
   return (
     <div className="space-y-5">
@@ -175,7 +199,6 @@ export function OrderPaymentScreen({
               <ShieldCheck className="h-5 w-5" />
               <span className="font-semibold">{t("finance.orderPaymentStatus.completed")}</span>
             </div>
-            <OrderPaymentStatusBadge status="completed" />
             <Link href={`/requests/${requestId}`}>
               <Button variant="secondary" className="w-full">
                 {t("finance.paymentPage.backToOrder")}
@@ -237,11 +260,6 @@ export function OrderPaymentScreen({
               </div>
             </div>
 
-            <p className="mb-4 flex items-center gap-2 text-xs text-amber-800">
-              <Lock className="h-3.5 w-3.5" />
-              {t("finance.checkout.stripeOrTestNote")}
-            </p>
-
             {error && (
               <p className="mb-3 rounded-xl bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>
             )}
@@ -250,22 +268,32 @@ export function OrderPaymentScreen({
               className="w-full gap-2"
               size="lg"
               loading={paying}
+              disabled={testPaying}
               onClick={() => void handlePayClick()}
             >
               <CreditCard className="h-5 w-5" />
               {t("finance.paymentPage.payNow", { amount: formatPrice(split.gross, currency) })}
             </Button>
+
+            {showTestPayButton ? (
+              <div className="mt-3 space-y-2">
+                <Button
+                  variant="secondary"
+                  className="w-full gap-2"
+                  size="lg"
+                  loading={testPaying}
+                  disabled={paying}
+                  onClick={() => void handleTestPay()}
+                >
+                  <ShieldCheck className="h-5 w-5" />
+                  {t("finance.paymentPage.testPay")}
+                </Button>
+                <p className="text-xs text-text-muted">{t("finance.paymentPage.testPayHint")}</p>
+              </div>
+            ) : null}
           </>
         )}
       </Card>
-
-      <OrderPaymentCheckout
-        open={checkoutOpen}
-        amount={split.gross}
-        currency={currency}
-        onClose={() => setCheckoutOpen(false)}
-        onPay={handlePay}
-      />
     </div>
   );
 }

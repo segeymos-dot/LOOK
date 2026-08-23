@@ -6,7 +6,13 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 /**
- * Sync confirmation after Stripe Checkout redirect (backup when webhook is delayed/local).
+ * Backup sync after Stripe Checkout redirect (when webhook is delayed).
+ *
+ * Does NOT trust query params or a client-invented payment status.
+ * Requires an authenticated order owner and retrieves + verifies the Checkout
+ * Session from Stripe (metadata, amount, currency, paid status) before any DB write.
+ * The webhook remains the authoritative confirmation path.
+ *
  * Body: { session_id: string }
  */
 export async function POST(
@@ -38,8 +44,10 @@ export async function POST(
 
   let sessionId: string | undefined;
   try {
-    const body = (await request.json()) as { session_id?: string };
+    const body = (await request.json()) as { session_id?: string; status?: string };
     sessionId = body.session_id?.trim();
+    // Ignore any client-supplied status / amount / paid flags.
+    void body.status;
   } catch {
     // ignore
   }
@@ -48,9 +56,14 @@ export async function POST(
     return NextResponse.json({ success: false, error: "session_id is required" }, { status: 400 });
   }
 
+  // Reject obviously non-Stripe session ids before calling the API.
+  if (!sessionId.startsWith("cs_")) {
+    return NextResponse.json({ success: false, error: "Invalid Checkout Session id" }, { status: 400 });
+  }
+
   const { data: order } = await auth.supabase
     .from("requests")
-    .select("id, customer_id")
+    .select("id, customer_id, order_payment_status")
     .eq("id", requestId)
     .maybeSingle();
 
@@ -61,7 +74,20 @@ export async function POST(
     return NextResponse.json({ success: false, error: "Not authorized" }, { status: 403 });
   }
 
-  const result = await confirmStripeCheckoutSession(sessionId);
+  // Already paid — do not invent a second confirmation; refresh UI from server state.
+  if (order.order_payment_status === "paid" || order.order_payment_status === "completed") {
+    return NextResponse.json({
+      success: true,
+      request_id: requestId,
+      status: "paid",
+      order_payment_status: order.order_payment_status,
+      already_paid: true,
+      payment_provider: "stripe",
+    });
+  }
+
+  // Verify ownership + amount against Stripe object BEFORE any paid write.
+  const result = await confirmStripeCheckoutSession(sessionId, requestId);
   if (!result.success) {
     return NextResponse.json(result, { status: 400 });
   }

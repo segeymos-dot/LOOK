@@ -1,6 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isOrderPaidForWork } from "@/lib/payments/order-payment";
-import type { OrderPaymentStatus } from "@/types";
 
 export const PAYMENT_REQUIRED_CODE = "PAYMENT_REQUIRED" as const;
 
@@ -31,11 +29,8 @@ export function isPaymentRequiredError(message: string): boolean {
 
 /**
  * Server-side guard: providers may not submit work until the order is paid.
- * UI checks are not sufficient — this must run before every work-submission path.
- *
- * Accepted states:
- * - payments.status = 'paid'
- * - OR requests.order_payment_status IN ('paid', 'completed') when column exists
+ * Authoritative source: payments.status = 'paid' only.
+ * Do not trust requests.order_payment_status (customer-writable snapshot before 042).
  */
 export async function isOrderPaidForWorkSubmission(
   supabase: SupabaseClient,
@@ -45,23 +40,10 @@ export async function isOrderPaidForWorkSubmission(
     .from("payments")
     .select("status")
     .eq("request_id", requestId)
+    .eq("status", "paid")
     .maybeSingle();
 
-  if (payment?.status === "paid") {
-    return true;
-  }
-
-  const { data: request, error } = await supabase
-    .from("requests")
-    .select("order_payment_status")
-    .eq("id", requestId)
-    .maybeSingle();
-
-  if (error?.message?.includes("order_payment_status")) {
-    return false;
-  }
-
-  return isOrderPaidForWork(request?.order_payment_status as OrderPaymentStatus | undefined);
+  return payment?.status === "paid";
 }
 
 export async function assertOrderPaidForWorkSubmission(

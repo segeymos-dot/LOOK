@@ -1,6 +1,7 @@
 "use client";
 
 import { AppLayout } from "@/components/layout/AppLayout";
+import { AdminSectionNav } from "@/components/admin/AdminSectionNav";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -78,6 +79,7 @@ export default function AdminSupportDetailPage() {
     setSending(true);
     setError(null);
     setSuccess(null);
+    const text = reply.trim();
     try {
       const res = await authFetch(
         `/api/admin/support/${id}/replies`,
@@ -85,7 +87,7 @@ export default function AdminSupportDetailPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            message: reply.trim(),
+            message: text,
             language: locale === "en" ? "en" : "ru",
           }),
         },
@@ -103,6 +105,8 @@ export default function AdminSupportDetailPage() {
 
       setReply("");
       setSuccess(t("admin.supportReplySent"));
+
+      // Apply reply immediately — do not wait on a slow reload.
       setMessage((prev) => {
         if (!prev) return prev;
         const nextThread = [...(prev.thread ?? [])];
@@ -163,6 +167,8 @@ export default function AdminSupportDetailPage() {
           subtitle={t("home.trustSupport")}
           backHref="/admin/support"
         />
+
+        <AdminSectionNav activeHref="/admin/support" />
 
         {loading ? (
           <p className="text-sm text-text-muted">{t("common.loading")}</p>

@@ -44,9 +44,23 @@ export async function POST(request: Request) {
     .eq("id", request_id)
     .single();
 
-  if (!req || req.status !== "completed") {
+  if (!req) {
+    return NextResponse.json(
+      { success: false, error: "Заказ не найден" },
+      { status: 404 }
+    );
+  }
+
+  if (req.status !== "completed") {
     return NextResponse.json(
       { success: false, error: "Отзыв можно оставить только после завершения заказа" },
+      { status: 403 }
+    );
+  }
+
+  if (req.customer_id !== user.id) {
+    return NextResponse.json(
+      { success: false, error: "Отзыв может оставить только заказчик этого заказа" },
       { status: 403 }
     );
   }
@@ -65,22 +79,38 @@ export async function POST(request: Request) {
     );
   }
 
-  const isCustomerReview =
-    req.customer_id === user.id && reviewee_id === acceptedOffer.provider_id;
-  const isProviderReview =
-    acceptedOffer.provider_id === user.id && reviewee_id === req.customer_id;
-
-  if (!isCustomerReview && !isProviderReview) {
+  if (reviewee_id !== acceptedOffer.provider_id) {
     return NextResponse.json(
-      { success: false, error: "Нет прав оставить отзыв по этому заказу" },
+      { success: false, error: "Отзыв можно оставить только выбранному исполнителю" },
       { status: 403 }
+    );
+  }
+
+  if (reviewee_id === user.id) {
+    return NextResponse.json(
+      { success: false, error: "Нельзя оставить отзыв самому себе" },
+      { status: 403 }
+    );
+  }
+
+  const { data: existing } = await supabase
+    .from("reviews")
+    .select("id")
+    .eq("request_id", request_id)
+    .maybeSingle();
+
+  if (existing) {
+    return NextResponse.json(
+      { success: false, error: "Вы уже оставили отзыв по этому заказу" },
+      { status: 409 }
     );
   }
 
   const { data, error } = await supabase
     .from("reviews")
     .insert({
-      provider_id: reviewee_id,
+      provider_id: acceptedOffer.provider_id,
+      reviewee_id: acceptedOffer.provider_id,
       reviewer_id: user.id,
       request_id,
       rating,

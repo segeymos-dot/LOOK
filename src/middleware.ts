@@ -1,4 +1,4 @@
-import { getExpectedDevHost } from "@/lib/app-url";
+import { areEquivalentDevHosts, getExpectedDevHost } from "@/lib/app-url";
 import { updateSession } from "@/lib/supabase/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -11,7 +11,15 @@ export async function middleware(request: NextRequest) {
   const expectedHost = getExpectedDevHost();
   const requestHost = request.headers.get("host");
 
-  if (expectedHost && requestHost && requestHost !== expectedHost) {
+  // Canonicalize only when hosts truly differ. Never bounce localhost ↔ 127.0.0.1
+  // ↔ ::1: Next may emit a path-relative Location and Safari loops forever
+  // (/admin/platform → /admin/platform) while cookies stay host-bound.
+  if (
+    expectedHost &&
+    requestHost &&
+    requestHost !== expectedHost &&
+    !areEquivalentDevHosts(requestHost, expectedHost)
+  ) {
     const url = request.nextUrl.clone();
     url.host = expectedHost;
     return NextResponse.redirect(url);

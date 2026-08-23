@@ -20,7 +20,9 @@ export default async function MyOffersPage() {
 
   const { data: rawOffers } = await supabase
     .from("offers")
-    .select("*, provider:profiles(*), request:requests(*)")
+    .select(
+      "*, provider:profiles(id, full_name, avatar_url, role, rating, reviews_count, completed_orders_count), request:requests(*)"
+    )
     .eq("provider_id", user.id)
     .order("created_at", { ascending: false });
 
