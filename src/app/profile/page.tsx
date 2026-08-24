@@ -30,6 +30,7 @@ import { getMockReviewsForProvider, mockCategories } from "@/lib/mock/data";
 import { getProviderVerification } from "@/lib/profile/provider-utils";
 import { createClient } from "@/lib/supabase/client";
 import { getRoleLabelT, mapUserFacingErrorT } from "@/lib/i18n/client-messages";
+import { cn } from "@/lib/utils";
 import type { Category, PortfolioItem, Review } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -419,18 +420,22 @@ export default function ProfilePage() {
         {!editing && isPlatformAdmin && (
           <div className="space-y-2">
             {/*
-              Native <button> inside <Link>/<a> is invalid HTML and often swallows
-              navigation on mobile/Safari — use router.push to keep Button chrome.
+              Mobile/Safari: nested <button> and client router.push both failed to
+              open /admin/stats. Use a real same-origin <a> (full navigation, no
+              JS click handler) while matching Button primary/lg chrome.
             */}
-            <Button
-              type="button"
-              className="min-h-[48px] w-full gap-2 text-base"
-              size="lg"
-              onClick={() => router.push("/admin/stats")}
+            <a
+              href="/admin/stats"
+              className={cn(
+                "inline-flex min-h-[48px] w-full items-center justify-center gap-2",
+                "px-6 text-base font-semibold transition-all active:scale-[0.98]",
+                "h-13 rounded-2xl gradient-brand text-white shadow-sm",
+                "hover:opacity-95 active:opacity-90"
+              )}
             >
-              <BarChart3 className="h-5 w-5" />
+              <BarChart3 className="h-5 w-5" aria-hidden />
               {t("profile.adminPanel")}
-            </Button>
+            </a>
             <Button
               type="button"
               variant="outline"
