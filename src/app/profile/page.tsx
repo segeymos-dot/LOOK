@@ -418,22 +418,29 @@ export default function ProfilePage() {
 
         {!editing && isPlatformAdmin && (
           <div className="space-y-2">
-            <Link href="/admin/stats" className="block">
-              <Button className="min-h-[48px] w-full gap-2 text-base" size="lg">
-                <BarChart3 className="h-5 w-5" />
-                {t("profile.adminPanel")}
-              </Button>
-            </Link>
-            <Link href="/admin/support" className="block">
-              <Button
-                variant="outline"
-                className="min-h-[48px] w-full gap-2 text-base"
-                size="lg"
-              >
-                <Headphones className="h-5 w-5" />
-                {t("home.trustSupport")}
-              </Button>
-            </Link>
+            {/*
+              Native <button> inside <Link>/<a> is invalid HTML and often swallows
+              navigation on mobile/Safari — use router.push to keep Button chrome.
+            */}
+            <Button
+              type="button"
+              className="min-h-[48px] w-full gap-2 text-base"
+              size="lg"
+              onClick={() => router.push("/admin/stats")}
+            >
+              <BarChart3 className="h-5 w-5" />
+              {t("profile.adminPanel")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[48px] w-full gap-2 text-base"
+              size="lg"
+              onClick={() => router.push("/admin/support")}
+            >
+              <Headphones className="h-5 w-5" />
+              {t("home.trustSupport")}
+            </Button>
           </div>
         )}
 

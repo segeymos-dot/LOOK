@@ -24,7 +24,7 @@ import { formatRating } from "@/lib/profile/provider-utils";
 import type { Category } from "@/types";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Star } from "lucide-react";
 
 export function NewRequestPageContent() {
@@ -43,6 +43,8 @@ export function NewRequestPageContent() {
     "idle" | "loading" | "ready" | "invalid"
   >("idle");
   const [loading, setLoading] = useState(false);
+  /** Sync lock — React setState is too late to stop double-click / double-submit. */
+  const submittingRef = useRef(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [form, setForm] = useState({
@@ -157,6 +159,7 @@ export function NewRequestPageContent() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current || loading) return;
     setErrors({});
 
     if (providerId && providerStatus === "invalid") {
@@ -184,90 +187,90 @@ export function NewRequestPageContent() {
       return;
     }
 
+    submittingRef.current = true;
     setLoading(true);
 
-    if (isDemoMode()) {
-      setLoading(false);
-      router.push("/requests/req-1");
-      return;
-    }
+    try {
+      if (isDemoMode()) {
+        router.push("/requests/req-1");
+        return;
+      }
 
-    const supabase = createClient();
+      const supabase = createClient();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      router.push(`/login?redirect=${encodeURIComponent(newRequestRedirect)}`);
-      return;
-    }
+      if (!user) {
+        router.push(`/login?redirect=${encodeURIComponent(newRequestRedirect)}`);
+        return;
+      }
 
-    if (directedProvider && directedProvider.id === user.id) {
-      setLoading(false);
-      setErrors({ form: t("request.forProviderInvalid") });
-      return;
-    }
-
-    // Re-validate provider at submit time so the link cannot use a stale/invalid id.
-    let linkProviderId: string | null = null;
-    if (providerId) {
-      const card = await fetchDirectedProviderCard(supabase, providerId);
-      if (!card || card.id === user.id) {
-        setLoading(false);
+      if (directedProvider && directedProvider.id === user.id) {
         setErrors({ form: t("request.forProviderInvalid") });
         return;
       }
-      linkProviderId = card.id;
-    }
 
-    const { data, error } = await supabase
-      .from("requests")
-      .insert({
-        customer_id: user.id,
-        title: parsed.data.title,
-        description: parsed.data.description,
-        category_id: parsed.data.category_id,
-        budget_min: parsed.data.budget,
-        budget_max: parsed.data.budget,
-        currency: "USD",
-        location: parsed.data.location,
-        deadline: parsed.data.deadline,
-      })
-      .select("id")
-      .single();
+      // Re-validate provider at submit time so the link cannot use a stale/invalid id.
+      let linkProviderId: string | null = null;
+      if (providerId) {
+        const card = await fetchDirectedProviderCard(supabase, providerId);
+        if (!card || card.id === user.id) {
+          setErrors({ form: t("request.forProviderInvalid") });
+          return;
+        }
+        linkProviderId = card.id;
+      }
 
-    if (error || !data) {
-      setLoading(false);
-      setErrors({
-        form: error?.message.includes("row-level security")
-          ? t("request.createForbidden")
-          : t("request.createError", {
-              message: mapUserFacingErrorT(error?.message ?? "", t),
-            }),
-      });
-      return;
-    }
+      const { data, error } = await supabase
+        .from("requests")
+        .insert({
+          customer_id: user.id,
+          title: parsed.data.title,
+          description: parsed.data.description,
+          category_id: parsed.data.category_id,
+          budget_min: parsed.data.budget,
+          budget_max: parsed.data.budget,
+          currency: "USD",
+          location: parsed.data.location,
+          deadline: parsed.data.deadline,
+        })
+        .select("id")
+        .single();
 
-    if (linkProviderId) {
-      const linked = await linkRequestToProvider(supabase, {
-        requestId: data.id,
-        customerId: user.id,
-        providerId: linkProviderId,
-      });
-      if (!linked.ok) {
-        setLoading(false);
+      if (error || !data) {
         setErrors({
-          form: t("request.createError", {
-            message: mapUserFacingErrorT(linked.error, t),
-          }),
+          form: error?.message.includes("row-level security")
+            ? t("request.createForbidden")
+            : t("request.createError", {
+                message: mapUserFacingErrorT(error?.message ?? "", t),
+              }),
         });
         return;
       }
-    }
 
-    setLoading(false);
-    router.push(`/requests/${data.id}?created=1`);
+      if (linkProviderId) {
+        const linked = await linkRequestToProvider(supabase, {
+          requestId: data.id,
+          customerId: user.id,
+          providerId: linkProviderId,
+        });
+        if (!linked.ok) {
+          setErrors({
+            form: t("request.createError", {
+              message: mapUserFacingErrorT(linked.error, t),
+            }),
+          });
+          return;
+        }
+      }
+
+      router.push(`/requests/${data.id}?created=1`);
+    } finally {
+      submittingRef.current = false;
+      setLoading(false);
+    }
   };
 
   if (!isDemoMode() && !authLoading && displayProfile && !canActAsCustomer(displayProfile.role)) {
