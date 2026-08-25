@@ -418,16 +418,17 @@ export default function ProfilePage() {
         {!editing && isPlatformAdmin && <AdminPlatformPulseCard />}
 
         {!editing && isPlatformAdmin && (
-          <div className="space-y-2">
+          <div className="relative z-[60] space-y-2">
             {/*
-              Mobile/Safari: nested <button> and client router.push both failed to
-              open /admin/stats. Use a real same-origin <a> (full navigation, no
-              JS click handler) while matching Button primary/lg chrome.
+              Plain same-origin <a> — no nested button, no router.push.
+              z-[60] keeps the control above BottomNav (z-50) if they overlap.
+              Middleware must not 307 /admin → /profile (see updateSession admin gate).
             */}
             <a
               href="/admin/stats"
+              style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
               className={cn(
-                "inline-flex min-h-[48px] w-full items-center justify-center gap-2",
+                "relative inline-flex min-h-[48px] w-full items-center justify-center gap-2",
                 "px-6 text-base font-semibold transition-all active:scale-[0.98]",
                 "h-13 rounded-2xl gradient-brand text-white shadow-sm",
                 "hover:opacity-95 active:opacity-90"
@@ -436,16 +437,19 @@ export default function ProfilePage() {
               <BarChart3 className="h-5 w-5" aria-hidden />
               {t("profile.adminPanel")}
             </a>
-            <Button
-              type="button"
-              variant="outline"
-              className="min-h-[48px] w-full gap-2 text-base"
-              size="lg"
-              onClick={() => router.push("/admin/support")}
+            <a
+              href="/admin/support"
+              style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              className={cn(
+                "inline-flex min-h-[48px] w-full items-center justify-center gap-2",
+                "rounded-2xl border border-border-subtle bg-surface px-6 text-base font-semibold",
+                "text-text-primary shadow-sm transition-all active:scale-[0.98]",
+                "hover:bg-surface-muted"
+              )}
             >
-              <Headphones className="h-5 w-5" />
+              <Headphones className="h-5 w-5" aria-hidden />
               {t("home.trustSupport")}
-            </Button>
+            </a>
           </div>
         )}
 

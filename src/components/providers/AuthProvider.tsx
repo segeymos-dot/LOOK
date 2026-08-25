@@ -352,6 +352,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchAllowed =
     canSwitchUiMode(role) && !isPlatformAdmin && state.profileReady;
 
+  // Touch user_sessions.last_seen_at so admin_sessions_today stays accurate
+  // after password login / app reopen (same auth_session_id upsert).
+  useEffect(() => {
+    if (isDemoMode()) return;
+    if (!state.user?.id || !state.ready) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { authFetch } = await import("@/lib/auth/client-fetch");
+        if (cancelled) return;
+        await authFetch("/api/auth/sessions", { cache: "no-store" });
+      } catch {
+        // best-effort; stats still work from login registration
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.user?.id, state.ready]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ...state,

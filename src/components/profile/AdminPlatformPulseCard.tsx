@@ -89,11 +89,13 @@ export function AdminPlatformPulseCard() {
   return (
     <Link
       href="/admin/stats"
+      prefetch={false}
       aria-label={t("profile.platformPulse.ariaLabel")}
       className={cn(
-        "block rounded-2xl outline-none",
+        "relative z-[60] block rounded-2xl outline-none",
         "focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
       )}
+      style={{ touchAction: "manipulation" }}
     >
       <Card
         padding="md"

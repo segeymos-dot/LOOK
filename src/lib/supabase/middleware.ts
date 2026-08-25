@@ -154,6 +154,38 @@ export async function updateSession(request: NextRequest) {
   let consentProfile: LegalConsentProfileFields | null = null;
 
   const isAdminPath = pathname.startsWith("/admin");
+
+  // Admin gate MUST only select is_platform_admin.
+  // Selecting legal-consent columns that are not yet on production makes
+  // PostgREST return an error → consentProfile=null → every /admin/* request
+  // was 307'd back to /profile (looked like a dead "Админ-панель" button).
+  if (isAdminPath) {
+    if (!user) {
+      return redirectWithCookies(request, "/login", supabaseResponse, {
+        redirect: safeRedirectPath(pathname),
+      });
+    }
+
+    const { data: adminProfile, error: adminProfileError } = await supabase
+      .from("profiles")
+      .select("is_platform_admin")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (adminProfileError) {
+      console.error(
+        "[middleware] admin profile lookup failed",
+        adminProfileError.message
+      );
+    }
+
+    if (!adminProfile?.is_platform_admin) {
+      return redirectWithCookies(request, "/profile", supabaseResponse);
+    }
+
+    return supabaseResponse;
+  }
+
   const needsLegalGate =
     Boolean(user) &&
     !legalCookieOk &&
@@ -161,24 +193,27 @@ export async function updateSession(request: NextRequest) {
       pathname.startsWith("/legal/accept") ||
       !isLegalConsentExemptPath(pathname));
 
-  // Only hit profiles when middleware itself must decide admin or legal redirects.
-  if (user && (isAdminPath || needsLegalGate)) {
-    if (isAdminPath && !needsLegalGate) {
-      const { data } = await supabase
+  // Only hit profiles when middleware itself must decide legal redirects.
+  // Prefer a lean admin flag query; legal columns are optional (may be absent).
+  if (user && needsLegalGate) {
+    const full = await supabase
+      .from("profiles")
+      .select(
+        "is_platform_admin, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, licenses_acknowledged_at, licenses_version, adult_confirmed_at"
+      )
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (full.error) {
+      console.error("[middleware] legal profile lookup failed", full.error.message);
+      const lean = await supabase
         .from("profiles")
         .select("is_platform_admin")
         .eq("id", user.id)
         .maybeSingle();
-      consentProfile = data;
+      consentProfile = lean.data;
     } else {
-      const { data } = await supabase
-        .from("profiles")
-        .select(
-          "is_platform_admin, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, licenses_acknowledged_at, licenses_version, adult_confirmed_at"
-        )
-        .eq("id", user.id)
-        .maybeSingle();
-      consentProfile = data;
+      consentProfile = full.data;
     }
   }
 
@@ -209,22 +244,19 @@ export async function updateSession(request: NextRequest) {
     if (nextPath === "/") {
       if (consentProfile?.is_platform_admin) {
         nextPath = "/admin/stats";
+      } else {
+        // Auth routes may not have loaded consentProfile when legal cookie is ok.
+        const { data: adminFlag } = await supabase
+          .from("profiles")
+          .select("is_platform_admin")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (adminFlag?.is_platform_admin) {
+          nextPath = "/admin/stats";
+        }
       }
     }
     return redirectWithCookies(request, nextPath, supabaseResponse);
-  }
-
-  if (isAdminPath) {
-    if (!user) {
-      return redirectWithCookies(request, "/login", supabaseResponse, {
-        redirect: safeRedirectPath(pathname),
-      });
-    }
-
-    if (!consentProfile?.is_platform_admin) {
-      return redirectWithCookies(request, "/profile", supabaseResponse);
-    }
-    return supabaseResponse;
   }
 
   if (user && mustAcceptLegal && !isLegalConsentExemptPath(pathname)) {
