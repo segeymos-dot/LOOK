@@ -187,6 +187,7 @@ export function NewRequestPageContent() {
       return;
     }
 
+    // Sync lock before any await — blocks double-tap / double-submit.
     submittingRef.current = true;
     setLoading(true);
 
@@ -203,12 +204,16 @@ export function NewRequestPageContent() {
       } = await supabase.auth.getUser();
 
       if (!user) {
+        submittingRef.current = false;
+        setLoading(false);
         router.push(`/login?redirect=${encodeURIComponent(newRequestRedirect)}`);
         return;
       }
 
       if (directedProvider && directedProvider.id === user.id) {
         setErrors({ form: t("request.forProviderInvalid") });
+        submittingRef.current = false;
+        setLoading(false);
         return;
       }
 
@@ -218,41 +223,103 @@ export function NewRequestPageContent() {
         const card = await fetchDirectedProviderCard(supabase, providerId);
         if (!card || card.id === user.id) {
           setErrors({ form: t("request.forProviderInvalid") });
+          submittingRef.current = false;
+          setLoading(false);
           return;
         }
         linkProviderId = card.id;
       }
 
-      const { data, error } = await supabase
-        .from("requests")
-        .insert({
-          customer_id: user.id,
-          title: parsed.data.title,
-          description: parsed.data.description,
-          category_id: parsed.data.category_id,
-          budget_min: parsed.data.budget,
-          budget_max: parsed.data.budget,
-          currency: "USD",
-          location: parsed.data.location,
-          deadline: parsed.data.deadline,
-        })
-        .select("id")
-        .single();
+      const idempotencyKey =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-      if (error || !data) {
-        setErrors({
-          form: error?.message.includes("row-level security")
-            ? t("request.createForbidden")
-            : t("request.createError", {
-                message: mapUserFacingErrorT(error?.message ?? "", t),
-              }),
-        });
+      let requestId: string | null = null;
+
+      const { data: rpcId, error: rpcError } = await supabase.rpc(
+        "create_customer_request_idempotent",
+        {
+          p_title: parsed.data.title,
+          p_description: parsed.data.description,
+          p_category_id: parsed.data.category_id,
+          p_budget_min: parsed.data.budget ?? null,
+          p_budget_max: parsed.data.budget ?? null,
+          p_currency: "USD",
+          p_location: parsed.data.location ?? null,
+          p_deadline: parsed.data.deadline ?? null,
+          p_idempotency_key: idempotencyKey,
+        }
+      );
+
+      if (!rpcError && rpcId) {
+        requestId = String(rpcId);
+      } else {
+        // Fallback when migration 052 is not applied yet: client-side recent-dup check + insert.
+        if (rpcError) {
+          console.warn(
+            "[create request] idempotent RPC unavailable, using guarded insert:",
+            rpcError.message
+          );
+        }
+
+        const windowStart = new Date(Date.now() - 15_000).toISOString();
+        const { data: recent } = await supabase
+          .from("requests")
+          .select("id")
+          .eq("customer_id", user.id)
+          .eq("title", parsed.data.title)
+          .is("trashed_at", null)
+          .gte("created_at", windowStart)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (recent?.id) {
+          requestId = recent.id;
+        } else {
+          const { data, error } = await supabase
+            .from("requests")
+            .insert({
+              customer_id: user.id,
+              title: parsed.data.title,
+              description: parsed.data.description,
+              category_id: parsed.data.category_id,
+              budget_min: parsed.data.budget,
+              budget_max: parsed.data.budget,
+              currency: "USD",
+              location: parsed.data.location,
+              deadline: parsed.data.deadline,
+            })
+            .select("id")
+            .single();
+
+          if (error || !data) {
+            setErrors({
+              form: error?.message.includes("row-level security")
+                ? t("request.createForbidden")
+                : t("request.createError", {
+                    message: mapUserFacingErrorT(error?.message ?? "", t),
+                  }),
+            });
+            submittingRef.current = false;
+            setLoading(false);
+            return;
+          }
+          requestId = data.id;
+        }
+      }
+
+      if (!requestId) {
+        setErrors({ form: t("request.createError", { message: "empty id" }) });
+        submittingRef.current = false;
+        setLoading(false);
         return;
       }
 
       if (linkProviderId) {
         const linked = await linkRequestToProvider(supabase, {
-          requestId: data.id,
+          requestId,
           customerId: user.id,
           providerId: linkProviderId,
         });
@@ -262,12 +329,24 @@ export function NewRequestPageContent() {
               message: mapUserFacingErrorT(linked.error, t),
             }),
           });
+          submittingRef.current = false;
+          setLoading(false);
           return;
         }
       }
 
-      router.push(`/requests/${data.id}?created=1`);
-    } finally {
+      // Keep lock through navigation — do not unlock on success.
+      router.push(`/requests/${requestId}?created=1`);
+    } catch (error) {
+      console.error("[create request]", error);
+      setErrors({
+        form: t("request.createError", {
+          message: mapUserFacingErrorT(
+            error instanceof Error ? error.message : "",
+            t
+          ),
+        }),
+      });
       submittingRef.current = false;
       setLoading(false);
     }

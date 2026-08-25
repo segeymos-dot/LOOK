@@ -25,6 +25,8 @@ export type AdminUserStats = {
   totalOrders: number;
   /** status=completed, non-trashed, non-archived — /admin/orders?tab=completed. */
   completedOrders: number;
+  /** Non-completed, non-cancelled, non-trashed, non-archived. */
+  activeOrders: number;
   usersOnline: number;
   customersOnline: number;
   providersOnline: number;
@@ -51,6 +53,43 @@ export type AdminUserStats = {
   adminSessionSource: string | null;
 };
 
+/** Canonical snake_case payload for /api/admin/stats (and UI consumers). */
+export type AdminPlatformStatsPayload = {
+  registered_users: number;
+  registered_customers: number;
+  registered_providers: number;
+  customer_online: number;
+  provider_online: number;
+  total_orders: number;
+  completed_orders: number;
+  active_orders: number;
+  total_visits: number;
+  unique_visitors: number;
+  visits_today: number;
+  admin_sessions_total: number;
+  admin_sessions_today: number;
+};
+
+export function toAdminPlatformStatsPayload(
+  stats: AdminUserStats
+): AdminPlatformStatsPayload {
+  return {
+    registered_users: stats.registeredUsers,
+    registered_customers: stats.registeredCustomers,
+    registered_providers: stats.registeredProviders,
+    customer_online: stats.customersOnline,
+    provider_online: stats.providersOnline,
+    total_orders: stats.totalOrders,
+    completed_orders: stats.completedOrders,
+    active_orders: stats.activeOrders,
+    total_visits: stats.totalVisits,
+    unique_visitors: stats.uniqueVisitors,
+    visits_today: stats.visitsToday,
+    admin_sessions_total: stats.adminVisitsTotal,
+    admin_sessions_today: stats.adminVisitsToday,
+  };
+}
+
 type RpcAdminVisitByUser = {
   user_id?: string;
   name?: string | null;
@@ -65,15 +104,20 @@ type RpcStats = {
   registered_users?: number;
   total_orders?: number;
   completed_orders?: number;
+  active_orders?: number;
   users_online?: number;
   customers_online?: number;
+  customer_online?: number;
   providers_online?: number;
+  provider_online?: number;
   unique_visitors?: number;
   total_visits?: number;
   visits_today?: number;
   unique_visitors_today?: number;
   admin_visits_total?: number;
   admin_visits_today?: number;
+  admin_sessions_total?: number;
+  admin_sessions_today?: number;
   admin_visits_by_user?: RpcAdminVisitByUser[] | null;
   online_window_seconds?: number;
   admins_counted_in_online?: boolean;
@@ -98,23 +142,44 @@ function mapAdminVisitsByUser(
 }
 
 function mapStats(raw: RpcStats | null): AdminUserStats {
+  const totalOrders = Number(raw?.total_orders ?? 0);
+  const completedOrders = Number(raw?.completed_orders ?? 0);
+  const activeOrdersRaw = raw?.active_orders;
+  const activeOrders =
+    activeOrdersRaw === undefined || activeOrdersRaw === null
+      ? Math.max(0, totalOrders - completedOrders)
+      : Number(activeOrdersRaw);
+  const customersOnline = Number(
+    raw?.customers_online ?? raw?.customer_online ?? 0
+  );
+  const providersOnline = Number(
+    raw?.providers_online ?? raw?.provider_online ?? 0
+  );
+  const adminVisitsTotal = Number(
+    raw?.admin_sessions_total ?? raw?.admin_visits_total ?? 0
+  );
+  const adminVisitsToday = Number(
+    raw?.admin_sessions_today ?? raw?.admin_visits_today ?? 0
+  );
+
   return {
     registeredCustomers: Number(raw?.registered_customers ?? 0),
     registeredProviders: Number(raw?.registered_providers ?? 0),
     registeredUsers: Number(raw?.registered_users ?? 0),
-    totalOrders: Number(raw?.total_orders ?? 0),
-    completedOrders: Number(raw?.completed_orders ?? 0),
+    totalOrders,
+    completedOrders,
+    activeOrders,
     usersOnline: Number(raw?.users_online ?? 0),
-    customersOnline: Number(raw?.customers_online ?? 0),
-    providersOnline: Number(raw?.providers_online ?? 0),
+    customersOnline,
+    providersOnline,
     uniqueVisitors: Number(raw?.unique_visitors ?? 0),
     totalVisits: Number(raw?.total_visits ?? 0),
     visitsToday: Number(raw?.visits_today ?? 0),
     uniqueVisitorsToday: Number(raw?.unique_visitors_today ?? 0),
-    adminVisitsTotal: Number(raw?.admin_visits_total ?? 0),
-    adminVisitsToday: Number(raw?.admin_visits_today ?? 0),
+    adminVisitsTotal,
+    adminVisitsToday,
     adminVisitsByUser: mapAdminVisitsByUser(raw?.admin_visits_by_user),
-    onlineWindowSeconds: Number(raw?.online_window_seconds ?? 90),
+    onlineWindowSeconds: Number(raw?.online_window_seconds ?? 180),
     adminsCountedInOnline: Boolean(raw?.admins_counted_in_online ?? false),
     adminsCountedInUserVisits: Boolean(raw?.admins_counted_in_user_visits ?? false),
     dayStart: raw?.day_start ?? null,
@@ -163,7 +228,17 @@ export async function fetchAdminUserStats(
   supabase: SupabaseClient,
   adminClient?: SupabaseClient | null
 ): Promise<AdminUserStats> {
-  const { data, error } = await supabase.rpc("get_admin_user_stats");
+  // Prefer canonical RPC; fall back to legacy alias during rollout.
+  const primary = await supabase.rpc("get_admin_platform_stats");
+  let data = primary.data;
+  let error = primary.error;
+
+  if (error) {
+    const legacy = await supabase.rpc("get_admin_user_stats");
+    data = legacy.data;
+    error = legacy.error;
+  }
+
   if (error) throw new Error(error.message);
   const mapped = mapStats((data ?? null) as RpcStats | null);
   return enrichAdminEmails(adminClient ?? null, mapped);

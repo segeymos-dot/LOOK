@@ -95,8 +95,9 @@ type HomeMetricCounts = {
 };
 
 /**
- * Shared poll for admin home metric tiles (one /api/admin/user-stats request).
+ * Shared poll for admin home metric tiles (one /api/admin/stats request).
  * Mount + 30s interval + visibilitychange, cache: no-store.
+ * On failure keep null ("—") — never invent fake zeros.
  */
 function useAdminHomeMetricCounts(enabled: boolean): HomeMetricCounts {
   const [counts, setCounts] = useState<HomeMetricCounts>({
@@ -112,24 +113,29 @@ function useAdminHomeMetricCounts(enabled: boolean): HomeMetricCounts {
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await authFetch("/api/admin/user-stats", {
+      const res = await authFetch("/api/admin/stats", {
         cache: "no-store",
         signal,
       });
-      const data = (await res.json()) as { stats?: AdminUserStats };
-      if (!res.ok || !data.stats) return;
+      const data = (await res.json()) as { stats?: AdminUserStats; error?: string };
+      if (!res.ok || !data.stats) {
+        console.error("[CategoryGrid admin stats]", data.error || res.status);
+        return;
+      }
       setCounts({
-        customersOnline: Number(data.stats.customersOnline ?? 0),
-        providersOnline: Number(data.stats.providersOnline ?? 0),
-        registeredUsers: Number(data.stats.registeredUsers ?? 0),
-        totalVisits: Number(data.stats.totalVisits ?? 0),
-        registeredCustomers: Number(data.stats.registeredCustomers ?? 0),
-        registeredProviders: Number(data.stats.registeredProviders ?? 0),
-        totalOrders: Number(data.stats.totalOrders ?? 0),
-        completedOrders: Number(data.stats.completedOrders ?? 0),
+        customersOnline: Number(data.stats.customersOnline),
+        providersOnline: Number(data.stats.providersOnline),
+        registeredUsers: Number(data.stats.registeredUsers),
+        totalVisits: Number(data.stats.totalVisits),
+        registeredCustomers: Number(data.stats.registeredCustomers),
+        registeredProviders: Number(data.stats.registeredProviders),
+        totalOrders: Number(data.stats.totalOrders),
+        completedOrders: Number(data.stats.completedOrders),
       });
-    } catch {
-      // keep last known values on blips
+    } catch (error) {
+      if ((error as { name?: string } | null)?.name === "AbortError") return;
+      console.error("[CategoryGrid admin stats]", error);
+      // keep last known / null — do not write fake zeros
     }
   }, []);
 

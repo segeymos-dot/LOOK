@@ -9,32 +9,23 @@ import { useCancellableAdminLoad } from "@/hooks/useCancellableAdminLoad";
 import { useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 
-type MetricKey =
-  | "registeredCustomers"
-  | "registeredProviders"
-  | "usersOnline"
-  | "customersOnline"
-  | "providersOnline"
-  | "uniqueVisitors"
-  | "totalVisits";
-
-const METRICS: { key: MetricKey; href?: string }[] = [
-  { key: "registeredCustomers", href: "/admin/customers" },
-  { key: "registeredProviders", href: "/admin/providers" },
-  { key: "usersOnline" },
-  { key: "customersOnline", href: "/admin/customers?onlineOnly=1" },
-  { key: "providersOnline", href: "/admin/providers?onlineOnly=1" },
-  { key: "uniqueVisitors" },
-  { key: "totalVisits" },
-];
+type MetricDef = {
+  key: string;
+  value: (s: AdminUserStats) => number;
+  href?: string;
+  labelKey: string;
+  hintKey?: string;
+};
 
 const ONLINE_POLL_MS = 30_000;
 
-async function fetchUserStats(signal: AbortSignal): Promise<AdminUserStats> {
-  const res = await authFetch("/api/admin/user-stats", { signal });
+async function fetchPlatformStats(signal: AbortSignal): Promise<AdminUserStats> {
+  const res = await authFetch("/api/admin/stats", { signal, cache: "no-store" });
   const data = (await res.json()) as { stats?: AdminUserStats; error?: string };
   if (!res.ok || !data.stats) {
-    throw new Error(data.error || "Failed to load user statistics");
+    const message = data.error || "Failed to load user statistics";
+    console.error("[AdminUserStatsSection]", message);
+    throw new Error(message);
   }
   return data.stats;
 }
@@ -42,7 +33,7 @@ async function fetchUserStats(signal: AbortSignal): Promise<AdminUserStats> {
 export function AdminUserStatsSection() {
   const { t } = useTranslation();
   const { state, data: stats, refreshing, reload } = useCancellableAdminLoad<AdminUserStats>({
-    load: fetchUserStats,
+    load: fetchPlatformStats,
   });
 
   useEffect(() => {
@@ -52,16 +43,116 @@ export function AdminUserStatsSection() {
     return () => clearInterval(onlineTimer);
   }, [reload]);
 
-  const items: MetricCardItem[] = METRICS.map((metric) => ({
-    key: metric.key,
-    label: t(`admin.userStats.${metric.key}`),
-    hint: t(`admin.userStats.${metric.key}Hint`),
-    value: stats ? stats[metric.key] : null,
-    href: metric.href,
-  }));
+  const groups: { title: string; metrics: MetricDef[] }[] = [
+    {
+      title: t("admin.userStats.groupUsers"),
+      metrics: [
+        {
+          key: "registeredUsers",
+          labelKey: "admin.userStats.registeredUsers",
+          hintKey: "admin.userStats.registeredUsersHint",
+          value: (s) => s.registeredUsers,
+        },
+        {
+          key: "registeredCustomers",
+          labelKey: "admin.userStats.registeredCustomers",
+          hintKey: "admin.userStats.registeredCustomersHint",
+          href: "/admin/customers",
+          value: (s) => s.registeredCustomers,
+        },
+        {
+          key: "registeredProviders",
+          labelKey: "admin.userStats.registeredProviders",
+          hintKey: "admin.userStats.registeredProvidersHint",
+          href: "/admin/providers",
+          value: (s) => s.registeredProviders,
+        },
+        {
+          key: "customersOnline",
+          labelKey: "admin.userStats.customersOnline",
+          hintKey: "admin.userStats.customersOnlineHint",
+          href: "/admin/customers?onlineOnly=1",
+          value: (s) => s.customersOnline,
+        },
+        {
+          key: "providersOnline",
+          labelKey: "admin.userStats.providersOnline",
+          hintKey: "admin.userStats.providersOnlineHint",
+          href: "/admin/providers?onlineOnly=1",
+          value: (s) => s.providersOnline,
+        },
+      ],
+    },
+    {
+      title: t("admin.userStats.groupOrders"),
+      metrics: [
+        {
+          key: "totalOrders",
+          labelKey: "admin.userStats.totalOrders",
+          hintKey: "admin.userStats.totalOrdersHint",
+          href: "/admin/orders?tab=all",
+          value: (s) => s.totalOrders,
+        },
+        {
+          key: "completedOrders",
+          labelKey: "admin.userStats.completedOrders",
+          hintKey: "admin.userStats.completedOrdersHint",
+          href: "/admin/orders?tab=completed",
+          value: (s) => s.completedOrders,
+        },
+        {
+          key: "activeOrders",
+          labelKey: "admin.userStats.activeOrders",
+          hintKey: "admin.userStats.activeOrdersHint",
+          href: "/admin/orders?tab=all",
+          value: (s) => s.activeOrders,
+        },
+      ],
+    },
+    {
+      title: t("admin.userStats.groupVisits"),
+      metrics: [
+        {
+          key: "totalVisits",
+          labelKey: "admin.userStats.totalVisits",
+          hintKey: "admin.userStats.totalVisitsHint",
+          value: (s) => s.totalVisits,
+        },
+        {
+          key: "uniqueVisitors",
+          labelKey: "admin.userStats.uniqueVisitors",
+          hintKey: "admin.userStats.uniqueVisitorsHint",
+          value: (s) => s.uniqueVisitors,
+        },
+        {
+          key: "visitsToday",
+          labelKey: "admin.userStats.visitsToday",
+          hintKey: "admin.userStats.visitsTodayHint",
+          value: (s) => s.visitsToday,
+        },
+      ],
+    },
+    {
+      title: t("admin.userStats.groupAdmin"),
+      metrics: [
+        {
+          key: "adminSessionsTotal",
+          labelKey: "admin.userStats.adminSessionsTotal",
+          hintKey: "admin.userStats.adminSessionsTotalHint",
+          value: (s) => s.adminVisitsTotal,
+        },
+        {
+          key: "adminSessionsToday",
+          labelKey: "admin.userStats.adminSessionsToday",
+          hintKey: "admin.userStats.adminSessionsTodayHint",
+          value: (s) => s.adminVisitsToday,
+        },
+      ],
+    },
+  ];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-text-primary">
@@ -80,7 +171,22 @@ export function AdminUserStatsSection() {
         </Button>
       </div>
 
-      <AdminMetricCards items={items} state={state} onRetry={() => void reload()} />
+      {groups.map((group) => {
+        const items: MetricCardItem[] = group.metrics.map((metric) => ({
+          key: metric.key,
+          label: t(metric.labelKey),
+          hint: metric.hintKey ? t(metric.hintKey) : undefined,
+          value: stats ? metric.value(stats) : null,
+          href: metric.href,
+        }));
+
+        return (
+          <section key={group.title} className="space-y-3">
+            <h3 className="text-sm font-semibold text-text-primary">{group.title}</h3>
+            <AdminMetricCards items={items} state={state} onRetry={() => void reload()} />
+          </section>
+        );
+      })}
     </div>
   );
 }
