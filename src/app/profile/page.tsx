@@ -437,19 +437,16 @@ export default function ProfilePage() {
               <BarChart3 className="h-5 w-5" aria-hidden />
               {t("profile.adminPanel")}
             </a>
-            <a
-              href="/admin/support"
-              style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-              className={cn(
-                "inline-flex min-h-[48px] w-full items-center justify-center gap-2",
-                "rounded-2xl border border-border-subtle bg-surface px-6 text-base font-semibold",
-                "text-text-primary shadow-sm transition-all active:scale-[0.98]",
-                "hover:bg-surface-muted"
-              )}
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[48px] w-full gap-2 text-base"
+              size="lg"
+              onClick={() => router.push("/admin/support")}
             >
-              <Headphones className="h-5 w-5" aria-hidden />
+              <Headphones className="h-5 w-5" />
               {t("home.trustSupport")}
-            </a>
+            </Button>
           </div>
         )}
 
