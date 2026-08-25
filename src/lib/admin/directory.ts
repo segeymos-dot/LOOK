@@ -217,7 +217,8 @@ async function countRequestsByCustomer(
   const { data } = await supabase
     .from("requests")
     .select("customer_id, status")
-    .in("customer_id", userIds);
+    .in("customer_id", userIds)
+    .is("trashed_at", null);
 
   for (const row of data ?? []) {
     const id = row.customer_id as string;
@@ -270,15 +271,19 @@ async function countJobsByProvider(
     const uniqueProviders = [...new Set(acceptedIds)];
     const { data: reqs } = await supabase
       .from("offers")
-      .select("provider_id, request:requests(status)")
+      .select("provider_id, request:requests(status, trashed_at)")
       .in("provider_id", uniqueProviders)
       .eq("status", "accepted");
 
     for (const row of reqs ?? []) {
       const id = row.provider_id as string;
-      const status = (row.request as { status?: string } | null)?.status;
-      if (status === "completed") completed.set(id, (completed.get(id) ?? 0) + 1);
-      if (status === "cancelled") cancelled.set(id, (cancelled.get(id) ?? 0) + 1);
+      const request = row.request as {
+        status?: string;
+        trashed_at?: string | null;
+      } | null;
+      if (!request || request.trashed_at) continue;
+      if (request.status === "completed") completed.set(id, (completed.get(id) ?? 0) + 1);
+      if (request.status === "cancelled") cancelled.set(id, (cancelled.get(id) ?? 0) + 1);
     }
   }
 
@@ -690,6 +695,7 @@ export async function getAdminCustomerRecord(
       "id, title, budget_min, budget_max, order_amount, currency, location, created_at, updated_at, status, order_payment_status, category:categories(name)"
     )
     .eq("customer_id", customerId)
+    .is("trashed_at", null)
     .order("created_at", { ascending: false });
 
   const requestIds = (requests ?? []).map((r) => r.id as string);
@@ -1008,6 +1014,7 @@ export async function getAdminProviderRecord(
           "id, title, status, order_amount, currency, customer_id, created_at, updated_at, work_submitted_at, customer:profiles!requests_customer_id_fkey(full_name)"
         )
         .in("id", acceptedOfferRequestIds)
+        .is("trashed_at", null)
         .order("created_at", { ascending: false })
     : { data: [] as Array<Record<string, unknown>> };
 

@@ -139,7 +139,10 @@ export async function listRoleActivity(
 
   // Pre-filter neverOrdered / hasActiveOrders via request aggregates.
   if (kind === "customers" && (query.neverOrdered || query.hasActiveOrders)) {
-    const { data: reqRows } = await db.from("requests").select("customer_id, status");
+    const { data: reqRows } = await db
+      .from("requests")
+      .select("customer_id, status")
+      .is("trashed_at", null);
     const created = new Set<string>();
     const active = new Set<string>();
     for (const row of reqRows ?? []) {
@@ -272,7 +275,8 @@ export async function listRoleActivity(
     const { data: reqs } = await db
       .from("requests")
       .select("customer_id, status, created_at")
-      .in("customer_id", ids);
+      .in("customer_id", ids)
+      .is("trashed_at", null);
     for (const id of ids) {
       orderStats.set(id, {
         created: 0,
@@ -330,7 +334,8 @@ export async function listRoleActivity(
       const { data: reqs } = await db
         .from("requests")
         .select("id, status")
-        .in("id", [...new Set(acceptedRequestIds)]);
+        .in("id", [...new Set(acceptedRequestIds)])
+        .is("trashed_at", null);
       const statusById = new Map(
         (reqs ?? []).map((r) => [r.id as string, r.status as string])
       );
