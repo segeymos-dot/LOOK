@@ -81,6 +81,7 @@ export async function POST(request: Request) {
     subject: parsed.data.subject,
     message: parsed.data.message,
     language: parsed.data.language,
+    idempotencyKey: parsed.data.idempotencyKey,
   });
 
   if (result.error || !result.data) {

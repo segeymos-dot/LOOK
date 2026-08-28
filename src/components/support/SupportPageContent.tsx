@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { ExternalLink, Headphones, Inbox, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isDemoMode } from "@/lib/config";
 
 type View = "home" | "compose" | "success";
@@ -55,6 +55,7 @@ export function SupportPageContent() {
   const [tickets, setTickets] = useState<AdminSupportTicketListItem[]>([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
   const [ticketsError, setTicketsError] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (!ready || !profileReady) return;
@@ -107,6 +108,7 @@ export function SupportPageContent() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current || loading) return;
     setError(null);
 
     const trimmedSubject = subject.trim();
@@ -124,8 +126,13 @@ export function SupportPageContent() {
       return;
     }
 
+    submittingRef.current = true;
     setLoading(true);
     try {
+      const idempotencyKey =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const res = await authFetch("/api/support/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -134,6 +141,7 @@ export function SupportPageContent() {
           message: trimmedMessage,
           userRole,
           language: locale === "en" ? "en" : "ru",
+          idempotencyKey,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -141,16 +149,21 @@ export function SupportPageContent() {
         setError(
           typeof data.error === "string" ? data.error : t("support.sendError")
         );
+        submittingRef.current = false;
+        setLoading(false);
         return;
       }
       resetForm();
       setView("success");
       void loadTickets();
+      // Keep lock through success navigation state.
     } catch {
       setError(t("support.sendError"));
-    } finally {
+      submittingRef.current = false;
       setLoading(false);
+      return;
     }
+    setLoading(false);
   };
 
   if (ready && profileReady && (isPlatformAdmin || isDemoMode())) {
@@ -276,6 +289,7 @@ export function SupportPageContent() {
             type="button"
             className="w-full gap-2"
             onClick={() => {
+              submittingRef.current = false;
               resetForm();
               setView("compose");
             }}

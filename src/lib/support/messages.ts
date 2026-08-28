@@ -28,6 +28,7 @@ export const createSupportMessageSchema = z.object({
     .max(5000, { message: "message_too_long" }),
   userRole: z.enum(["customer", "provider"]),
   language: z.enum(["ru", "en"]).default("ru"),
+  idempotencyKey: z.string().trim().max(120).optional(),
 });
 
 export const supportReplySchema = z.object({
@@ -210,8 +211,55 @@ export async function insertSupportMessage(
     subject: string;
     message: string;
     language: "ru" | "en";
+    idempotencyKey?: string | null;
   }
 ): Promise<{ data: AdminSupportTicket | null; error: string | null }> {
+  const idempotencyKey =
+    input.idempotencyKey?.trim() ||
+    (typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+  // Prefer atomic RPC (ticket + first thread message in one transaction).
+  const rpc = await supabase.rpc("create_admin_support_ticket", {
+    p_user_role: input.userRole,
+    p_subject: input.subject,
+    p_message: input.message,
+    p_language: input.language,
+    p_idempotency_key: idempotencyKey,
+  });
+
+  if (!rpc.error && rpc.data) {
+    return {
+      data: asTicket(rpc.data as Record<string, unknown>),
+      error: null,
+    };
+  }
+
+  if (rpc.error) {
+    console.warn(
+      "[support] create_admin_support_ticket RPC unavailable, fallback insert:",
+      rpc.error.message
+    );
+  }
+
+  // Fallback: recent duplicate window, then insert ticket + thread message.
+  const windowStart = new Date(Date.now() - 15_000).toISOString();
+  const { data: recent } = await supabase
+    .from("admin_support_messages")
+    .select(TICKET_COLUMNS)
+    .eq("user_id", input.userId)
+    .eq("subject", input.subject)
+    .eq("message", input.message)
+    .gte("created_at", windowStart)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (recent) {
+    return { data: asTicket(recent as Record<string, unknown>), error: null };
+  }
+
   const now = new Date().toISOString();
   const { data: ticket, error } = await supabase
     .from("admin_support_messages")
@@ -230,6 +278,7 @@ export async function insertSupportMessage(
     .single();
 
   if (error || !ticket) {
+    console.error("[support] ticket insert failed", error?.message);
     return { data: null, error: error?.message ?? "insert_failed" };
   }
 
@@ -247,6 +296,9 @@ export async function insertSupportMessage(
     });
 
   if (threadError) {
+    console.error("[support] thread insert failed", threadError.message);
+    // Best-effort cleanup so admin list does not show empty-shell tickets.
+    await supabase.from("admin_support_messages").delete().eq("id", ticketRow.id);
     return { data: null, error: threadError.message };
   }
 
