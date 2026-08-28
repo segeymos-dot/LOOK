@@ -203,6 +203,26 @@ async function loadThread(
   };
 }
 
+/**
+ * After ticket access is authorized, load the full thread.
+ * Prefer service-role so RLS never hides admin rows from the ticket owner.
+ */
+async function loadThreadAuthorized(
+  userClient: SupabaseClient,
+  ticketId: string
+): Promise<{ data: AdminSupportThreadMessage[]; error: string | null }> {
+  const admin = createAdminClient();
+  if (admin) {
+    const privileged = await loadThread(admin, ticketId);
+    if (!privileged.error) return privileged;
+    console.warn(
+      "[support] privileged thread load failed, falling back to user client:",
+      privileged.error
+    );
+  }
+  return loadThread(userClient, ticketId);
+}
+
 export async function insertSupportMessage(
   supabase: SupabaseClient,
   input: {
@@ -417,7 +437,9 @@ export async function getSupportTicketDetail(
   if (!data) return { data: null, error: null };
 
   const ticket = asTicket(data as Record<string, unknown>);
-  const thread = await loadThread(supabase, id);
+  // Ownership/admin access already enforced by the ticket SELECT above.
+  // Load ALL messages for this ticket_id (user + admin), never filter by sender.
+  const thread = await loadThreadAuthorized(supabase, id);
   if (thread.error) return { data: null, error: thread.error };
 
   const lastSender =

@@ -28,16 +28,62 @@ function formatWhen(iso: string, locale: string) {
   }
 }
 
-/** Full thread for a ticket: never filter by sender — user + admin messages. */
+function normalizeSender(
+  value: unknown
+): AdminSupportThreadMessage["sender_type"] {
+  return String(value ?? "").toLowerCase() === "admin" ? "admin" : "user";
+}
+
+function normalizeThread(
+  rows: unknown
+): AdminSupportThreadMessage[] {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+      const r = row as Record<string, unknown>;
+      const id = String(r.id ?? "");
+      const text = String(r.message ?? r.body ?? r.content ?? "");
+      if (!id || !text) return null;
+      return {
+        id,
+        ticket_id: String(r.ticket_id ?? ""),
+        sender_type: normalizeSender(r.sender_type ?? r.senderType),
+        sender_user_id: r.sender_user_id
+          ? String(r.sender_user_id)
+          : r.senderUserId
+            ? String(r.senderUserId)
+            : null,
+        message: text,
+        language: (r.language as AdminSupportThreadMessage["language"]) ?? "ru",
+        created_at: String(r.created_at ?? r.createdAt ?? new Date().toISOString()),
+      } satisfies AdminSupportThreadMessage;
+    })
+    .filter((row): row is AdminSupportThreadMessage => row !== null)
+    .sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+}
+
+function extractThread(payload: {
+  thread?: unknown;
+  message?: { thread?: unknown; message?: string } | null;
+}): AdminSupportThreadMessage[] {
+  const top = normalizeThread(payload.thread);
+  if (top.length > 0) return top;
+  return normalizeThread(payload.message?.thread);
+}
+
+/** Always prefer full thread history; legacy ticket.message only if thread empty. */
 function displayThread(
   detail: AdminSupportTicketDetail
 ): AdminSupportThreadMessage[] {
-  if (detail.thread && detail.thread.length > 0) {
-    return detail.thread;
-  }
+  const fromApi = normalizeThread(detail.thread);
+  if (fromApi.length > 0) return fromApi;
   return [
     {
-      id: "legacy",
+      id: `legacy-${detail.id}`,
       ticket_id: detail.id,
       sender_type: "user",
       sender_user_id: detail.user_id,
@@ -46,6 +92,17 @@ function displayThread(
       created_at: detail.created_at,
     },
   ];
+}
+
+function mergeThreadPreferLonger(
+  prev: AdminSupportTicketDetail | null,
+  next: AdminSupportTicketDetail
+): AdminSupportTicketDetail {
+  const prevThread = normalizeThread(prev?.thread);
+  const nextThread = normalizeThread(next.thread);
+  const thread =
+    nextThread.length >= prevThread.length ? nextThread : prevThread;
+  return { ...next, thread };
 }
 
 export default function UserSupportThreadPage() {
@@ -83,7 +140,11 @@ export default function UserSupportThreadPage() {
           setError(data.error ?? t("common.error"));
           return;
         }
-        setMessage(data.message);
+        const detail = data.message as AdminSupportTicketDetail;
+        const thread = extractThread(data);
+        setMessage((prev) =>
+          mergeThreadPreferLonger(prev, { ...detail, thread })
+        );
       } catch {
         if (gen !== loadGeneration.current) return;
         setError(t("common.error"));
@@ -104,7 +165,6 @@ export default function UserSupportThreadPage() {
     void load();
   }, [ready, profileReady, isPlatformAdmin, user, router, id, load]);
 
-  // Mobile Safari bfcache / app switch: re-read full thread including admin replies.
   useEffect(() => {
     if (!ready || !profileReady || !user) return;
     if (isPlatformAdmin || isDemoMode()) return;
@@ -123,7 +183,7 @@ export default function UserSupportThreadPage() {
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("pageshow", onPageShow);
     window.addEventListener("focus", refresh);
-    const poll = window.setInterval(refresh, 12_000);
+    const poll = window.setInterval(refresh, 8_000);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
@@ -159,12 +219,12 @@ export default function UserSupportThreadPage() {
       setReply("");
       setMessage((prev) => {
         if (!prev) return prev;
-        const nextThread = [...(prev.thread ?? [])];
+        const nextThread = [...normalizeThread(prev.thread)];
         if (data.reply) {
-          const exists = nextThread.some(
-            (row) => row.id === (data.reply as AdminSupportThreadMessage).id
-          );
-          if (!exists) nextThread.push(data.reply as AdminSupportThreadMessage);
+          const normalized = normalizeThread([data.reply]);
+          for (const row of normalized) {
+            if (!nextThread.some((x) => x.id === row.id)) nextThread.push(row);
+          }
         }
         return {
           ...prev,
@@ -189,7 +249,11 @@ export default function UserSupportThreadPage() {
 
   return (
     <AppLayout hideNav title={t("support.threadTitle")}>
-      <div className="space-y-5 p-4 pb-8">
+      <div
+        className="space-y-5 p-4 pb-8"
+        data-support-thread-root
+        data-support-thread-count={thread.length}
+      >
         <PageHeader
           title={message?.subject ?? t("support.threadTitle")}
           subtitle={t("support.myRequests")}
@@ -221,12 +285,18 @@ export default function UserSupportThreadPage() {
               </Button>
             </div>
 
-            <Card padding="md" className="space-y-3">
+            <Card
+              padding="md"
+              className="space-y-3"
+              data-testid="support-thread-messages"
+            >
               {thread.map((item) => {
                 const fromAdmin = item.sender_type === "admin";
                 return (
                   <div
                     key={item.id}
+                    data-testid="support-thread-message"
+                    data-sender-type={item.sender_type}
                     className={cn(
                       "rounded-xl px-3 py-2.5 text-sm",
                       fromAdmin
@@ -235,7 +305,9 @@ export default function UserSupportThreadPage() {
                     )}
                   >
                     <p className="mb-1 text-xs font-medium text-text-muted">
-                      {fromAdmin ? t("support.fromAdmin") : t("support.fromUser")}
+                      {fromAdmin
+                        ? t("support.fromAdmin")
+                        : t("support.fromUser")}
                       {" · "}
                       {formatWhen(item.created_at, locale)}
                     </p>
@@ -271,7 +343,9 @@ export default function UserSupportThreadPage() {
                 </form>
               </Card>
             ) : (
-              <p className="text-sm text-text-muted">{t("support.closedNotice")}</p>
+              <p className="text-sm text-text-muted">
+                {t("support.closedNotice")}
+              </p>
             )}
           </>
         ) : null}

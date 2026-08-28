@@ -12,7 +12,10 @@ type Params = { params: Promise<{ id: string }> };
 function noStore(body: unknown, init?: { status?: number }) {
   return NextResponse.json(body, {
     status: init?.status,
-    headers: { "Cache-Control": "no-store" },
+    headers: {
+      "Cache-Control": "no-store, max-age=0",
+      Pragma: "no-cache",
+    },
   });
 }
 
@@ -46,5 +49,11 @@ export async function GET(request: Request, { params }: Params) {
 
   void markSupportTicketRead(auth.supabase, id).catch(() => undefined);
 
-  return noStore({ success: true, message: result.data });
+  // Expose thread at top-level AND inside message so clients cannot miss it
+  // when they only read one shape (legacy vs detail).
+  return noStore({
+    success: true,
+    message: result.data,
+    thread: result.data.thread,
+  });
 }
