@@ -538,6 +538,30 @@ export async function insertSupportReply(
     return { data: null, ticket: null, error: "forbidden" };
   }
 
+  // Soft dedupe: same sender + same body within 15s → return existing row.
+  const windowStart = new Date(Date.now() - 15_000).toISOString();
+  const { data: recentReply } = await supabase
+    .from("admin_support_thread_messages")
+    .select(
+      "id, ticket_id, sender_type, sender_user_id, message, language, created_at"
+    )
+    .eq("ticket_id", input.ticketId)
+    .eq("sender_type", input.senderType)
+    .eq("sender_user_id", input.senderUserId)
+    .eq("message", input.message)
+    .gte("created_at", windowStart)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (recentReply) {
+    return {
+      data: asThreadMessage(recentReply as Record<string, unknown>),
+      ticket,
+      error: null,
+    };
+  }
+
   const { data: msg, error: insertError } = await supabase
     .from("admin_support_thread_messages")
     .insert({
