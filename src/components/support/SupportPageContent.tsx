@@ -100,6 +100,32 @@ export function SupportPageContent() {
     void loadTickets();
   }, [ready, profileReady, isPlatformAdmin, view, loadTickets]);
 
+  // Re-fetch inbox when returning to the tab (admin may have replied).
+  useEffect(() => {
+    if (!ready || !profileReady || !user) return;
+    if (isPlatformAdmin || isDemoMode()) return;
+    if (view !== "home") return;
+
+    const refresh = () => {
+      void loadTickets();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) refresh();
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("focus", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [ready, profileReady, user, isPlatformAdmin, view, loadTickets]);
+
   const resetForm = () => {
     setSubject("");
     setMessage("");
@@ -348,6 +374,9 @@ export function SupportPageContent() {
                         {t("support.adminReply")}
                       </p>
                     ) : null}
+                    <p className="line-clamp-2 text-sm text-text-secondary">
+                      {item.last_message || item.message}
+                    </p>
                     <p className="text-xs text-text-muted">
                       {formatWhen(
                         item.last_activity_at || item.created_at,

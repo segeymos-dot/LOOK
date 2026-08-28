@@ -5,7 +5,16 @@ import {
 } from "@/lib/support/messages";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 type Params = { params: Promise<{ id: string }> };
+
+function noStore(body: unknown, init?: { status?: number }) {
+  return NextResponse.json(body, {
+    status: init?.status,
+    headers: { "Cache-Control": "no-store" },
+  });
+}
 
 export async function GET(request: Request, { params }: Params) {
   const auth = await requireAuthContext(request);
@@ -13,31 +22,29 @@ export async function GET(request: Request, { params }: Params) {
 
   const { id } = await params;
   if (!id) {
-    return NextResponse.json(
+    return noStore(
       { success: false, error: "Не указан идентификатор" },
       { status: 400 }
     );
   }
 
-  await markSupportTicketRead(auth.supabase, id);
-
+  // Load thread first so a mark-read failure never blocks message history.
   const result = await getSupportTicketDetail(auth.supabase, id, {
     viewer: "user",
     userId: auth.user.id,
   });
 
   if (result.error) {
-    return NextResponse.json(
-      { success: false, error: result.error },
-      { status: 500 }
-    );
+    return noStore({ success: false, error: result.error }, { status: 500 });
   }
   if (!result.data) {
-    return NextResponse.json(
+    return noStore(
       { success: false, error: "Обращение не найдено" },
       { status: 404 }
     );
   }
 
-  return NextResponse.json({ success: true, message: result.data });
+  void markSupportTicketRead(auth.supabase, id).catch(() => undefined);
+
+  return noStore({ success: true, message: result.data });
 }

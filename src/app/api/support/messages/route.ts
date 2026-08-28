@@ -11,6 +11,15 @@ import {
 import type { UserRole } from "@/types";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
+function noStore(body: unknown, init?: { status?: number }) {
+  return NextResponse.json(body, {
+    status: init?.status,
+    headers: { "Cache-Control": "no-store" },
+  });
+}
+
 function resolveRole(
   profileRole: UserRole | null | undefined,
   requested: "customer" | "provider"
@@ -32,13 +41,10 @@ export async function GET(request: Request) {
 
   const result = await listSupportTicketsForUser(auth.supabase, auth.user.id);
   if (result.error) {
-    return NextResponse.json(
-      { success: false, error: result.error },
-      { status: 500 }
-    );
+    return noStore({ success: false, error: result.error }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, messages: result.data });
+  return noStore({ success: true, messages: result.data });
 }
 
 export async function POST(request: Request) {

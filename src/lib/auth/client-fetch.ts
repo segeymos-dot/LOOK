@@ -33,10 +33,14 @@ export async function authFetch(
 
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${accessToken}`);
+  // Support threads must never reuse a stale GET after an admin reply.
+  if (!headers.has("Cache-Control")) {
+    headers.set("Cache-Control", "no-store");
+  }
 
   const timeoutMs = options?.timeoutMs;
   if (!timeoutMs || timeoutMs <= 0) {
-    return fetch(input, { ...init, headers });
+    return fetch(input, { ...init, headers, cache: "no-store" });
   }
 
   const controller = new AbortController();
@@ -51,6 +55,7 @@ export async function authFetch(
     return await fetch(input, {
       ...init,
       headers,
+      cache: "no-store",
       signal: controller.signal,
     });
   } catch (err) {

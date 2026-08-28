@@ -73,9 +73,32 @@ export default function AdminSupportDetailPage() {
     void load();
   }, [ready, profileReady, isPlatformAdmin, demo, router, load]);
 
+  useEffect(() => {
+    if (!ready || !profileReady) return;
+    if (!isPlatformAdmin && !demo) return;
+
+    const refresh = () => {
+      void load();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pageshow", onPageShow);
+    const poll = window.setInterval(refresh, 12_000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pageshow", onPageShow);
+      window.clearInterval(poll);
+    };
+  }, [ready, profileReady, isPlatformAdmin, demo, load]);
+
   const onReply = async (e: FormEvent) => {
     e.preventDefault();
-    if (!id || !reply.trim()) return;
+    if (!id || !reply.trim() || sending) return;
     setSending(true);
     setError(null);
     setSuccess(null);

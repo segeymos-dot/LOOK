@@ -586,11 +586,11 @@ export async function insertSupportReply(
     };
   }
 
+  // Do not overwrite ticket.message (original user text). Thread history is source of truth.
   const patch: Record<string, unknown> = {
     status: nextStatus,
     updated_at: now,
     last_activity_at: now,
-    message: input.message,
     admin_last_read_at: now,
   };
 
