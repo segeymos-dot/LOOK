@@ -44,10 +44,12 @@ function SearchContent() {
       const load = async () => {
         const supabase = createClient();
 
+        // Active marketplace browse only — soft-trashed duplicates must not appear.
         let q = supabase
           .from("requests")
           .select("*, customer:profiles(*), category:categories(*)")
           .in("status", ["open", "in_progress"])
+          .is("trashed_at", null)
           .order("created_at", { ascending: false });
 
         if (categorySlug) {
@@ -72,7 +74,14 @@ function SearchContent() {
         }
 
         const { data } = await q.limit(20);
-        return attachOffersCounts(supabase, data ?? []);
+        const withCounts = await attachOffersCounts(supabase, data ?? []);
+        // Defensive: unique by request.id even if a join/query ever doubles a row.
+        const seen = new Set<string>();
+        return withCounts.filter((row) => {
+          if (!row?.id || seen.has(row.id)) return false;
+          seen.add(row.id);
+          return true;
+        });
       };
 
       try {

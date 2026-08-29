@@ -31,6 +31,7 @@ export default async function MyRequestsPage() {
     .from("requests")
     .select("*, customer:profiles(*), category:categories(*)")
     .eq("customer_id", user.id)
+    .is("trashed_at", null)
     .order("created_at", { ascending: false });
 
   const requests = localizeRequests(
