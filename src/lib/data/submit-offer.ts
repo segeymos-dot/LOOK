@@ -19,9 +19,16 @@ export async function submitOffer(
 ): Promise<SubmitOfferResult> {
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, is_platform_admin")
     .eq("id", providerId)
     .single();
+
+  if (profile?.is_platform_admin) {
+    return {
+      success: false,
+      error: "Администратор платформы не может откликаться на заказы.",
+    };
+  }
 
   if (profile && !canActAsProvider(profile.role)) {
     return {

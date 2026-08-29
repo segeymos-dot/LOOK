@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Textarea } from "@/components/ui/Textarea";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
-import { canActAsProvider } from "@/lib/auth/roles";
+import { canActAsProvider, canSubmitApplication } from "@/lib/auth/roles";
 import { getAuthenticatedUser } from "@/lib/auth/client-fetch";
 import { submitOffer } from "@/lib/data/submit-offer";
 import { isDemoMode } from "@/lib/config";
@@ -22,7 +22,8 @@ import { AlertCircle } from "lucide-react";
 export default function NewOfferPage() {
   const { id: requestId } = useParams<{ id: string }>();
   const router = useRouter();
-  const { displayProfile, loading: authLoading } = useAuth();
+  const { displayProfile, loading: authLoading, isPlatformAdmin, effectiveUiMode } =
+    useAuth();
   const { t } = useTranslation();
   const offerSchema = useMemo(() => createOfferSchema(t), [t]);
 
@@ -42,7 +43,12 @@ export default function NewOfferPage() {
 
     if (authLoading) return;
 
-    if (displayProfile && !canActAsProvider(displayProfile.role)) {
+    if (isPlatformAdmin || (displayProfile && !canActAsProvider(displayProfile.role))) {
+      setCheckingAccess(false);
+      return;
+    }
+
+    if (displayProfile && effectiveUiMode !== "provider") {
       setCheckingAccess(false);
       return;
     }
@@ -71,7 +77,14 @@ export default function NewOfferPage() {
     };
 
     void checkExistingOffer();
-  }, [authLoading, displayProfile, requestId, router]);
+  }, [
+    authLoading,
+    displayProfile,
+    requestId,
+    router,
+    isPlatformAdmin,
+    effectiveUiMode,
+  ]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -136,7 +149,21 @@ export default function NewOfferPage() {
     );
   }
 
-  if (displayProfile && !canActAsProvider(displayProfile.role)) {
+  if (
+    isPlatformAdmin ||
+    (displayProfile &&
+      !canSubmitApplication({
+        authenticated: true,
+        isPlatformAdmin,
+        activeMode: effectiveUiMode,
+        role: displayProfile.role,
+        requestStatus: "open",
+        isRequestOwner: false,
+        viewerUserId: "x",
+        customerId: "y",
+        ownOfferStatus: null,
+      }))
+  ) {
     return (
       <AppLayout hideNav>
         <div className="space-y-4 p-4">

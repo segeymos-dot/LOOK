@@ -105,20 +105,37 @@ function unreadFromThread(
 async function loadProfiles(
   supabase: SupabaseClient,
   userIds: string[]
-): Promise<Map<string, { full_name: string | null; created_at: string | null }>> {
+): Promise<
+  Map<
+    string,
+    {
+      full_name: string | null;
+      created_at: string | null;
+      is_platform_admin: boolean;
+      role: string | null;
+    }
+  >
+> {
   const map = new Map<
     string,
-    { full_name: string | null; created_at: string | null }
+    {
+      full_name: string | null;
+      created_at: string | null;
+      is_platform_admin: boolean;
+      role: string | null;
+    }
   >();
   if (userIds.length === 0) return map;
   const { data } = await supabase
     .from("profiles")
-    .select("id, full_name, created_at")
+    .select("id, full_name, created_at, is_platform_admin, role")
     .in("id", userIds);
   for (const p of data ?? []) {
     map.set(p.id as string, {
       full_name: (p.full_name as string | null) ?? null,
       created_at: (p.created_at as string | null) ?? null,
+      is_platform_admin: Boolean(p.is_platform_admin),
+      role: (p.role as string | null) ?? null,
     });
   }
   return map;
@@ -340,16 +357,28 @@ export async function listSupportTicketsForAdmin(
 
   const rows = (data ?? []).map((row) => asTicket(row as Record<string, unknown>));
   const userIds = [...new Set(rows.map((r) => r.user_id))];
-  const ticketIds = rows.map((r) => r.id);
   const [profiles, lastMeta] = await Promise.all([
     loadProfiles(supabase, userIds),
-    loadLastThreadMeta(supabase, ticketIds),
+    loadLastThreadMeta(
+      supabase,
+      rows.map((r) => r.id)
+    ),
   ]);
+
+  // Only real registered non-admin owners with an existing profile/auth identity.
+  // Do not hardcode names — new customers/providers appear automatically.
+  const visible = rows.filter((ticket) => {
+    const profile = profiles.get(ticket.user_id);
+    if (!profile) return false;
+    if (profile.is_platform_admin) return false;
+    return true;
+  });
+
   // Emails are optional and can hang Auth Admin API — load only on detail.
   const emails = new Map<string, string | null>();
 
   return {
-    data: rows.map((ticket) => {
+    data: visible.map((ticket) => {
       const meta = lastMeta.get(ticket.id);
       const lastSender = meta?.sender_type ?? "user";
       const profile = profiles.get(ticket.user_id);
@@ -457,14 +486,17 @@ export async function getSupportTicketDetail(
   if (opts.viewer === "admin") {
     const profiles = await loadProfiles(supabase, [ticket.user_id]);
     const profile = profiles.get(ticket.user_id);
+    if (!profile || profile.is_platform_admin) {
+      return { data: null, error: null };
+    }
     const emails = opts.includeEmail
       ? await loadEmails([ticket.user_id])
       : new Map();
     userInfo = {
       id: ticket.user_id,
-      full_name: profile?.full_name ?? null,
+      full_name: profile.full_name ?? null,
       email: emails.get(ticket.user_id) ?? null,
-      registered_at: profile?.created_at ?? null,
+      registered_at: profile.created_at ?? null,
     };
   }
 

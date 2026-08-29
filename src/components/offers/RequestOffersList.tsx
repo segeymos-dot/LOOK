@@ -7,7 +7,7 @@ import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { authFetch } from "@/lib/auth/client-fetch";
 import { canDecideOnOffer, isRequestOwner as checkRequestOwner } from "@/lib/auth/viewer-role";
-import { canRespondToRequest, canActAsProvider } from "@/lib/auth/roles";
+import { canActAsProvider, canSubmitApplication } from "@/lib/auth/roles";
 import { isDemoMode } from "@/lib/config";
 import {
   getMockConversationForOffer,
@@ -54,7 +54,8 @@ export function RequestOffersList({
   onOffersChange,
 }: RequestOffersListProps) {
   const router = useRouter();
-  const { user, loading: authLoading, isProvider, displayProfile } = useAuth();
+  const { user, loading: authLoading, displayProfile, isPlatformAdmin, effectiveUiMode } =
+    useAuth();
   const { t } = useTranslation();
   const [offers, setOffers] = useState(initialOffers);
   const [requestStatus, setRequestStatus] = useState(initialRequestStatus);
@@ -91,15 +92,13 @@ export function RequestOffersList({
   const resolvedOwnOfferStatus = ownOffer?.status ?? ownOfferStatus;
   const resolvedOwnOfferId = ownOffer?.id ?? ownOfferId;
 
-  const providerCapable =
-    isProvider ||
-    canActAsProvider(displayProfile?.role) ||
-    viewerCanActAsProvider;
-
-  const canRespond = canRespondToRequest({
+  const canRespond = canSubmitApplication({
+    authenticated: Boolean(activeUserId),
+    isPlatformAdmin,
+    activeMode: effectiveUiMode,
+    role: displayProfile?.role ?? (viewerCanActAsProvider ? "provider" : null),
     requestStatus,
     isRequestOwner,
-    canActAsProvider: providerCapable,
     viewerUserId: activeUserId,
     customerId,
     ownOfferStatus: resolvedOwnOfferStatus,
@@ -348,7 +347,8 @@ export function RequestOffersList({
       )}
 
       {isRequestOwner &&
-        providerCapable &&
+        !isPlatformAdmin &&
+        canActAsProvider(displayProfile?.role) &&
         requestStatus === "open" &&
         activeUserId === customerId && (
           <p className="mb-4 rounded-xl bg-indigo-50 px-4 py-2 text-sm text-indigo-800">

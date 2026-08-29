@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { getAuthenticatedUser } from "@/lib/auth/client-fetch";
-import { canActAsProvider, canRespondToRequest } from "@/lib/auth/roles";
+import { canSubmitApplication } from "@/lib/auth/roles";
 import { isRequestOwner as checkRequestOwner } from "@/lib/auth/viewer-role";
 import { submitOffer } from "@/lib/data/submit-offer";
 import { isDemoMode } from "@/lib/config";
@@ -46,7 +46,13 @@ export function ProviderOfferRespond({
   onOfferSubmitted,
 }: ProviderOfferRespondProps) {
   const router = useRouter();
-  const { user, loading: authLoading, displayProfile, isProvider } = useAuth();
+  const {
+    user,
+    loading: authLoading,
+    displayProfile,
+    isPlatformAdmin,
+    effectiveUiMode,
+  } = useAuth();
   const { t } = useTranslation();
   const offerSchema = useMemo(() => createOfferSchema(t), [t]);
   const [showForm, setShowForm] = useState(false);
@@ -66,15 +72,14 @@ export function ProviderOfferRespond({
     demoUserId: mockCurrentUser.id,
   });
 
-  const providerCapable =
-    isProvider ||
-    canActAsProvider(displayProfile?.role) ||
-    viewerCanActAsProvider;
-
-  const canRespond = canRespondToRequest({
+  // Platform admin never bids — even if profiles.role is both.
+  const canRespond = canSubmitApplication({
+    authenticated: Boolean(activeUserId),
+    isPlatformAdmin,
+    activeMode: effectiveUiMode,
+    role: displayProfile?.role ?? (viewerCanActAsProvider ? "provider" : null),
     requestStatus,
     isRequestOwner,
-    canActAsProvider: providerCapable,
     viewerUserId: activeUserId,
     customerId,
     ownOfferStatus: ownOffer?.status ?? null,
@@ -83,7 +88,11 @@ export function ProviderOfferRespond({
   const hasActiveOffer =
     ownOffer?.status === "pending" || ownOffer?.status === "accepted";
 
-  if (isRequestOwner || !providerCapable || requestStatus !== "open") {
+  if (isPlatformAdmin || isRequestOwner || requestStatus !== "open") {
+    return null;
+  }
+
+  if (!canRespond && !hasActiveOffer) {
     return null;
   }
 

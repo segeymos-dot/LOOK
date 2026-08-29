@@ -105,13 +105,16 @@ export default async function RequestDetailPage({ params }: PageProps) {
   if (!request) notFound();
 
   let viewerCanActAsProvider = false;
+  let viewerIsPlatformAdmin = false;
   if (user) {
     const { data: viewerProfile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, is_platform_admin")
       .eq("id", user.id)
       .maybeSingle();
-    viewerCanActAsProvider = canActAsProvider(viewerProfile?.role);
+    viewerIsPlatformAdmin = Boolean(viewerProfile?.is_platform_admin);
+    viewerCanActAsProvider =
+      !viewerIsPlatformAdmin && canActAsProvider(viewerProfile?.role);
   }
 
   const { offers, conversations } = await getRequestOffersForPage(id);
