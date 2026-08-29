@@ -2,6 +2,8 @@ import { getAdminOrderDetail, getAdminOrderMessages } from "@/lib/admin/order-de
 import { requireAdminContext } from "@/lib/admin/require-admin";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -14,13 +16,9 @@ export async function GET(
     );
   }
 
-  const admin = gate.ctx.adminClient;
-  if (!admin) {
-    return NextResponse.json(
-      { success: false, error: "Admin client unavailable" },
-      { status: 500 }
-    );
-  }
+  // Prefer service-role for auth email lookup; fall back to the verified
+  // platform-admin user client so missing SERVICE_ROLE_KEY cannot blank the page.
+  const db = gate.ctx.adminClient ?? gate.ctx.supabase;
 
   const { id } = await params;
   if (!id) {
@@ -38,7 +36,7 @@ export async function GET(
       const before = url.searchParams.get("before") ?? undefined;
       const limitRaw = Number(url.searchParams.get("limit") ?? "50");
       const limit = Number.isFinite(limitRaw) ? limitRaw : 50;
-      const messages = await getAdminOrderMessages(admin, id, { before, limit });
+      const messages = await getAdminOrderMessages(db, id, { before, limit });
       if (!messages) {
         return NextResponse.json(
           { success: false, error: "Not found" },
@@ -48,7 +46,7 @@ export async function GET(
       return NextResponse.json({ success: true, messages });
     }
 
-    const detail = await getAdminOrderDetail(admin, id);
+    const detail = await getAdminOrderDetail(db, id);
     if (!detail) {
       return NextResponse.json(
         { success: false, error: "Not found" },

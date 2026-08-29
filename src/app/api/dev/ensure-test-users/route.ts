@@ -3,8 +3,19 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function POST() {
-  if (process.env.NODE_ENV === "production") {
+  if (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NEXT_PUBLIC_APP_URL?.includes("lookcruise.com")
+  ) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (process.env.ALLOW_TEST_USER_BOOTSTRAP !== "true") {
+    return NextResponse.json(
+      { error: "Test user bootstrap disabled (set ALLOW_TEST_USER_BOOTSTRAP=true)" },
+      { status: 403 }
+    );
   }
 
   const admin = createAdminClient();
