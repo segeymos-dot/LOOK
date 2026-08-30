@@ -40,6 +40,11 @@ export default function SettingsPage() {
           description={t("settings.sections.personalDesc")}
         />
         <SettingsLinkRow
+          href="/settings/location"
+          title={t("settings.sections.location")}
+          description={t("settings.sections.locationDesc")}
+        />
+        <SettingsLinkRow
           href="/settings/contact"
           title={t("settings.sections.contact")}
           description={t("settings.sections.contactDesc")}

@@ -84,6 +84,15 @@ export interface Profile {
   role: UserRole;
   city: string | null;
   country: string | null;
+  /** Precise GPS — never expose on public profiles. */
+  latitude?: number | null;
+  longitude?: number | null;
+  location_accuracy_m?: number | null;
+  country_code?: string | null;
+  region?: string | null;
+  location_source?: "gps" | "manual" | "unknown" | null;
+  location_permission_state?: "prompt" | "granted" | "denied" | null;
+  location_updated_at?: string | null;
   phone: string | null;
   skills: string | null;
   portfolio: string | null;

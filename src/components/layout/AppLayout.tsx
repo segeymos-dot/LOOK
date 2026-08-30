@@ -5,6 +5,7 @@ import { DemoBanner } from "./DemoBanner";
 import { BottomNav } from "./BottomNav";
 import { Avatar } from "@/components/ui/Avatar";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
+import { LocationPromptHost } from "@/components/location/LocationPromptHost";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 
@@ -76,6 +77,8 @@ export function AppLayout({
       </header>
 
       <main className={hideNav ? "pb-4" : "pb-24"}>{children}</main>
+
+      {user ? <LocationPromptHost /> : null}
 
       {!hideNav && <BottomNav activePath={activePath} />}
     </div>

@@ -102,7 +102,7 @@ export const PRIVACY_SECTIONS_RU = [
   },
   {
     title: "9. Данные о местоположении",
-    lead: "LOOK в текущей версии не запрашивает точную GPS-геолокацию устройства. Пользователь может указать город, страну или текстовое место оказания услуг вручную. Если в будущем будет добавлен доступ к геолокации, LOOK запросит разрешение устройства.",
+    lead: "LOOK может запросить точное местоположение устройства только после вашего явного разрешения. Вы можете отказать и указать город/страну вручную. Точные GPS-координаты никогда не показываются другим пользователям публично.",
   },
   {
     title: "10. Фото, камера, микрофон и файлы",
@@ -232,14 +232,14 @@ export const PRIVACY_SECTIONS_RU = [
       "cookies сессии Supabase Auth;",
       "cookie look_locale (язык);",
       "cookie look_visitor (аналитика посещений);",
-      "localStorage: look_locale, look_visitor_id, look_session_id, look_presence_tabs, look_ui_mode, look_recent_login_emails; cookie look_last_login_email (email only, after successful login);",
-      "sessionStorage: look_register_legal_consent (временное согласие до завершения регистрации).",
+      "localStorage: look_locale, look_visitor_id, look_session_id, look_presence_tabs, look_ui_mode, look_recent_login_emails, look_location_prompt_asked; cookie look_last_login_email (email only, after successful login);",
+      "sessionStorage: look_register_legal_consent (временное согласие до завершения регистрации); look_location_prompt_dismissed_session.",
     ],
   },
   {
     title: "34. Что LOOK пока НЕ собирает",
     items: [
-      "точную GPS-геолокацию устройства;",
+      "фоновое непрерывное отслеживание GPS без вашего действия;",
       "живой видеопоток камеры;",
       "полный PAN банковской карты и CVV/CVC;",
       "данные сторонних маркетинговых SDK (не подключены);",
@@ -343,7 +343,7 @@ export const PRIVACY_SECTIONS_EN = [
   },
   {
     title: "9. Location data",
-    lead: "The current LOOK version does not request precise device GPS. Users may enter city, country or a text service location manually. If precise geolocation is added later, LOOK will request device permission.",
+    lead: "LOOK may request precise device location only after you explicitly allow it. You can deny access and enter city/country manually. Precise GPS coordinates are never shown publicly to other users.",
   },
   {
     title: "10. Photos, camera, microphone and files",
@@ -473,14 +473,14 @@ export const PRIVACY_SECTIONS_EN = [
       "Supabase Auth session cookies;",
       "look_locale cookie (language);",
       "look_visitor cookie (visit analytics);",
-      "localStorage: look_locale, look_visitor_id, look_session_id, look_presence_tabs, look_ui_mode, look_recent_login_emails; cookie look_last_login_email (email only, after successful login);",
-      "sessionStorage: look_register_legal_consent (temporary consent until registration completes).",
+      "localStorage: look_locale, look_visitor_id, look_session_id, look_presence_tabs, look_ui_mode, look_recent_login_emails, look_location_prompt_asked; cookie look_last_login_email (email only, after successful login);",
+      "sessionStorage: look_register_legal_consent (temporary consent until registration completes); look_location_prompt_dismissed_session.",
     ],
   },
   {
     title: "34. What LOOK does NOT currently collect",
     items: [
-      "precise device GPS;",
+      "continuous background GPS tracking without your action;",
       "live camera video stream;",
       "full card PAN and CVV/CVC;",
       "third-party marketing SDK data (not connected);",
