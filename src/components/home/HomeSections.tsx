@@ -6,7 +6,12 @@ import { FormEvent, useState } from "react";
 import { ArrowRight, Headphones, LockKeyhole, Search, ShieldCheck } from "lucide-react";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  formatUnreadBadge,
+  useAdminSupportUnreadCount,
+} from "@/hooks/useAdminSupportUnreadCount";
 import { isDemoMode } from "@/lib/config";
+import { cn } from "@/lib/utils";
 
 export function HomeSectionHeaders() {
   const { t } = useTranslation();
@@ -133,21 +138,30 @@ export function HomeTrustRow() {
   const { isPlatformAdmin } = useAuth();
   const supportHref =
     isPlatformAdmin || isDemoMode() ? "/admin/support" : "/support";
+  const { count: unreadSupport } = useAdminSupportUnreadCount(isPlatformAdmin);
+  const unreadLabel = formatUnreadBadge(unreadSupport);
+
   const items = [
     {
+      key: "verified",
       label: t("home.trustVerified"),
       Icon: ShieldCheck,
       href: "/search",
+      badge: null as string | null,
     },
     {
+      key: "secure",
       label: t("home.trustSecure"),
       Icon: LockKeyhole,
       href: "/terms",
+      badge: null as string | null,
     },
     {
+      key: "support",
       label: t("home.trustSupport"),
       Icon: Headphones,
       href: supportHref,
+      badge: isPlatformAdmin ? unreadLabel : null,
     },
   ] as const;
 
@@ -162,14 +176,28 @@ export function HomeTrustRow() {
       role="list"
       aria-label={t("home.trustAriaLabel")}
     >
-      {items.map(({ label, Icon, href }) => {
+      {items.map(({ key, label, Icon, href, badge }) => {
         const content = (
           <>
-            <Icon
-              aria-hidden
-              style={{ width: 21, height: 21, color: "#1677F2" }}
-              strokeWidth={1.75}
-            />
+            <span className="relative inline-flex">
+              <Icon
+                aria-hidden
+                style={{ width: 21, height: 21, color: "#1677F2" }}
+                strokeWidth={1.75}
+              />
+              {badge ? (
+                <span
+                  className={cn(
+                    "absolute -right-2.5 -top-1.5 flex h-[16px] min-w-[16px] items-center justify-center",
+                    "rounded-full bg-danger px-1 text-[9px] font-bold leading-none text-white",
+                    "ring-2 ring-white"
+                  )}
+                  aria-label={t("home.supportUnreadAria", { count: badge })}
+                >
+                  {badge}
+                </span>
+              ) : null}
+            </span>
             <span
               className="min-w-0 text-center text-[#475569]"
               style={{ fontSize: "11.5px", lineHeight: 1.25, fontWeight: 500 }}
@@ -179,30 +207,21 @@ export function HomeTrustRow() {
           </>
         );
 
-        if (href) {
-          return (
-            <Link
-              key={label}
-              href={href}
-              role="listitem"
-              aria-label={label}
-              className={`${itemClassName} cursor-pointer`}
-              style={itemStyle}
-            >
-              {content}
-            </Link>
-          );
-        }
-
         return (
-          <div
-            key={label}
+          <Link
+            key={key}
+            href={href}
             role="listitem"
-            className="flex min-w-0 flex-col items-center justify-start text-center"
+            aria-label={
+              badge
+                ? `${label}, ${t("home.supportUnreadAria", { count: badge })}`
+                : label
+            }
+            className={`${itemClassName} cursor-pointer`}
             style={itemStyle}
           >
             {content}
-          </div>
+          </Link>
         );
       })}
     </div>

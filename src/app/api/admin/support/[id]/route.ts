@@ -45,13 +45,8 @@ export async function GET(request: Request, { params }: Params) {
     );
   }
 
-  void markSupportTicketRead(auth.supabase, id)
-    .then(async (marked) => {
-      if (marked.error && result.data?.status === "new") {
-        await updateSupportMessageStatus(auth.supabase, id, "read");
-      }
-    })
-    .catch(() => undefined);
+  // Mark thread messages read when admin opens the conversation (not on list).
+  await markSupportTicketRead(auth.supabase, id).catch(() => undefined);
 
   return noStore({ success: true, message: result.data });
 }

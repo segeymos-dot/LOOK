@@ -531,11 +531,100 @@ export async function markSupportTicketRead(
 
   if (error) {
     // Fallback if RPC not yet applied: best-effort local update for admin path only.
-    return { data: null, error: error.message };
+    const now = new Date().toISOString();
+    await supabase
+      .from("admin_support_thread_messages")
+      .update({ read_by_admin_at: now })
+      .eq("ticket_id", id)
+      .eq("sender_type", "user")
+      .is("read_by_admin_at", null);
+    const { data: ticket, error: ticketError } = await supabase
+      .from("admin_support_messages")
+      .update({
+        admin_last_read_at: now,
+        status: "read",
+        updated_at: now,
+      })
+      .eq("id", id)
+      .eq("status", "new")
+      .select(TICKET_COLUMNS)
+      .maybeSingle();
+    if (ticketError) return { data: null, error: ticketError.message };
+    if (ticket) return { data: asTicket(ticket as Record<string, unknown>), error: null };
+    // Status may already be non-new — still try ticket-level cursor.
+    const { data: anyTicket, error: anyErr } = await supabase
+      .from("admin_support_messages")
+      .update({ admin_last_read_at: now, updated_at: now })
+      .eq("id", id)
+      .select(TICKET_COLUMNS)
+      .maybeSingle();
+    if (anyErr) return { data: null, error: anyErr.message || error.message };
+    return {
+      data: anyTicket
+        ? asTicket(anyTicket as Record<string, unknown>)
+        : null,
+      error: anyTicket ? null : error.message,
+    };
   }
 
   if (!data) return { data: null, error: null };
   return { data: asTicket(data as Record<string, unknown>), error: null };
+}
+
+/** Unread user→admin message count for real non-admin ticket owners. */
+export async function countAdminSupportUnreadMessages(
+  supabase: SupabaseClient
+): Promise<{ count: number; error: string | null }> {
+  const { data, error } = await supabase.rpc(
+    "get_admin_support_unread_message_count"
+  );
+  if (!error && data != null) {
+    return { count: Number(data) || 0, error: null };
+  }
+
+  // Fallback without RPC: count in app + filter profiles.
+  const { data: rows, error: qErr } = await supabase
+    .from("admin_support_thread_messages")
+    .select("id, ticket_id, sender_type, read_by_admin_at")
+    .eq("sender_type", "user")
+    .is("read_by_admin_at", null)
+    .limit(2000);
+
+  if (qErr) {
+    return { count: 0, error: qErr.message || error?.message || "count_failed" };
+  }
+
+  const ticketIds = [
+    ...new Set((rows ?? []).map((r) => String(r.ticket_id))),
+  ];
+  if (ticketIds.length === 0) return { count: 0, error: null };
+
+  const { data: tickets } = await supabase
+    .from("admin_support_messages")
+    .select("id, user_id")
+    .in("id", ticketIds);
+
+  const userIds = [...new Set((tickets ?? []).map((t) => String(t.user_id)))];
+  const profiles = await loadProfiles(supabase, userIds);
+  const allowedUsers = new Set(
+    [...profiles.entries()]
+      .filter(
+        ([, p]) =>
+          !p.is_platform_admin &&
+          !String(p.full_name ?? "").toLowerCase().includes("support tester")
+      )
+      .map(([id]) => id)
+  );
+  const allowedTickets = new Set(
+    (tickets ?? [])
+      .filter((t) => allowedUsers.has(String(t.user_id)))
+      .map((t) => String(t.id))
+  );
+
+  const count = (rows ?? []).filter((r) =>
+    allowedTickets.has(String(r.ticket_id))
+  ).length;
+  return { count, error: null };
 }
 
 export async function updateSupportMessageStatus(

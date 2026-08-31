@@ -19,6 +19,10 @@ import { Chip } from "@/components/ui/Chip";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  formatUnreadBadge,
+  useAdminSupportUnreadCount,
+} from "@/hooks/useAdminSupportUnreadCount";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { authFetch } from "@/lib/auth/session";
 import { isDemoMode } from "@/lib/config";
@@ -72,6 +76,7 @@ export default function ProfilePage() {
   const { t } = useTranslation();
   const router = useRouter();
   const resolvedProfile = displayProfile ?? profile;
+  const { count: supportUnreadCount } = useAdminSupportUnreadCount(isPlatformAdmin);
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -440,11 +445,28 @@ export default function ProfilePage() {
             <Button
               type="button"
               variant="outline"
-              className="min-h-[48px] w-full gap-2 text-base"
+              className="relative min-h-[48px] w-full gap-2 text-base"
               size="lg"
               onClick={() => router.push("/admin/support")}
+              aria-label={
+                supportUnreadCount > 0
+                  ? t("home.supportUnreadAria", {
+                      count: String(supportUnreadCount),
+                    })
+                  : t("home.trustSupport")
+              }
             >
-              <Headphones className="h-5 w-5" />
+              <span className="relative inline-flex">
+                <Headphones className="h-5 w-5" aria-hidden />
+                {supportUnreadCount > 0 ? (
+                  <span
+                    className="absolute -right-2.5 -top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white"
+                    aria-hidden
+                  >
+                    {formatUnreadBadge(supportUnreadCount)}
+                  </span>
+                ) : null}
+              </span>
               {t("home.trustSupport")}
             </Button>
           </div>

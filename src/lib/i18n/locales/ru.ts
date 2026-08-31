@@ -400,6 +400,7 @@ export const ru = {
     trustSecure: "Безопасные сделки",
     trustSupport: "Поддержка 24/7",
     trustAriaLabel: "Преимущества LOOK",
+    supportUnreadAria: "Непрочитанных сообщений: {count}",
     findProvider: "Найди исполнителя",
     findOrders: "Найди заказы",
     ordersAndProviders: "Заказы и исполнители",

@@ -402,6 +402,7 @@ export const en: TranslationDict = {
     trustSecure: "Secure deals",
     trustSupport: "24/7 Support",
     trustAriaLabel: "LOOK benefits",
+    supportUnreadAria: "Unread messages: {count}",
     findProvider: "Find a provider",
     findOrders: "Find orders",
     ordersAndProviders: "Orders & providers",
