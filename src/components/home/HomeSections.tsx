@@ -74,7 +74,7 @@ export function HomeCategoriesHeader() {
         data-testid="admin-home-all-link-row"
       >
         <Link
-          href="/admin/overview"
+          href="/admin/visitors-by-country"
           data-testid="admin-home-all-link"
           className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-semibold text-brand-600"
           style={{
