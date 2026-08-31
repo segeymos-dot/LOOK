@@ -78,19 +78,44 @@ export function HomeGreeting({
   return (
     <div
       className="relative min-w-0 w-full overflow-hidden"
+      data-testid="home-beach-hero"
       style={{
-        minHeight: 352,
-        height: 352,
-        backgroundImage: "url('/assets/home/greeting-beach.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center center",
-        backgroundRepeat: "no-repeat",
+        // Pull under AppLayout home safe-area so the beach is edge-to-edge at the top.
+        marginTop: "calc(-1 * env(safe-area-inset-top, 0px))",
+        minHeight: "calc(352px + env(safe-area-inset-top, 0px))",
+        height: "calc(352px + env(safe-area-inset-top, 0px))",
+        backgroundColor: "#7EC8E3",
       }}
     >
+      {/* Existing hero asset — img layer is more reliable than CSS-only background. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/assets/home/greeting-beach.png"
+        alt=""
+        aria-hidden
+        data-testid="home-beach-image"
+        className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover object-center"
+        decoding="async"
+        fetchPriority="high"
+      />
+      {/* Light wash for text readability — keep beach colors visible. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.06) 42%, rgba(255,255,255,0.02) 70%, rgba(255,255,255,0.12) 100%)",
+        }}
+      />
+
       {header ? (
         <div
           className="absolute left-0 right-0 top-0 z-[2] flex items-center justify-between"
-          style={{ paddingTop: 16, paddingLeft: 16, paddingRight: 16 }}
+          style={{
+            paddingTop: "calc(16px + env(safe-area-inset-top, 0px))",
+            paddingLeft: 16,
+            paddingRight: 16,
+          }}
         >
           {header}
         </div>
