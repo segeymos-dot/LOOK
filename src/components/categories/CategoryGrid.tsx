@@ -535,9 +535,12 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
         );
       })}
 
-      {/* Local nav only — not from category data. Existing browse route: /search */}
+      {/* Admin: all home metrics overview. Guests: marketplace browse. */}
       <Link
-        href="/search"
+        href={showAdminOnlineTiles ? "/admin/overview" : "/search"}
+        data-testid={
+          showAdminOnlineTiles ? "admin-all-metrics-tile" : "home-all-categories"
+        }
         className="relative flex min-w-0 flex-col items-center justify-start gap-2 p-0.5 text-center transition-transform active:scale-[0.99]"
       >
         <span

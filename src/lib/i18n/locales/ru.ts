@@ -1087,6 +1087,18 @@ export const ru = {
   admin: {
     statsTitle: "Статистика LOOK",
     statsSubtitle: "Пользователи, посещения и активность",
+    overview: {
+      title: "Все показатели",
+      subtitle: "Сводная статистика платформы LOOK",
+      customersOnline: "Заказчики онлайн",
+      providersOnline: "Исполнители онлайн",
+      registeredUsers: "Всего зарегистрированных пользователей",
+      totalVisits: "Всего посещений",
+      registeredCustomers: "Зарегистрированные заказчики",
+      registeredProviders: "Зарегистрированные исполнители",
+      totalOrders: "Всего заказов",
+      completedOrders: "Завершённые заказы",
+    },
     activityTitle: "Активность платформы",
     activitySubtitle: "Заказы, отклики и просмотры",
     pageViews: "Посещения сайта",

@@ -1088,6 +1088,18 @@ export const en: TranslationDict = {
   admin: {
     statsTitle: "LOOK statistics",
     statsSubtitle: "Users, visits and activity",
+    overview: {
+      title: "All Metrics",
+      subtitle: "LOOK platform summary statistics",
+      customersOnline: "Customers Online",
+      providersOnline: "Providers Online",
+      registeredUsers: "Total Registered Users",
+      totalVisits: "Total Visits",
+      registeredCustomers: "Registered Customers",
+      registeredProviders: "Registered Providers",
+      totalOrders: "Total Orders",
+      completedOrders: "Completed Orders",
+    },
     activityTitle: "Platform activity",
     activitySubtitle: "Orders, offers and page views",
     pageViews: "Page views",
