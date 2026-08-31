@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { ArrowRight, Headphones, LockKeyhole, Search, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  Headphones,
+  LockKeyhole,
+  Mail,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -138,7 +145,9 @@ export function HomeTrustRow() {
   const { isPlatformAdmin } = useAuth();
   const supportHref =
     isPlatformAdmin || isDemoMode() ? "/admin/support" : "/support";
-  const { count: unreadSupport } = useAdminSupportUnreadCount(isPlatformAdmin);
+  // Envelope is always shown for platform admin (even at 0). Red count only when > 0.
+  const showAdminEnvelope = isPlatformAdmin || isDemoMode();
+  const { count: unreadSupport } = useAdminSupportUnreadCount(showAdminEnvelope);
   const unreadLabel = formatUnreadBadge(unreadSupport);
 
   const items = [
@@ -147,6 +156,7 @@ export function HomeTrustRow() {
       label: t("home.trustVerified"),
       Icon: ShieldCheck,
       href: "/search",
+      showEnvelope: false,
       badge: null as string | null,
     },
     {
@@ -154,43 +164,56 @@ export function HomeTrustRow() {
       label: t("home.trustSecure"),
       Icon: LockKeyhole,
       href: "/terms",
+      showEnvelope: false,
       badge: null as string | null,
     },
     {
       key: "support",
       label: t("home.trustSupport"),
-      Icon: Headphones,
+      // Admin home: always Mail (envelope). Guests keep Headphones.
+      Icon: showAdminEnvelope ? Mail : Headphones,
       href: supportHref,
-      badge: isPlatformAdmin ? unreadLabel : null,
+      showEnvelope: showAdminEnvelope,
+      badge: showAdminEnvelope ? unreadLabel : null,
     },
   ] as const;
 
   const itemClassName =
     "flex min-w-0 flex-col items-center justify-start text-center rounded-lg transition-opacity hover:opacity-80 active:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1677F2]";
-  const itemStyle = { gap: "6px", padding: "4px 2px" } as const;
+  const itemStyle = { gap: "6px", padding: "6px 2px 4px" } as const;
 
   return (
     <div
-      className="grid w-full max-w-full grid-cols-3 overflow-x-hidden"
+      className="grid w-full max-w-full grid-cols-3 overflow-visible"
       style={{ gap: "8px" }}
       role="list"
       aria-label={t("home.trustAriaLabel")}
+      data-testid="home-trust-row"
     >
-      {items.map(({ key, label, Icon, href, badge }) => {
+      {items.map(({ key, label, Icon, href, badge, showEnvelope }) => {
         const content = (
           <>
-            <span className="relative inline-flex">
+            <span
+              className="relative inline-flex items-center justify-center"
+              style={{ width: 28, height: 26 }}
+              data-testid={
+                key === "support" && showEnvelope
+                  ? "admin-support-envelope"
+                  : undefined
+              }
+            >
               <Icon
                 aria-hidden
-                style={{ width: 21, height: 21, color: "#1677F2" }}
+                style={{ width: 22, height: 22, color: "#1677F2" }}
                 strokeWidth={1.75}
               />
               {badge ? (
                 <span
+                  data-testid="admin-support-unread-badge"
                   className={cn(
-                    "absolute -right-2.5 -top-1.5 flex h-[16px] min-w-[16px] items-center justify-center",
-                    "rounded-full bg-danger px-1 text-[9px] font-bold leading-none text-white",
-                    "ring-2 ring-white"
+                    "absolute -right-1 -top-1 z-10 flex h-[18px] min-w-[18px] items-center justify-center",
+                    "rounded-full bg-[#E11D48] px-[5px] text-[10px] font-bold leading-none text-white",
+                    "shadow-sm ring-2 ring-white"
                   )}
                   aria-label={t("home.supportUnreadAria", { count: badge })}
                 >
@@ -219,6 +242,7 @@ export function HomeTrustRow() {
             }
             className={`${itemClassName} cursor-pointer`}
             style={itemStyle}
+            data-testid={key === "support" ? "home-trust-support" : undefined}
           >
             {content}
           </Link>
