@@ -13,6 +13,7 @@ export type MetricCardItem = {
   hint?: string;
   value: number | string | null;
   href?: string;
+  testId?: string;
 };
 
 type LoadState = "loading" | "ready" | "error";
@@ -77,6 +78,10 @@ export function AdminMetricCards({
               key={item.key}
               href={item.href}
               aria-label={ariaLabel}
+              data-testid={item.testId ?? `admin-metric-${item.key}`}
+              data-metric-value={
+                typeof item.value === "number" ? String(item.value) : undefined
+              }
               className={cn(
                 "block min-h-[44px] rounded-2xl outline-none",
                 "focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
@@ -97,7 +102,15 @@ export function AdminMetricCards({
         }
 
         return (
-          <Card key={item.key} padding="md" className="min-h-[120px]">
+          <Card
+            key={item.key}
+            padding="md"
+            className="min-h-[120px]"
+            data-testid={item.testId ?? `admin-metric-${item.key}`}
+            data-metric-value={
+              typeof item.value === "number" ? String(item.value) : undefined
+            }
+          >
             {body}
           </Card>
         );
