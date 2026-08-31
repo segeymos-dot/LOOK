@@ -49,7 +49,9 @@ export function HomeSectionHeaders() {
 export function HomeCategoriesHeader() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { isPlatformAdmin, profileReady } = useAuth();
   const [value, setValue] = useState("");
+  const adminMode = profileReady && isPlatformAdmin;
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,9 +60,40 @@ export function HomeCategoriesHeader() {
     router.push(`/search?q=${encodeURIComponent(trimmed)}`);
   }
 
+  // Platform admin: no search bar — only standalone “Все →” over the beach hero.
+  if (adminMode) {
+    return (
+      <div
+        className="mb-0 flex w-full min-w-0 items-center justify-end"
+        style={{
+          height: "50.4px",
+          paddingLeft: "16px",
+          paddingRight: "4px",
+          boxSizing: "border-box",
+        }}
+        data-testid="admin-home-all-link-row"
+      >
+        <Link
+          href="/admin/overview"
+          data-testid="admin-home-all-link"
+          className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-semibold text-brand-600"
+          style={{
+            flexShrink: 0,
+            whiteSpace: "nowrap",
+            textShadow: "0 1px 2px rgba(255,255,255,0.85)",
+          }}
+        >
+          {t("home.all")}
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <form
       onSubmit={onSubmit}
+      data-testid="home-search-bar"
       className="mb-0 flex min-w-0 w-full items-center"
       style={{
         height: "50.4px",
