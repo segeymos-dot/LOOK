@@ -6,7 +6,7 @@ import {
   normalizeSessionId,
   normalizeVisitorId,
 } from "@/lib/admin/presence-validation";
-import { countryFromRequest } from "@/lib/analytics/geo-country";
+import { resolveCountry } from "@/lib/analytics/geo-country";
 
 export type AdminVisitByUser = {
   userId: string;
@@ -265,9 +265,10 @@ export async function recordAppHeartbeat(
   }
 
   const sessionId = normalizeSessionId(input.sessionId);
+  // Resolve country BEFORE writing the session (headers → IP fallback).
   const country = request
-    ? countryFromRequest(request)
-    : { countryCode: "XX", countryName: "Unknown" };
+    ? await resolveCountry(request)
+    : { countryCode: "XX", countryName: "Unknown", source: "unknown" as const };
 
   const supabase = await createPresenceClient(request);
   const { data, error } = await supabase.rpc("record_app_heartbeat", {
@@ -276,6 +277,7 @@ export async function recordAppHeartbeat(
     p_user_id: null,
     p_country_code: country.countryCode,
     p_country_name: country.countryName,
+    p_geo_source: country.source,
   });
 
   if (error) throw new Error(error.message);

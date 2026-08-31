@@ -1119,6 +1119,10 @@ export const en: TranslationDict = {
       empty: "No country data for the selected period yet.",
       loadError: "Could not load traffic geography",
       retry: "Retry",
+      unknownCountry: "Country not determined",
+      percentageHint: "Percentage is the share of unique visitors in the period",
+      historicalNote:
+        "Historical visits without geo stay undetermined. New visits record country from the network.",
     },
     activityTitle: "Platform activity",
     activitySubtitle: "Orders, offers and page views",

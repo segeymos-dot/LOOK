@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdminContext } from "@/lib/admin/require-admin";
 import { fetchVisitorsByCountry } from "@/lib/analytics/visitors-by-country";
+import { getServerLocale } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const range = request.nextUrl.searchParams.get("range");
-    const stats = await fetchVisitorsByCountry(gate.ctx.supabase, range);
+    const locale = await getServerLocale();
+    const stats = await fetchVisitorsByCountry(
+      gate.ctx.supabase,
+      range,
+      locale === "ru" ? "ru" : "en"
+    );
     return NextResponse.json(
       {
         success: true,
@@ -20,6 +26,7 @@ export async function GET(request: NextRequest) {
         unique_visitors: stats.unique_visitors,
         countries_count: stats.countries_count,
         range: stats.range,
+        percentage_of: stats.percentage_of,
         countries: stats.countries,
       },
       { headers: { "Cache-Control": "no-store" } }

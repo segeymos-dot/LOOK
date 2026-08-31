@@ -4,7 +4,7 @@ import {
   PRODUCTION_AUTH_ORIGIN,
 } from "@/lib/app-url";
 import { updateSession } from "@/lib/supabase/middleware";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
 const PRODUCTION_APEX_HOST = new URL(PRODUCTION_AUTH_ORIGIN).host; // lookcruise.com
 
@@ -38,6 +38,21 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.host = expectedHost;
     return NextResponse.redirect(url);
+  }
+
+  // Forward edge geo into a stable request header for Node API routes.
+  const edgeCountry =
+    request.headers.get("x-vercel-ip-country") ||
+    request.headers.get("cf-ipcountry") ||
+    // NextRequest.geo is available on Vercel edge middleware when present.
+    (request as NextRequest & { geo?: { country?: string | null } }).geo
+      ?.country ||
+    "";
+  if (edgeCountry && edgeCountry.trim()) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-look-country-code", edgeCountry.trim().toUpperCase());
+    const requestWithGeo = new NextRequest(request, { headers: requestHeaders });
+    return await updateSession(requestWithGeo);
   }
 
   return await updateSession(request);

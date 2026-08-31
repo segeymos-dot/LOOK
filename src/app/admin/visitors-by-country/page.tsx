@@ -37,6 +37,7 @@ async function loadCountries(
     countries_count: Number(data.countries_count ?? 0),
     range: data.range ?? range,
     countries: Array.isArray(data.countries) ? data.countries : [],
+    percentage_of: "unique_visitors",
   };
 }
 
@@ -138,6 +139,13 @@ export default function AdminVisitorsByCountryPage() {
           </Button>
         </div>
 
+        <p className="text-xs text-text-muted">
+          {t("admin.visitorsByCountry.percentageHint")}
+        </p>
+        <p className="text-xs text-text-muted">
+          {t("admin.visitorsByCountry.historicalNote")}
+        </p>
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <SummaryCard
             label={t("admin.visitorsByCountry.totalVisits")}
@@ -222,10 +230,14 @@ function CountryCard({ row }: { row: CountryTrafficRow }) {
             <span aria-hidden className="mr-1.5">
               {row.flag}
             </span>
-            {row.country_name}
-            <span className="ml-2 text-xs font-medium text-text-muted">
-              {row.country_code}
-            </span>
+            {row.country_code === "XX"
+              ? t("admin.visitorsByCountry.unknownCountry")
+              : row.country_name}
+            {row.country_code !== "XX" ? (
+              <span className="ml-2 text-xs font-medium text-text-muted">
+                {row.country_code}
+              </span>
+            ) : null}
           </p>
           <p className="mt-2 text-sm text-text-secondary">
             {t("admin.visitorsByCountry.visitsLabel")}:{" "}

@@ -15,7 +15,9 @@ export type CountryTrafficRow = {
   unique_visitors: number;
   registered_users: number;
   guests: number;
+  /** Share of total unique visitors in the selected range. */
   percentage: number;
+  percentage_of: "unique_visitors";
 };
 
 export type VisitorsByCountryStats = {
@@ -24,6 +26,7 @@ export type VisitorsByCountryStats = {
   countries_count: number;
   range: VisitorsByCountryRange;
   countries: CountryTrafficRow[];
+  percentage_of: "unique_visitors";
 };
 
 function parseRange(raw: string | null | undefined): VisitorsByCountryRange {
@@ -36,7 +39,8 @@ function parseRange(raw: string | null | undefined): VisitorsByCountryRange {
 
 export async function fetchVisitorsByCountry(
   supabase: SupabaseClient,
-  rangeInput?: string | null
+  rangeInput?: string | null,
+  locale: "en" | "ru" = "en"
 ): Promise<VisitorsByCountryStats> {
   const range = parseRange(rangeInput);
   const { data, error } = await supabase.rpc("get_admin_visitors_by_country", {
@@ -64,15 +68,22 @@ export async function fetchVisitorsByCountry(
     const code = normalizeCountryCode(row.country_code);
     return {
       country_code: code,
-      country_name:
-        row.country_name?.trim() || countryNameFromCode(code),
+      country_name: countryNameFromCode(code, locale),
       flag: countryFlagEmoji(code),
       visits: Number(row.visits ?? 0),
       unique_visitors: Number(row.unique_visitors ?? 0),
       registered_users: Number(row.registered_users ?? 0),
       guests: Number(row.guests ?? 0),
       percentage: Number(row.percentage ?? 0),
+      percentage_of: "unique_visitors" as const,
     };
+  });
+
+  // Known countries first; unknown last.
+  countries.sort((a, b) => {
+    if (a.country_code === "XX" && b.country_code !== "XX") return 1;
+    if (b.country_code === "XX" && a.country_code !== "XX") return -1;
+    return b.unique_visitors - a.unique_visitors || b.visits - a.visits;
   });
 
   return {
@@ -81,5 +92,6 @@ export async function fetchVisitorsByCountry(
     countries_count: Number(raw.countries_count ?? countries.length),
     range: parseRange(raw.range ?? range),
     countries,
+    percentage_of: "unique_visitors",
   };
 }
