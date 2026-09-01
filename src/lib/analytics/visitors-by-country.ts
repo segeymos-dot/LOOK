@@ -27,6 +27,10 @@ export type VisitorsByCountryStats = {
   range: VisitorsByCountryRange;
   countries: CountryTrafficRow[];
   percentage_of: "unique_visitors";
+  /** Debug-only traffic breakdown (not shown in UI by default). */
+  human_visits: number;
+  technical_visits: number;
+  bot_visits: number;
 };
 
 function parseRange(raw: string | null | undefined): VisitorsByCountryRange {
@@ -53,6 +57,9 @@ export async function fetchVisitorsByCountry(
     unique_visitors?: number;
     countries_count?: number;
     range?: string;
+    human_visits?: number;
+    technical_visits?: number;
+    bot_visits?: number;
     countries?: Array<{
       country_code?: string;
       country_name?: string;
@@ -93,5 +100,8 @@ export async function fetchVisitorsByCountry(
     range: parseRange(raw.range ?? range),
     countries,
     percentage_of: "unique_visitors",
+    human_visits: Number(raw.human_visits ?? 0),
+    technical_visits: Number(raw.technical_visits ?? 0),
+    bot_visits: Number(raw.bot_visits ?? 0),
   };
 }

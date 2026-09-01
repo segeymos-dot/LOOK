@@ -38,6 +38,9 @@ async function loadCountries(
     range: data.range ?? range,
     countries: Array.isArray(data.countries) ? data.countries : [],
     percentage_of: "unique_visitors",
+    human_visits: Number(data.human_visits ?? 0),
+    technical_visits: Number(data.technical_visits ?? 0),
+    bot_visits: Number(data.bot_visits ?? 0),
   };
 }
 

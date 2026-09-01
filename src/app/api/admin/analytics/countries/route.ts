@@ -28,6 +28,10 @@ export async function GET(request: NextRequest) {
         range: stats.range,
         percentage_of: stats.percentage_of,
         countries: stats.countries,
+        // Debug-only; UI ignores these fields.
+        human_visits: stats.human_visits,
+        technical_visits: stats.technical_visits,
+        bot_visits: stats.bot_visits,
       },
       { headers: { "Cache-Control": "no-store" } }
     );

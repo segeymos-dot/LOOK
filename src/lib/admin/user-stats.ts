@@ -7,6 +7,7 @@ import {
   normalizeVisitorId,
 } from "@/lib/admin/presence-validation";
 import { resolveCountry } from "@/lib/analytics/geo-country";
+import { classifyTraffic } from "@/lib/analytics/traffic-classify";
 
 export type AdminVisitByUser = {
   userId: string;
@@ -269,6 +270,9 @@ export async function recordAppHeartbeat(
   const country = request
     ? await resolveCountry(request)
     : { countryCode: "XX", countryName: "Unknown", source: "unknown" as const };
+  const traffic = request
+    ? classifyTraffic(request, { visitorId })
+    : { trafficType: "unknown" as const, reason: "no_request" };
 
   const supabase = await createPresenceClient(request);
   const { data, error } = await supabase.rpc("record_app_heartbeat", {
@@ -278,6 +282,7 @@ export async function recordAppHeartbeat(
     p_country_code: country.countryCode,
     p_country_name: country.countryName,
     p_geo_source: country.source,
+    p_traffic_type: traffic.trafficType,
   });
 
   if (error) throw new Error(error.message);
