@@ -4,6 +4,7 @@ import {
   countryNameFromCode,
   normalizeCountryCode,
 } from "@/lib/analytics/geo-country";
+import { COUNTRY_ANALYTICS_CUTOVER_AT } from "@/lib/analytics/country-analytics-cutover";
 
 export type VisitorsByCountryRange = "today" | "7d" | "30d" | "all";
 
@@ -31,6 +32,10 @@ export type VisitorsByCountryStats = {
   human_visits: number;
   technical_visits: number;
   bot_visits: number;
+  cutover_at: string;
+  include_historical: boolean;
+  /** Internal: all_since_cutover when range=all and historical excluded. */
+  effective_since: string | null;
 };
 
 function parseRange(raw: string | null | undefined): VisitorsByCountryRange {
@@ -44,11 +49,15 @@ function parseRange(raw: string | null | undefined): VisitorsByCountryRange {
 export async function fetchVisitorsByCountry(
   supabase: SupabaseClient,
   rangeInput?: string | null,
-  locale: "en" | "ru" = "en"
+  locale: "en" | "ru" = "en",
+  options?: { includeHistorical?: boolean }
 ): Promise<VisitorsByCountryStats> {
   const range = parseRange(rangeInput);
+  const includeHistorical = Boolean(options?.includeHistorical);
   const { data, error } = await supabase.rpc("get_admin_visitors_by_country", {
     p_range: range,
+    p_cutover_at: includeHistorical ? null : COUNTRY_ANALYTICS_CUTOVER_AT,
+    p_include_historical: includeHistorical,
   });
   if (error) throw new Error(error.message);
 
@@ -60,6 +69,9 @@ export async function fetchVisitorsByCountry(
     human_visits?: number;
     technical_visits?: number;
     bot_visits?: number;
+    cutover_at?: string | null;
+    include_historical?: boolean;
+    effective_since?: string | null;
     countries?: Array<{
       country_code?: string;
       country_name?: string;
@@ -103,5 +115,8 @@ export async function fetchVisitorsByCountry(
     human_visits: Number(raw.human_visits ?? 0),
     technical_visits: Number(raw.technical_visits ?? 0),
     bot_visits: Number(raw.bot_visits ?? 0),
+    cutover_at: String(raw.cutover_at ?? COUNTRY_ANALYTICS_CUTOVER_AT),
+    include_historical: Boolean(raw.include_historical ?? includeHistorical),
+    effective_since: raw.effective_since ?? (includeHistorical ? null : COUNTRY_ANALYTICS_CUTOVER_AT),
   };
 }

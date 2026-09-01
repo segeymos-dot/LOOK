@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdminContext } from "@/lib/admin/require-admin";
+import { COUNTRY_ANALYTICS_CUTOVER_AT } from "@/lib/analytics/country-analytics-cutover";
 import { fetchVisitorsByCountry } from "@/lib/analytics/visitors-by-country";
 import { getServerLocale } from "@/lib/i18n/server";
 
@@ -13,15 +14,21 @@ export async function GET(request: NextRequest) {
 
   try {
     const range = request.nextUrl.searchParams.get("range");
+    const includeHistorical =
+      request.nextUrl.searchParams.get("include_historical") === "true";
     const locale = await getServerLocale();
     const stats = await fetchVisitorsByCountry(
       gate.ctx.supabase,
       range,
-      locale === "ru" ? "ru" : "en"
+      locale === "ru" ? "ru" : "en",
+      { includeHistorical }
     );
     return NextResponse.json(
       {
         success: true,
+        cutover_at: stats.cutover_at || COUNTRY_ANALYTICS_CUTOVER_AT,
+        include_historical: stats.include_historical,
+        effective_since: stats.effective_since,
         total_visits: stats.total_visits,
         unique_visitors: stats.unique_visitors,
         countries_count: stats.countries_count,

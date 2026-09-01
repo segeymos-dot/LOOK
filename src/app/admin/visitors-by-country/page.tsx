@@ -41,6 +41,9 @@ async function loadCountries(
     human_visits: Number(data.human_visits ?? 0),
     technical_visits: Number(data.technical_visits ?? 0),
     bot_visits: Number(data.bot_visits ?? 0),
+    cutover_at: String(data.cutover_at ?? ""),
+    include_historical: Boolean(data.include_historical),
+    effective_since: data.effective_since ?? null,
   };
 }
 
