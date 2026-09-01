@@ -27,7 +27,7 @@ const AUTOMATION_UA =
   /\b(headless|headlesschrome|playwright|puppeteer|selenium|phantomjs|cypress|webdriver)\b/i;
 
 const MONITOR_UA =
-  /\b(uptime|monitor|healthcheck|health-check|pingdom|datadog|newrelic|statuscake|site24x7|betteruptime|vercel-screenshot|vercel-favicon|preview)\b/i;
+  /(uptime|monitor|healthcheck|health-check|pingdom|datadog|newrelic|statuscake|site24x7|betteruptime|vercel-screenshot|vercel-favicon|preview)/i;
 
 const TOOL_UA = /\b(curl\/|wget\/|axios\/|node-fetch|undici|python-requests|go-http-client|httpie|postman|insomnia|java\/)\b/i;
 
