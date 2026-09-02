@@ -26,24 +26,22 @@ function corsHeaders(origin: string | null): HeadersInit {
 }
 
 function authorizedIngest(request: Request): boolean {
-  const expected = process.env.WEBSITE_CONTACT_SECRET?.trim();
-  if (!expected) {
-    // If secret unset, only allow server-to-server from known site origins
-    // via Origin/Referer (website /api/contact proxies without browser CORS).
-    const origin = request.headers.get("origin");
-    const referer = request.headers.get("referer") || "";
-    if (origin && ALLOWED_ORIGINS.has(origin)) return true;
-    if (
-      [...ALLOWED_ORIGINS].some((o) => referer.startsWith(o)) ||
-      referer.includes("lookappworld.com")
-    ) {
-      return true;
-    }
-    // Allow when called from website server with explicit marker.
-    return request.headers.get("x-look-contact-source") === "lookappworld-site";
+  // Trusted server-to-server marker from lookappworld /api/contact (never from browser form).
+  if (request.headers.get("x-look-contact-source") === "lookappworld-site") {
+    return true;
   }
-  const got = request.headers.get("x-look-contact-secret")?.trim();
-  return Boolean(got && got === expected);
+
+  const expected = process.env.WEBSITE_CONTACT_SECRET?.trim();
+  if (expected) {
+    const got = request.headers.get("x-look-contact-secret")?.trim();
+    return Boolean(got && got === expected);
+  }
+
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer") || "";
+  if (origin && ALLOWED_ORIGINS.has(origin)) return true;
+  if ([...ALLOWED_ORIGINS].some((o) => referer.startsWith(o))) return true;
+  return false;
 }
 
 export async function OPTIONS(request: Request) {
