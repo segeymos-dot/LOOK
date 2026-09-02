@@ -8,11 +8,16 @@ import {
   ClipboardList,
   Scale,
   Headphones,
+  Globe2,
   UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "@/components/providers/LocaleProvider";
+import {
+  formatUnreadBadge,
+} from "@/hooks/useAdminSupportUnreadCount";
+import { useAdminWebsiteInquiriesUnreadCount } from "@/hooks/useAdminWebsiteInquiriesUnreadCount";
 import { cn } from "@/lib/utils";
 
 const LINKS: {
@@ -20,6 +25,8 @@ const LINKS: {
   titleKey: string;
   subtitleKey: string;
   icon: LucideIcon;
+  /** Separate unread source — never reuse app support counter. */
+  badge?: "website-inquiries";
 }[] = [
   {
     href: "/admin/stats",
@@ -63,10 +70,19 @@ const LINKS: {
     subtitleKey: "admin.nav.supportSubtitle",
     icon: Headphones,
   },
+  {
+    href: "/admin/website-inquiries",
+    titleKey: "admin.nav.websiteInquiries",
+    subtitleKey: "admin.nav.websiteInquiriesSubtitle",
+    icon: Globe2,
+    badge: "website-inquiries",
+  },
 ];
 
 export function AdminSectionNav({ activeHref }: { activeHref: string }) {
   const { t } = useTranslation();
+  const { count: websiteUnread } = useAdminWebsiteInquiriesUnreadCount(true);
+  const websiteBadge = formatUnreadBadge(websiteUnread);
 
   return (
     <nav aria-label={t("admin.nav.label")}>
@@ -78,12 +94,23 @@ export function AdminSectionNav({ activeHref }: { activeHref: string }) {
           const title = t(link.titleKey);
           const subtitle = t(link.subtitleKey);
           const Icon = link.icon;
+          const badge =
+            link.badge === "website-inquiries" ? websiteBadge : null;
           return (
             <li key={link.href}>
               <Link
                 href={link.href}
-                aria-label={`${title}. ${subtitle}`}
+                aria-label={
+                  badge
+                    ? `${title}. ${subtitle}. ${badge}`
+                    : `${title}. ${subtitle}`
+                }
                 aria-current={active ? "page" : undefined}
+                data-testid={
+                  link.badge === "website-inquiries"
+                    ? "admin-nav-website-inquiries"
+                    : undefined
+                }
                 className={cn(
                   "flex min-h-[48px] items-center gap-2.5 rounded-xl px-3 py-2.5 outline-none transition-colors",
                   "focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
@@ -95,14 +122,18 @@ export function AdminSectionNav({ activeHref }: { activeHref: string }) {
                 <span
                   className={cn(
                     "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                    active ? "bg-brand-100 text-brand-700" : "bg-surface-muted text-text-secondary"
+                    active
+                      ? "bg-brand-100 text-brand-700"
+                      : "bg-surface-muted text-text-secondary"
                   )}
                   aria-hidden
                 >
                   <Icon className="h-[18px] w-[18px]" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold leading-tight">{title}</span>
+                  <span className="block text-sm font-semibold leading-tight">
+                    {title}
+                  </span>
                   <span
                     className={cn(
                       "mt-0.5 block text-xs leading-snug",
@@ -112,6 +143,19 @@ export function AdminSectionNav({ activeHref }: { activeHref: string }) {
                     {subtitle}
                   </span>
                 </span>
+                {badge ? (
+                  <span
+                    data-testid="admin-website-inquiries-unread-badge"
+                    className={cn(
+                      "inline-flex min-w-[1.5rem] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums",
+                      active
+                        ? "bg-brand-600 text-white"
+                        : "bg-red-600 text-white"
+                    )}
+                  >
+                    {badge}
+                  </span>
+                ) : null}
                 <ChevronRight
                   className={cn(
                     "h-4 w-4 shrink-0",
@@ -130,13 +174,20 @@ export function AdminSectionNav({ activeHref }: { activeHref: string }) {
         {LINKS.map((link) => {
           const active =
             activeHref === link.href || activeHref.startsWith(`${link.href}/`);
+          const badge =
+            link.badge === "website-inquiries" ? websiteBadge : null;
           return (
             <Link
               key={link.href}
               href={link.href}
               aria-current={active ? "page" : undefined}
+              data-testid={
+                link.badge === "website-inquiries"
+                  ? "admin-nav-website-inquiries-desktop"
+                  : undefined
+              }
               className={cn(
-                "inline-flex min-h-[44px] shrink-0 items-center rounded-full px-3.5 text-xs font-semibold transition-colors",
+                "inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors",
                 "outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
                 active
                   ? "bg-brand-600 text-white"
@@ -144,6 +195,17 @@ export function AdminSectionNav({ activeHref }: { activeHref: string }) {
               )}
             >
               {t(link.titleKey)}
+              {badge ? (
+                <span
+                  data-testid="admin-website-inquiries-unread-badge-desktop"
+                  className={cn(
+                    "inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 py-0.5 text-[10px] font-bold tabular-nums",
+                    active ? "bg-white/25 text-white" : "bg-red-600 text-white"
+                  )}
+                >
+                  {badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}

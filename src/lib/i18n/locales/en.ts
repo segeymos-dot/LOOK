@@ -1323,9 +1323,18 @@ export const en: TranslationDict = {
       disputesSubtitle: "Open and closed disputes",
       support: "Support Requests",
       supportSubtitle: "Messages from users to administration",
+      websiteInquiries: "Website Inquiries",
+      websiteInquiriesSubtitle: "Contact form on lookappworld.com",
     },
     supportTitle: "Support Requests",
     supportSubtitle: "Messages from users to LOOK administration",
+    websiteInquiriesTitle: "Website Inquiries",
+    websiteInquiriesSubtitle:
+      "Messages submitted via the lookappworld.com contact form",
+    websiteInquiriesEmpty: "No website inquiries yet",
+    websiteInquiriesEmptyHint:
+      "When visitors send a message from {site}, they will appear here.",
+    websiteInquiriesNoSubject: "No subject",
     supportDetailTitle: "Support request",
     supportEmpty: "No support requests yet",
     supportUser: "User",

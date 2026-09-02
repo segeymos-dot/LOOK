@@ -1323,9 +1323,18 @@ export const ru = {
       disputesSubtitle: "Открытые и закрытые споры",
       support: "Обращения в поддержку",
       supportSubtitle: "Сообщения пользователей администрации",
+      websiteInquiries: "Обращения с сайта",
+      websiteInquiriesSubtitle: "Форма контактов lookappworld.com",
     },
     supportTitle: "Обращения в поддержку",
     supportSubtitle: "Сообщения пользователей администрации LOOK",
+    websiteInquiriesTitle: "Обращения с сайта",
+    websiteInquiriesSubtitle:
+      "Сообщения, отправленные через контактную форму lookappworld.com",
+    websiteInquiriesEmpty: "Обращений с сайта пока нет",
+    websiteInquiriesEmptyHint:
+      "Когда посетители отправят сообщение с {site}, они появятся здесь.",
+    websiteInquiriesNoSubject: "Без темы",
     supportDetailTitle: "Обращение",
     supportEmpty: "Обращений пока нет",
     supportUser: "Пользователь",
