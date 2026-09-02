@@ -10,13 +10,39 @@ import { authFetch } from "@/lib/auth/client-fetch";
 import { isDemoMode } from "@/lib/config";
 import type { WebsiteInquiry } from "@/lib/admin/website-inquiries";
 import { LOOK_OFFICIAL_WEBSITE_URL } from "@/lib/brand/official-site";
+import { cn } from "@/lib/utils";
 import { Globe2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+function formatWhen(iso: string, locale: string) {
+  try {
+    return new Date(iso).toLocaleString(locale === "en" ? "en-GB" : "ru-RU", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function previewText(message: string, max = 140) {
+  const trimmed = message.trim().replace(/\s+/g, " ");
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 1)}…`;
+}
+
+function statusKey(status: string, readAt: string | null) {
+  if (status === "answered") return "answered";
+  if (status === "closed") return "closed";
+  if (status === "read" || readAt) return "read";
+  return "new";
+}
+
 export default function AdminWebsiteInquiriesPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { isPlatformAdmin, ready, profileReady } = useAuth();
   const demo = isDemoMode();
   const [inquiries, setInquiries] = useState<WebsiteInquiry[]>([]);
@@ -85,21 +111,52 @@ export default function AdminWebsiteInquiriesPage() {
           </Card>
         ) : (
           <ul className="space-y-2">
-            {inquiries.map((item) => (
-              <li key={item.id}>
-                <Card className="space-y-1 p-4">
-                  <p className="text-sm font-semibold text-text-primary">
-                    {item.subject?.trim() || t("admin.websiteInquiriesNoSubject")}
-                  </p>
-                  <p className="text-xs text-text-secondary">
-                    {[item.name, item.email].filter(Boolean).join(" · ")}
-                  </p>
-                  <p className="line-clamp-3 text-sm text-text-primary">
-                    {item.message}
-                  </p>
-                </Card>
-              </li>
-            ))}
+            {inquiries.map((item) => {
+              const st = statusKey(item.status, item.read_by_admin_at);
+              const unread = !item.read_by_admin_at;
+              return (
+                <li key={item.id}>
+                  <Link
+                    href={`/admin/website-inquiries/${item.id}`}
+                    className="block outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded-xl"
+                  >
+                    <Card
+                      className={cn(
+                        "space-y-1 p-4 transition-colors hover:bg-surface-muted",
+                        unread && "ring-1 ring-brand-500/30"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-text-primary">
+                          {item.subject?.trim() ||
+                            t("admin.websiteInquiriesNoSubject")}
+                        </p>
+                        <span
+                          className={cn(
+                            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                            st === "new" && "bg-red-600 text-white",
+                            st === "read" && "bg-surface-muted text-text-secondary",
+                            st === "answered" && "bg-emerald-100 text-emerald-800",
+                            st === "closed" && "bg-surface-muted text-text-muted"
+                          )}
+                        >
+                          {t(`admin.websiteInquiryStatus.${st}`)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-text-secondary">
+                        {[item.name, item.email].filter(Boolean).join(" · ")}
+                      </p>
+                      <p className="line-clamp-3 text-sm text-text-primary">
+                        {previewText(item.message)}
+                      </p>
+                      <p className="text-[11px] text-text-muted">
+                        {formatWhen(item.created_at, locale)}
+                      </p>
+                    </Card>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
