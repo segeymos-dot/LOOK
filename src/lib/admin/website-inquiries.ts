@@ -88,7 +88,26 @@ export async function createWebsiteInquiry(
 
   const fingerprint = fingerprintInquiry({ email, subject, message });
 
-  // Double-submit window (~2 minutes).
+  // Prefer SECURITY DEFINER RPC (works even if client role is wrong).
+  const { data: rpcId, error: rpcError } = await admin.rpc(
+    "ingest_website_inquiry",
+    {
+      p_name: name,
+      p_email: email,
+      p_subject: subject,
+      p_message: message,
+      p_intent: intent,
+      p_locale: locale,
+      p_source: source,
+      p_fingerprint: fingerprint,
+    }
+  );
+
+  if (!rpcError && rpcId) {
+    return { id: String(rpcId) };
+  }
+
+  // Double-submit window (~2 minutes) via direct select.
   const since = new Date(Date.now() - 2 * 60 * 1000).toISOString();
   const { data: existing } = await admin
     .from("website_inquiries")
@@ -121,7 +140,10 @@ export async function createWebsiteInquiry(
     .single();
 
   if (error || !data?.id) {
-    return { error: error?.message || "Failed to save inquiry", status: 500 };
+    return {
+      error: error?.message || rpcError?.message || "Failed to save inquiry",
+      status: 500,
+    };
   }
   return { id: data.id };
 }

@@ -72,16 +72,37 @@ export async function fetchProjectApiKeys(token, projectRef) {
 
 export function pickServiceRoleKey(keys) {
   const list = Array.isArray(keys) ? keys : keys?.data ?? [];
+
+  const decodeJwtRole = (key) => {
+    if (!String(key).startsWith("eyJ")) return null;
+    try {
+      const payload = JSON.parse(
+        Buffer.from(String(key).split(".")[1], "base64url").toString()
+      );
+      return String(payload.role || "");
+    } catch {
+      return null;
+    }
+  };
+
+  // Prefer explicitly named service_role / JWT role service_role.
+  for (const item of list) {
+    const name = String(item.name ?? item.type ?? "").toLowerCase();
+    const key = item.api_key ?? item.key;
+    if (!key) continue;
+    if (name === "service_role" || decodeJwtRole(key) === "service_role") {
+      return key;
+    }
+  }
+
   for (const item of list) {
     const name = String(item.name ?? item.type ?? "").toLowerCase();
     const key = item.api_key ?? item.key;
     if (!key) continue;
     if (
-      name === "service_role" ||
       name === "secret" ||
       name.includes("service") ||
-      String(key).startsWith("sb_secret_") ||
-      String(key).startsWith("eyJ")
+      String(key).startsWith("sb_secret_")
     ) {
       return key;
     }
