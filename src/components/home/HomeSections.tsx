@@ -19,6 +19,7 @@ import {
 } from "@/hooks/useAdminSupportUnreadCount";
 import { isDemoMode } from "@/lib/config";
 import { cn } from "@/lib/utils";
+import { SearchAuthPrompt } from "@/components/search/SearchAuthPrompt";
 
 export function HomeSectionHeaders() {
   const { t } = useTranslation();
@@ -49,14 +50,20 @@ export function HomeSectionHeaders() {
 export function HomeCategoriesHeader() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { isPlatformAdmin, profileReady } = useAuth();
+  const { user, isPlatformAdmin, profileReady, ready } = useAuth();
   const [value, setValue] = useState("");
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const adminMode = profileReady && isPlatformAdmin;
+  const isGuest = ready && !user;
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = value.trim();
     if (!trimmed) return;
+    if (isGuest) {
+      setShowAuthPrompt(true);
+      return;
+    }
     router.push(`/search?q=${encodeURIComponent(trimmed)}`);
   }
 
@@ -91,6 +98,8 @@ export function HomeCategoriesHeader() {
   }
 
   return (
+    <>
+    <SearchAuthPrompt open={showAuthPrompt} onClose={() => setShowAuthPrompt(false)} />
     <form
       onSubmit={onSubmit}
       data-testid="home-search-bar"
@@ -148,6 +157,7 @@ export function HomeCategoriesHeader() {
         <ArrowRight className="h-4 w-4" />
       </Link>
     </form>
+    </>
   );
 }
 

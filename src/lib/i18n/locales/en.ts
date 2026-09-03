@@ -435,6 +435,10 @@ export const en: TranslationDict = {
     emptyDesc: "Try changing your query or pick another category",
     emptyDefault: "No open orders",
     emptyDefaultDesc: "Check back later or create your own order",
+    authPromptTitle: "Sign in or create an account",
+    authPromptDesc: "To search for services, orders, and providers, sign in or create a LOOK account.",
+    authPromptLogin: "Sign in",
+    authPromptRegister: "Create account",
   },
   request: {
     title: "Order",

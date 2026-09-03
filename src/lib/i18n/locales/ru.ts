@@ -433,6 +433,10 @@ export const ru = {
     emptyDesc: "Попробуйте изменить запрос или выбрать другую категорию",
     emptyDefault: "Нет открытых заказов",
     emptyDefaultDesc: "Загляните позже или создайте свой заказ",
+    authPromptTitle: "Войдите или зарегистрируйтесь",
+    authPromptDesc: "Чтобы искать услуги, заказы и исполнителей, войдите в аккаунт или зарегистрируйтесь в LOOK.",
+    authPromptLogin: "Войти",
+    authPromptRegister: "Зарегистрироваться",
   },
   request: {
     title: "Заказ",

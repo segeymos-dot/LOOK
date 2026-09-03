@@ -6,7 +6,9 @@ import { RequestCard } from "@/components/requests/RequestCard";
 import { RequestCardSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SearchAuthPrompt } from "@/components/search/SearchAuthPrompt";
 import { useTranslation } from "@/components/providers/LocaleProvider";
+import { useAuth } from "@/hooks/useAuth";
 import { expandSearchTerms } from "@/lib/i18n/demo-data-translations";
 import { getCategoryLabel } from "@/lib/i18n/localize-data";
 import { isDemoMode } from "@/lib/config";
@@ -21,17 +23,35 @@ import { Suspense, useEffect, useState } from "react";
 function SearchContent() {
   const searchParams = useSearchParams();
   const { t, locale } = useTranslation();
+  const { user, ready } = useAuth();
+  const isGuest = ready && !user;
   const categorySlug = searchParams.get("category");
   const urlQuery = searchParams.get("q") ?? "";
   const [query, setQuery] = useState(urlQuery);
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 
   useEffect(() => {
     setQuery(urlQuery);
   }, [urlQuery]);
 
+  // Show auth prompt for guests who land on /search with a query
   useEffect(() => {
+    if (isGuest && urlQuery.trim()) {
+      setShowAuthPrompt(true);
+    }
+  }, [isGuest, urlQuery]);
+
+  useEffect(() => {
+    // Guests: don't fetch search results
+    if (isGuest) {
+      setLoading(false);
+      setRequests([]);
+      return;
+    }
+    if (!ready) return;
+
     const fetchRequests = async () => {
       setLoading(true);
 
@@ -99,10 +119,11 @@ function SearchContent() {
 
     const debounce = setTimeout(fetchRequests, 300);
     return () => clearTimeout(debounce);
-  }, [query, categorySlug, locale]);
+  }, [query, categorySlug, locale, isGuest, ready]);
 
   return (
     <AppLayout activePath="/search" title={t("search.pageTitle")}>
+      <SearchAuthPrompt open={showAuthPrompt} onClose={() => setShowAuthPrompt(false)} />
       <div className="space-y-5 p-4">
         <PageHeader
           title={t("search.title")}
@@ -118,8 +139,16 @@ function SearchContent() {
           <Input
             placeholder={t("search.placeholder")}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              if (isGuest) {
+                setShowAuthPrompt(true);
+                return;
+              }
+              setQuery(e.target.value);
+            }}
+            onFocus={() => { if (isGuest) setShowAuthPrompt(true); }}
             className="pl-11 shadow-card"
+            readOnly={isGuest}
           />
         </div>
 
@@ -138,6 +167,12 @@ function SearchContent() {
               <RequestCard key={request.id} request={request} />
             ))}
           </div>
+        ) : isGuest ? (
+          <EmptyState
+            icon={Search}
+            title={t("search.authPromptTitle")}
+            description={t("search.authPromptDesc")}
+          />
         ) : (
           <EmptyState
             icon={Search}
