@@ -40,6 +40,7 @@ export default function RegisterPage() {
     last_name: "",
     email: "",
     password: "",
+    confirm_password: "",
     phone: "",
     country: "",
     city: "",
@@ -124,11 +125,18 @@ export default function RegisterPage() {
       return;
     }
 
+    // confirm_password is client-only - never send to Auth/API/profile
+    const { confirm_password: _confirmPassword, ...signupFields } = form;
+    void _confirmPassword;
+
     const response = await fetch("/api/auth/sign-up", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...form,
+        ...signupFields,
+        full_name: parsed.data.full_name,
+        first_name: parsed.data.first_name,
+        last_name: parsed.data.last_name,
         role: "customer",
         acceptedTerms: true,
       }),
@@ -180,6 +188,14 @@ export default function RegisterPage() {
       }
       if (form.password.length < 6) {
         setErrors({ password: t("validation.minPassword") });
+        return;
+      }
+      if (!form.confirm_password) {
+        setErrors({ confirm_password: t("validation.confirmPasswordRequired") });
+        return;
+      }
+      if (form.password !== form.confirm_password) {
+        setErrors({ confirm_password: t("validation.passwordMismatch") });
         return;
       }
     }
@@ -359,6 +375,16 @@ export default function RegisterPage() {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               error={errors.password}
+            />
+            <PasswordInput
+              id="confirm_password"
+              name="confirm_password"
+              autoComplete="new-password"
+              label={t("auth.register.confirmPassword")}
+              placeholder={t("auth.register.confirmPasswordPlaceholder")}
+              value={form.confirm_password}
+              onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
+              error={errors.confirm_password}
             />
             <Input
               id="phone"

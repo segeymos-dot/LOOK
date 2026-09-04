@@ -29,6 +29,7 @@ export function createRegisterSchema(t: TFn) {
       last_name: z.string().trim().min(1, t("validation.lastNameRequired")),
       email: z.string().email(t("validation.emailInvalid")),
       password: z.string().min(6, t("validation.minPassword")),
+      confirm_password: z.string().min(1, t("validation.confirmPasswordRequired")),
       /** Ignored by API — signup always creates customer. */
       role: z.enum(["customer", "provider"]).optional().default("customer"),
       phone: optionalString(),
@@ -42,6 +43,10 @@ export function createRegisterSchema(t: TFn) {
       acceptedTerms: z.literal(true, {
         errorMap: () => ({ message: t("validation.acceptTerms") }),
       }),
+    })
+    .refine((data) => data.password === data.confirm_password, {
+      message: t("validation.passwordMismatch"),
+      path: ["confirm_password"],
     })
     .transform((data) => ({
       ...data,
