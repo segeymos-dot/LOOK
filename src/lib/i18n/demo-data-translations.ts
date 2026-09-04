@@ -3,7 +3,7 @@
 export type Bilingual = { ru: string; en: string };
 
 export const CATEGORY_LABELS: Record<string, Bilingual> = {
-  repair: { ru: "Ремонт и строительство", en: "Home Repair & Construction" },
+  repair: { ru: "Дом и быт", en: "Home & Household" },
   it: { ru: "IT и разработка", en: "IT & Software Development" },
   design: { ru: "Дизайн", en: "Design" },
   education: { ru: "Образование", en: "Education" },
@@ -17,8 +17,8 @@ export const CATEGORY_LABELS: Record<string, Bilingual> = {
 /** Compact Home grid line breaks (same labels as CATEGORY_LABELS). */
 export const CATEGORY_LABEL_LINES: Record<string, { ru: string[]; en: string[] }> = {
   repair: {
-    ru: ["Ремонт и", "Строительство"],
-    en: ["Home Repair &", "Construction"],
+    ru: ["Дом и", "быт"],
+    en: ["Home &", "Household"],
   },
   it: {
     ru: ["IT и", "разработка"],
