@@ -56,6 +56,8 @@ export async function POST(request: Request) {
     options: {
       emailRedirectTo,
       data: {
+        first_name: parsed.data.first_name,
+        last_name: parsed.data.last_name,
         full_name: parsed.data.full_name,
         role: SIGNUP_ROLE,
         phone: parsed.data.phone || null,
@@ -100,6 +102,8 @@ export async function POST(request: Request) {
     await supabase
       .from("profiles")
       .update({
+        first_name: parsed.data.first_name,
+        last_name: parsed.data.last_name,
         full_name: parsed.data.full_name,
         role: SIGNUP_ROLE,
         phone: parsed.data.phone || null,

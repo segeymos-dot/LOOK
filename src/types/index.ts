@@ -79,6 +79,9 @@ export interface PortfolioItem {
 export interface Profile {
   id: string;
   full_name: string;
+  /** Optional; set on new signups. Existing users may only have full_name. */
+  first_name?: string | null;
+  last_name?: string | null;
   avatar_url: string | null;
   bio: string | null;
   role: UserRole;

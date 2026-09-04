@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { composeFullName } from "@/lib/auth/compose-full-name";
 import { ledgerCodeI18nKey, resolveLedgerCode } from "@/lib/finance/ledger";
 import { mapUserFacingError } from "@/lib/ui/user-facing-error";
 
@@ -22,24 +23,32 @@ export function createRegisterSchema(t: TFn) {
     .optional()
     .or(z.literal(""));
 
-  return z.object({
-    full_name: z.string().min(2, t("validation.minName")),
-    email: z.string().email(t("validation.emailInvalid")),
-    password: z.string().min(6, t("validation.minPassword")),
-    /** Ignored by API — signup always creates customer. */
-    role: z.enum(["customer", "provider"]).optional().default("customer"),
-    phone: optionalString(),
-    country: optionalString(),
-    city: optionalString(),
-    avatar_url: optionalUrl,
-    bio: optionalString(),
-    skills: optionalString(),
-    portfolio: optionalString(),
-    provider_category_slugs: z.array(z.string()).optional(),
-    acceptedTerms: z.literal(true, {
-      errorMap: () => ({ message: t("validation.acceptTerms") }),
-    }),
-  });
+  return z
+    .object({
+      first_name: z.string().trim().min(1, t("validation.firstNameRequired")),
+      last_name: z.string().trim().min(1, t("validation.lastNameRequired")),
+      email: z.string().email(t("validation.emailInvalid")),
+      password: z.string().min(6, t("validation.minPassword")),
+      /** Ignored by API — signup always creates customer. */
+      role: z.enum(["customer", "provider"]).optional().default("customer"),
+      phone: optionalString(),
+      country: optionalString(),
+      city: optionalString(),
+      avatar_url: optionalUrl,
+      bio: optionalString(),
+      skills: optionalString(),
+      portfolio: optionalString(),
+      provider_category_slugs: z.array(z.string()).optional(),
+      acceptedTerms: z.literal(true, {
+        errorMap: () => ({ message: t("validation.acceptTerms") }),
+      }),
+    })
+    .transform((data) => ({
+      ...data,
+      first_name: data.first_name.trim(),
+      last_name: data.last_name.trim(),
+      full_name: composeFullName(data.first_name, data.last_name),
+    }));
 }
 
 export function createForgotPasswordSchema(t: TFn) {

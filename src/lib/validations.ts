@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { composeFullName } from "@/lib/auth/compose-full-name";
 
 const optionalString = z.string().optional().or(z.literal(""));
 const optionalUrl = z.string().url("Введите корректный URL").optional().or(z.literal(""));
@@ -8,24 +9,32 @@ export const loginSchema = z.object({
   password: z.string().min(6, "Минимум 6 символов"),
 });
 
-export const registerSchema = z.object({
-  full_name: z.string().min(2, "Минимум 2 символа"),
-  email: z.string().email("Введите корректный email"),
-  password: z.string().min(6, "Минимум 6 символов"),
-  /** Ignored by API — signup always creates customer. Kept optional for back-compat. */
-  role: z.enum(["customer", "provider"]).optional().default("customer"),
-  phone: optionalString,
-  country: optionalString,
-  city: optionalString,
-  avatar_url: optionalUrl,
-  bio: optionalString,
-  skills: optionalString,
-  portfolio: optionalString,
-  provider_category_slugs: z.array(z.string()).optional(),
-  acceptedTerms: z.literal(true, {
-    errorMap: () => ({ message: "Необходимо принять условия использования" }),
-  }),
-});
+export const registerSchema = z
+  .object({
+    first_name: z.string().trim().min(1, "Укажите имя"),
+    last_name: z.string().trim().min(1, "Укажите фамилию"),
+    email: z.string().email("Введите корректный email"),
+    password: z.string().min(6, "Минимум 6 символов"),
+    /** Ignored by API — signup always creates customer. Kept optional for back-compat. */
+    role: z.enum(["customer", "provider"]).optional().default("customer"),
+    phone: optionalString,
+    country: optionalString,
+    city: optionalString,
+    avatar_url: optionalUrl,
+    bio: optionalString,
+    skills: optionalString,
+    portfolio: optionalString,
+    provider_category_slugs: z.array(z.string()).optional(),
+    acceptedTerms: z.literal(true, {
+      errorMap: () => ({ message: "Необходимо принять условия использования" }),
+    }),
+  })
+  .transform((data) => ({
+    ...data,
+    first_name: data.first_name.trim(),
+    last_name: data.last_name.trim(),
+    full_name: composeFullName(data.first_name, data.last_name),
+  }));
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email("Введите корректный email"),

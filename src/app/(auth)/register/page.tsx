@@ -36,7 +36,8 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
-    full_name: "",
+    first_name: "",
+    last_name: "",
     email: "",
     password: "",
     phone: "",
@@ -165,8 +166,12 @@ export default function RegisterPage() {
       return;
     }
     if (step === 0) {
-      if (form.full_name.length < 2) {
-        setErrors({ full_name: t("validation.minName") });
+      if (!form.first_name.trim()) {
+        setErrors({ first_name: t("validation.firstNameRequired") });
+        return;
+      }
+      if (!form.last_name.trim()) {
+        setErrors({ last_name: t("validation.lastNameRequired") });
         return;
       }
       if (!form.email.includes("@")) {
@@ -283,11 +288,11 @@ export default function RegisterPage() {
             <Link href="/terms?from=register" className="text-brand-600">
               {t("legal.termsLink")}
             </Link>
-            {" ¬∑ "}
+            {" ù "}
             <Link href="/privacy?from=register" className="text-brand-600">
               {t("legal.privacyLink")}
             </Link>
-            {" ¬∑ "}
+            {" ù "}
             <Link href="/licenses?from=register" className="text-brand-600">
               {t("legal.licensesLink")}
             </Link>
@@ -315,12 +320,24 @@ export default function RegisterPage() {
         {step === 0 && (
           <div className="space-y-4">
             <Input
-              id="full_name"
-              label={t("auth.register.name")}
-              placeholder={t("auth.register.namePlaceholder")}
-              value={form.full_name}
-              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-              error={errors.full_name}
+              id="first_name"
+              name="given-name"
+              autoComplete="given-name"
+              label={t("auth.register.firstName")}
+              placeholder={t("auth.register.firstNamePlaceholder")}
+              value={form.first_name}
+              onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+              error={errors.first_name}
+            />
+            <Input
+              id="last_name"
+              name="family-name"
+              autoComplete="family-name"
+              label={t("auth.register.lastName")}
+              placeholder={t("auth.register.lastNamePlaceholder")}
+              value={form.last_name}
+              onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+              error={errors.last_name}
             />
             <Input
               id="email"

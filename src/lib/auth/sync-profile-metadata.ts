@@ -18,6 +18,10 @@ export async function syncProfileFromSignupMetadata(
   await supabase
     .from("profiles")
     .update({
+      first_name:
+        (typeof meta.first_name === "string" && meta.first_name.trim()) || undefined,
+      last_name:
+        (typeof meta.last_name === "string" && meta.last_name.trim()) || undefined,
       full_name:
         (typeof meta.full_name === "string" && meta.full_name.trim()) || undefined,
       role,
