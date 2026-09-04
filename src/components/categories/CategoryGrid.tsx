@@ -263,6 +263,20 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
   const totalOrdersReplaceIndex = legalIndex >= 0 ? legalIndex : 7;
   const completedOrdersReplaceIndex = otherIndex >= 0 ? otherIndex : 8;
 
+  // Marketplace home only: swap repair ↔ other so long "Repair" label
+  // is not adjacent to "IT". Admin metric tile slots stay on original order.
+  const displayCategories = (() => {
+    if (showAdminOnlineTiles) return categories;
+    if (repairIndex < 0 || otherIndex < 0) return categories;
+    const next = categories.slice();
+    const a = next[repairIndex];
+    const b = next[otherIndex];
+    if (!a || !b) return categories;
+    next[repairIndex] = b;
+    next[otherIndex] = a;
+    return next;
+  })();
+
   return (
     <div
       className="mx-auto gap-x-1.5 gap-y-3 overflow-x-hidden"
@@ -272,7 +286,7 @@ export function CategoryGrid({ categories, selectedId }: CategoryGridProps) {
         width: "100%",
       }}
     >
-      {categories.map((category, index) => {
+      {displayCategories.map((category, index) => {
         if (showAdminOnlineTiles && index === customersReplaceIndex) {
           const display =
             metricCounts.customersOnline === null
