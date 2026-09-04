@@ -287,7 +287,7 @@ export function HomeHeader() {
               margin: 0,
               padding: 0,
               fontSize: 13,
-              fontWeight: 400,
+              fontWeight: 500,
               lineHeight: 1.4,
               color: "#0F172A",
               textAlign: "left",
