@@ -288,11 +288,11 @@ export default function RegisterPage() {
             <Link href="/terms?from=register" className="text-brand-600">
               {t("legal.termsLink")}
             </Link>
-            {"  "}
+            {" Â· "}
             <Link href="/privacy?from=register" className="text-brand-600">
               {t("legal.privacyLink")}
             </Link>
-            {"  "}
+            {" Â· "}
             <Link href="/licenses?from=register" className="text-brand-600">
               {t("legal.licensesLink")}
             </Link>
