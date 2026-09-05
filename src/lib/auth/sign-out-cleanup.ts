@@ -56,12 +56,14 @@ export function broadcastAuthEvent(message: AuthBroadcastMessage): void {
   }
 }
 
-/** Soft navigation barrier so Back cannot resurrect private UI from bfcache. */
+/** Soft navigation barrier so Back cannot resurrect private UI from bfcache.
+ * Always land on public HOME (`/`) — never rewrite the URL to `/login`.
+ */
 export function hardenPostSignOutNavigation(): void {
   if (typeof window === "undefined") return;
   try {
-    window.history.pushState(null, "", "/login");
-    window.history.pushState(null, "", "/login");
+    window.history.pushState(null, "", "/");
+    window.history.pushState(null, "", "/");
   } catch {
     // ignore
   }

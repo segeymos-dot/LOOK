@@ -120,6 +120,10 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Public marketing entry: "/" must never redirect to /login or /profile.
+  // Guests and authenticated users both see HOME; auth is opt-in via UI.
+  // (Protected routes below still require a session.)
+
   // Only the login/register entry pages — not /login/submit or /login/done.
   const isAuthRoute =
     pathname === "/login" ||
@@ -127,13 +131,14 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/register/");
 
   const isProtectedRoute =
-    pathname.startsWith("/profile") ||
-    pathname.startsWith("/settings") ||
-    pathname.startsWith("/finance") ||
-    pathname.startsWith("/requests/new") ||
-    pathname.match(/^\/requests\/[^/]+\/offer\/?$/) ||
-    pathname.startsWith("/chat") ||
-    pathname.startsWith("/my");
+    pathname !== "/" &&
+    (pathname.startsWith("/profile") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/finance") ||
+      pathname.startsWith("/requests/new") ||
+      pathname.match(/^\/requests\/[^/]+\/offer\/?$/) ||
+      pathname.startsWith("/chat") ||
+      pathname.startsWith("/my"));
 
   if (!user && isProtectedRoute) {
     return redirectWithCookies(request, "/login", supabaseResponse, {

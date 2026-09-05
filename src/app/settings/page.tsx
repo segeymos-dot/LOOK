@@ -18,7 +18,7 @@ export default function SettingsPage() {
     setLoading(true);
     try {
       await signOut({ scope: "local" });
-      router.replace("/login");
+      router.replace("/");
       router.refresh();
     } finally {
       setLoading(false);

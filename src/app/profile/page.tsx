@@ -761,7 +761,7 @@ export default function ProfilePage() {
                 onClick={async () => {
                   if (!user) return;
                   await signOut({ scope: "local" });
-                  router.replace("/login");
+                  router.replace("/");
                   router.refresh();
                 }}
               >

@@ -49,7 +49,7 @@ export default function SettingsSessionsPage() {
     try {
       if (confirm === "this") {
         await signOut({ scope: "local" });
-        router.replace("/login");
+        router.replace("/");
         router.refresh();
         return;
       }
@@ -60,7 +60,7 @@ export default function SettingsSessionsPage() {
           body: JSON.stringify({ all: true, includeCurrent: true }),
         });
         await signOut({ scope: "global" });
-        router.replace("/login");
+        router.replace("/");
         router.refresh();
         return;
       }
