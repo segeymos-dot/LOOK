@@ -7,6 +7,7 @@ export function loadVercelAuthToken() {
     return process.env.VERCEL_TOKEN.trim();
   }
   for (const path of [
+    join(homedir(), "Library", "Application Support", "com.vercel.cli", "auth.json"),
     join(homedir(), ".config", "vercel", "auth.json"),
     join(homedir(), ".local", "share", "com.vercel.cli", "auth.json"),
   ]) {
