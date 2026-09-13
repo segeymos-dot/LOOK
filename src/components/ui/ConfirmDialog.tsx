@@ -60,13 +60,23 @@ export function ConfirmDialog({
         </h2>
         <p className="mt-2 text-sm text-text-secondary whitespace-pre-wrap">{body}</p>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="outline" onClick={onCancel} disabled={loading}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={loading}
+          >
             {cancelLabel ?? t("common.cancel")}
           </Button>
           <Button
+            type="button"
             variant={danger ? "danger" : "primary"}
             loading={loading}
-            onClick={onConfirm}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onConfirm();
+            }}
           >
             {confirmLabel ?? t("common.confirm")}
           </Button>

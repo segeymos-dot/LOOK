@@ -11,13 +11,24 @@ import { authFetch } from "@/lib/auth/client-fetch";
 import { createClient } from "@/lib/supabase/client";
 import { formatRelativeTimeT } from "@/lib/i18n/client-messages";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type SecurityEvent = {
   id: string;
   event_type: string;
   created_at: string;
 };
+
+function mapPasswordApiError(raw: string | undefined, t: (key: string) => string): string {
+  const msg = (raw ?? "").toLowerCase();
+  if (msg.includes("invalid current password")) {
+    return t("settings.security.invalidCurrentPassword");
+  }
+  if (msg.includes("password") && (msg.includes("weak") || msg.includes("least") || msg.includes("short"))) {
+    return t("settings.security.passwordTooWeak");
+  }
+  return raw?.trim() || t("settings.saveError");
+}
 
 export default function SettingsSecurityPage() {
   const { t, locale } = useTranslation();
@@ -40,9 +51,33 @@ export default function SettingsSecurityPage() {
       .catch(() => undefined);
   }, []);
 
-  const changePassword = async () => {
+  const validatePasswordFields = (): boolean => {
+    if (!currentPassword.trim()) {
+      setError(t("settings.security.currentPasswordRequired"));
+      return false;
+    }
+    if (newPassword.length < 8) {
+      setError(t("settings.security.passwordTooWeak"));
+      return false;
+    }
     if (newPassword !== confirmPassword) {
       setError(t("settings.security.passwordMismatch"));
+      return false;
+    }
+    return true;
+  };
+
+  const openPasswordConfirm = (e?: FormEvent) => {
+    e?.preventDefault();
+    setMessage(null);
+    setError(null);
+    if (!validatePasswordFields()) return;
+    setConfirmOpen(true);
+  };
+
+  const changePassword = async () => {
+    if (!validatePasswordFields()) {
+      setConfirmOpen(false);
       return;
     }
     setLoading(true);
@@ -54,9 +89,12 @@ export default function SettingsSecurityPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
-      const data = await res.json();
+      const data = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: string;
+      };
       if (!res.ok || !data.success) {
-        setError(data.error ?? t("settings.saveError"));
+        setError(mapPasswordApiError(data.error, t));
         return;
       }
       setCurrentPassword("");
@@ -112,30 +150,46 @@ export default function SettingsSecurityPage() {
         <h2 className="font-semibold text-text-primary">
           {t("settings.security.changePassword")}
         </h2>
-        <PasswordInput
-          label={t("settings.security.currentPassword")}
-          name="current-password"
-          autoComplete="current-password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-        />
-        <PasswordInput
-          label={t("settings.security.newPassword")}
-          name="new-password"
-          autoComplete="new-password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-        />
-        <PasswordInput
-          label={t("settings.security.confirmNewPassword")}
-          name="confirm-new-password"
-          autoComplete="new-password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-        />
-        <Button className="w-full" onClick={() => setConfirmOpen(true)}>
-          {t("settings.security.changePassword")}
-        </Button>
+        <form
+          className="space-y-3"
+          onSubmit={openPasswordConfirm}
+          data-testid="change-password-form"
+        >
+          <PasswordInput
+            label={t("settings.security.currentPassword")}
+            name="current-password"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+          />
+          <PasswordInput
+            label={t("settings.security.newPassword")}
+            name="new-password"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+          <PasswordInput
+            label={t("settings.security.confirmNewPassword")}
+            name="confirm-new-password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+          <Button type="submit" className="w-full" disabled={loading}>
+            {t("settings.security.changePassword")}
+          </Button>
+        </form>
+        {message && (
+          <p className="text-sm text-emerald-700" data-testid="password-change-success">
+            {message}
+          </p>
+        )}
+        {error && (
+          <p className="text-sm text-danger" data-testid="password-change-error">
+            {error}
+          </p>
+        )}
       </Card>
 
       <Card padding="md" className="space-y-3">
@@ -146,6 +200,7 @@ export default function SettingsSecurityPage() {
           {t("settings.security.resetPasswordHint")}
         </p>
         <Button
+          type="button"
           variant="outline"
           className="w-full"
           loading={resetLoading}
@@ -165,7 +220,7 @@ export default function SettingsSecurityPage() {
           {t("settings.security.twoFactor")}
         </h2>
         <p className="text-sm text-text-muted">{t("settings.security.twoFactorHint")}</p>
-        <Button variant="outline" className="w-full" disabled>
+        <Button type="button" variant="outline" className="w-full" disabled>
           {t("settings.security.twoFactorPlaceholder")}
         </Button>
       </Card>
@@ -199,16 +254,15 @@ export default function SettingsSecurityPage() {
         )}
       </Card>
 
-      {message && <p className="text-sm text-emerald-700">{message}</p>}
-      {error && <p className="text-sm text-danger">{error}</p>}
-
       <ConfirmDialog
         open={confirmOpen}
         title={t("settings.security.changePassword")}
-        body={t("settings.contact.passwordRequired")}
+        body={t("settings.security.confirmChangeBody")}
         danger
         loading={loading}
-        onCancel={() => setConfirmOpen(false)}
+        onCancel={() => {
+          if (!loading) setConfirmOpen(false);
+        }}
         onConfirm={() => void changePassword()}
       />
     </SettingsShell>

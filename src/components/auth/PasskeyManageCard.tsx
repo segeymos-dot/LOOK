@@ -68,18 +68,20 @@ export function PasskeyManageCard() {
       setSupported(true);
       const { data, error: listError } = await listUserPasskeys();
       if (listError) {
-        setError(mapError(listError));
+        // List failures must never use the generic "Passkey operation failed"
+        // copy — that string was confused with password-change errors.
+        setError(t("settings.security.passkeys.listFailed"));
         // Keep any previously shown / optimistic items — do not fake an empty list.
         return;
       }
       setItems(data);
       setError(null);
-    } catch (err) {
-      setError(mapError(err));
+    } catch {
+      setError(t("settings.security.passkeys.listFailed"));
     } finally {
       setLoading(false);
     }
-  }, [mapError]);
+  }, [t]);
 
   useEffect(() => {
     void refresh();
@@ -196,10 +198,12 @@ export function PasskeyManageCard() {
         </p>
       ) : (
         <Button
+          type="button"
           className="w-full"
           loading={busy}
           disabled={!supported || loading}
           onClick={() => void register()}
+          data-testid="passkey-setup"
         >
           {t("settings.security.passkeys.setup")}
         </Button>
@@ -226,6 +230,7 @@ export function PasskeyManageCard() {
                   />
                   <div className="flex gap-2">
                     <Button
+                      type="button"
                       size="sm"
                       loading={busy}
                       onClick={() => void saveRename()}
@@ -233,6 +238,7 @@ export function PasskeyManageCard() {
                       {t("settings.security.passkeys.saveName")}
                     </Button>
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
                       disabled={busy}
@@ -260,6 +266,7 @@ export function PasskeyManageCard() {
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
                       disabled={busy}
@@ -271,6 +278,7 @@ export function PasskeyManageCard() {
                       {t("settings.security.passkeys.rename")}
                     </Button>
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
                       disabled={busy}
@@ -288,8 +296,16 @@ export function PasskeyManageCard() {
         <p className="text-sm text-text-muted">{t("settings.security.passkeys.empty")}</p>
       )}
 
-      {message && <p className="text-sm text-emerald-700">{message}</p>}
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {message && (
+        <p className="text-sm text-emerald-700" data-testid="passkey-message">
+          {message}
+        </p>
+      )}
+      {error && (
+        <p className="text-sm text-danger" data-testid="passkey-error">
+          {error}
+        </p>
+      )}
 
       <ConfirmDialog
         open={Boolean(deleteId)}
