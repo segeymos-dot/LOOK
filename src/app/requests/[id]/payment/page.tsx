@@ -8,6 +8,7 @@ import { localizeRequest } from "@/lib/i18n/localize-data";
 import { isPlatformAdmin } from "@/lib/data/finance-actions";
 import {
   areTestPaymentsEnabled,
+  canInvokeProdSafeTestPayment,
   canInvokeSimulatedOrderPayment,
 } from "@/lib/payments/test-payments-guard";
 import { createClient } from "@/lib/supabase/server";
@@ -23,7 +24,7 @@ export const dynamic = "force-dynamic";
 export default async function RequestPaymentPage({ params }: PageProps) {
   const { id } = await params;
   const locale = await getServerLocale();
-  const allowTestPayments = areTestPaymentsEnabled();
+  const allowTestPaymentsPreview = areTestPaymentsEnabled();
 
   if (isDemoMode()) {
     const request = getMockRequest(id);
@@ -58,7 +59,8 @@ export default async function RequestPaymentPage({ params }: PageProps) {
               grossAmount={Number(offer.price)}
               currency={offer.currency}
               initialOrderPaymentStatus={mockPay?.order_payment_status ?? "unpaid"}
-              allowTestPayments={allowTestPayments}
+              allowTestPayments={allowTestPaymentsPreview}
+              isTestOrder
             />
           </Suspense>
         </div>
@@ -73,9 +75,7 @@ export default async function RequestPaymentPage({ params }: PageProps) {
 
   const { data: request } = await supabase
     .from("requests")
-    .select(
-      "*, customer:profiles(*), category:categories(*)"
-    )
+    .select("*, customer:profiles(*), category:categories(*)")
     .eq("id", id)
     .single();
 
@@ -83,13 +83,22 @@ export default async function RequestPaymentPage({ params }: PageProps) {
 
   const platformAdmin = user ? await isPlatformAdmin(supabase, user.id) : false;
   const isOrderOwner = !!user && user.id === request.customer_id;
-  const canUseTestPayments = canInvokeSimulatedOrderPayment({
+  const isTestOrder = Boolean((request as { is_test?: boolean }).is_test);
+
+  const canUsePreviewTest = canInvokeSimulatedOrderPayment({
     email: user?.email,
     isPlatformAdmin: platformAdmin,
     isOrderOwner,
   });
+  const canUseProdSafeTest = canInvokeProdSafeTestPayment({
+    email: user?.email,
+    isOrderOwner,
+    isTestOrder,
+  });
+  const allowTestPayments = canUsePreviewTest || canUseProdSafeTest;
+
   const canAccessPayment =
-    !!user && (isOrderOwner || (canUseTestPayments && platformAdmin));
+    !!user && (isOrderOwner || (canUsePreviewTest && platformAdmin));
 
   if (!canAccessPayment) {
     redirect(`/requests/${id}`);
@@ -111,7 +120,6 @@ export default async function RequestPaymentPage({ params }: PageProps) {
   }
 
   const localized = localizeRequest(request, locale);
-  // Display SoT: accepted offer (same as checkout / simulate).
   const grossAmount = Number(offer.price);
   const currency = String(offer.currency ?? "USD");
 
@@ -126,7 +134,8 @@ export default async function RequestPaymentPage({ params }: PageProps) {
             grossAmount={grossAmount}
             currency={currency}
             initialOrderPaymentStatus={request.order_payment_status ?? "unpaid"}
-            allowTestPayments={canUseTestPayments}
+            allowTestPayments={allowTestPayments}
+            isTestOrder={isTestOrder}
           />
         </Suspense>
       </div>

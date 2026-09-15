@@ -46,6 +46,8 @@ export function NewRequestPageContent() {
   /** Sync lock — React setState is too late to stop double-click / double-submit. */
   const submittingRef = useRef(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [canMarkTest, setCanMarkTest] = useState(false);
+  const [createAsTest, setCreateAsTest] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -62,6 +64,16 @@ export function NewRequestPageContent() {
     if (contactIntent) params.set("intent", "contact");
     return `/requests/new?${params.toString()}`;
   }, [contactIntent, providerId]);
+
+  useEffect(() => {
+    if (isDemoMode() || authLoading || !displayProfile) return;
+    void fetch("/api/auth/test-payment-capability")
+      .then((r) => r.json())
+      .then((data: { can_mark_test?: boolean }) => {
+        setCanMarkTest(Boolean(data.can_mark_test));
+      })
+      .catch(() => setCanMarkTest(false));
+  }, [authLoading, displayProfile]);
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -317,6 +329,26 @@ export function NewRequestPageContent() {
         return;
       }
 
+      if (createAsTest && canMarkTest) {
+        const { authFetch } = await import("@/lib/auth/client-fetch");
+        const markRes = await authFetch(`/api/requests/${requestId}/mark-test`, {
+          method: "POST",
+        });
+        if (!markRes.ok) {
+          const markBody = (await markRes.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          setErrors({
+            form: t("request.createError", {
+              message: mapUserFacingErrorT(markBody.error ?? "mark-test failed", t),
+            }),
+          });
+          submittingRef.current = false;
+          setLoading(false);
+          return;
+        }
+      }
+
       if (linkProviderId) {
         const linked = await linkRequestToProvider(supabase, {
           requestId,
@@ -508,6 +540,24 @@ export function NewRequestPageContent() {
             value={form.deadline}
             onChange={(e) => setForm({ ...form, deadline: e.target.value })}
           />
+
+          {canMarkTest ? (
+            <label className="flex items-start gap-3 rounded-xl border-2 border-amber-400 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-5 w-5 shrink-0 rounded border-amber-500 text-amber-600 focus:ring-amber-500"
+                checked={createAsTest}
+                onChange={(e) => setCreateAsTest(e.target.checked)}
+                data-testid="create-as-test-order"
+              />
+              <span>
+                <span className="block font-bold">{t("request.createAsTest")}</span>
+                <span className="mt-0.5 block text-xs font-medium text-amber-900">
+                  {t("request.createAsTestHint")}
+                </span>
+              </span>
+            </label>
+          ) : null}
         </Card>
 
         {errors.form && <p className="text-sm text-danger">{errors.form}</p>}

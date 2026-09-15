@@ -7,11 +7,16 @@ import {
   isPlatformAdmin,
   simulateTestPayment,
 } from "@/lib/data/finance-actions";
-import { getOrderPaymentSnapshot } from "@/lib/payments/order-payment";
+import {
+  executeProdSafeTestPayment,
+  getOrderPaymentSnapshot,
+} from "@/lib/payments/order-payment";
 import { authorizeTestOrderPayment } from "@/lib/payments/test-payment-authorization";
 import {
   areTestPaymentsEnabled,
+  canInvokeProdSafeTestPayment,
   canInvokeSimulatedOrderPayment,
+  prodSafeTestDeniedJson,
   testPaymentsActorDeniedJson,
   testPaymentsDisabledJson,
 } from "@/lib/payments/test-payments-guard";
@@ -25,11 +30,10 @@ export async function POST(
 ) {
   const { id: requestId } = await params;
 
-  if (!areTestPaymentsEnabled()) {
-    return NextResponse.json(testPaymentsDisabledJson(), { status: 403 });
-  }
-
   if (isDemoMode()) {
+    if (!areTestPaymentsEnabled()) {
+      return NextResponse.json(testPaymentsDisabledJson(), { status: 403 });
+    }
     const req = getMockRequest(requestId);
     if (!req) {
       return NextResponse.json({ success: false, error: "Request not found" }, { status: 404 });
@@ -66,7 +70,12 @@ export async function POST(
         externalReference: body.external_reference,
       });
       markMockOrderPaid(requestId, data.external_reference ?? data.payment_id);
-      return NextResponse.json({ success: true, ...data, order_payment_status: "paid" as const });
+      return NextResponse.json({
+        success: true,
+        ...data,
+        order_payment_status: "paid" as const,
+        is_test: true,
+      });
     } catch (e) {
       return NextResponse.json(
         { success: false, error: e instanceof Error ? e.message : "Payment failed" },
@@ -90,16 +99,15 @@ export async function POST(
     if (body.external_reference?.trim()) {
       externalReference = body.external_reference.trim();
     }
-    // Ignore any client-supplied amount/currency — accepted offer is authoritative.
     void body.amount;
     void body.currency;
   } catch {
-    // empty body is fine — never trust client payment status / amounts
+    /* empty body ok */
   }
 
   const { data: order, error: orderError } = await auth.supabase
     .from("requests")
-    .select("id, customer_id, status, order_payment_status")
+    .select("id, customer_id, status, order_payment_status, is_test")
     .eq("id", requestId)
     .maybeSingle();
 
@@ -108,14 +116,27 @@ export async function POST(
   }
 
   const isOrderOwner = order.customer_id === auth.user.id;
-  if (
-    !canInvokeSimulatedOrderPayment({
-      email: auth.user.email,
-      isPlatformAdmin: admin,
-      isOrderOwner,
-    })
-  ) {
-    return NextResponse.json(testPaymentsActorDeniedJson(), { status: 403 });
+  const isTestOrder = Boolean((order as { is_test?: boolean }).is_test);
+
+  const previewTestOk = canInvokeSimulatedOrderPayment({
+    email: auth.user.email,
+    isPlatformAdmin: admin,
+    isOrderOwner,
+  });
+  const prodSafeOk = canInvokeProdSafeTestPayment({
+    email: auth.user.email,
+    isOrderOwner,
+    isTestOrder,
+  });
+
+  if (!previewTestOk && !prodSafeOk) {
+    if (areTestPaymentsEnabled()) {
+      return NextResponse.json(testPaymentsActorDeniedJson(), { status: 403 });
+    }
+    if (isTestOrder) {
+      return NextResponse.json(prodSafeTestDeniedJson(), { status: 403 });
+    }
+    return NextResponse.json(testPaymentsDisabledJson(), { status: 403 });
   }
 
   const { data: offer } = await auth.supabase
@@ -137,16 +158,39 @@ export async function POST(
     orderStatus: order.status,
     orderPaymentStatus: order.order_payment_status,
     existingPaymentStatus: existingPayment?.status ?? null,
-    // Authoritative SoT: accepted offer only (never requests.order_amount).
     expectedGrossAmount: Number(offer.price),
-    isPlatformAdmin: admin,
+    isPlatformAdmin: admin && previewTestOk,
   });
 
   if (!authz.ok) {
+    // Idempotent success if already paid via look_test
+    if (
+      authz.error === "Order is already paid" &&
+      existingPayment &&
+      (existingPayment as { is_test?: boolean; payment_method?: string }).is_test
+    ) {
+      return NextResponse.json({
+        success: true,
+        payment_id: existingPayment.id,
+        request_id: requestId,
+        amount_gross: existingPayment.amount_gross,
+        platform_fee: existingPayment.platform_fee,
+        provider_amount: existingPayment.provider_amount,
+        currency: existingPayment.currency,
+        status: existingPayment.status,
+        is_test: true,
+        payment_provider: "look_test",
+        order_payment_status: "paid",
+        idempotent: true,
+      });
+    }
     return NextResponse.json({ success: false, error: authz.error }, { status: authz.status });
   }
 
-  const result = await simulateTestPayment(auth.supabase, requestId, externalReference);
+  const result = previewTestOk
+    ? await simulateTestPayment(auth.supabase, requestId, externalReference)
+    : await executeProdSafeTestPayment(auth.supabase, requestId, externalReference);
+
   if (!result.success) {
     return NextResponse.json(result, { status: 400 });
   }
@@ -161,6 +205,7 @@ export async function POST(
   return NextResponse.json({
     success: true,
     ...result.data,
+    is_test: true,
     order_payment_status: result.data.order_payment_status ?? "paid",
   });
 }
@@ -179,6 +224,7 @@ export async function GET(
       payment,
       order_payment_status: mockOrder?.order_payment_status ?? (payment ? "paid" : "unpaid"),
       test_payments_enabled: areTestPaymentsEnabled(),
+      prod_safe_test_payments_enabled: false,
     });
   }
 
@@ -194,6 +240,10 @@ export async function GET(
     success: true,
     payment,
     order_payment_status: snapshot?.orderPaymentStatus ?? (payment ? "paid" : "unpaid"),
+    is_test: snapshot?.isTest ?? false,
     test_payments_enabled: areTestPaymentsEnabled(),
+    prod_safe_test_payments_enabled: Boolean(
+      process.env.ENABLE_PROD_TEST_PAYMENTS?.trim() === "true"
+    ),
   });
 }

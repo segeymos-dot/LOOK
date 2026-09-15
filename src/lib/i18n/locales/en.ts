@@ -454,6 +454,10 @@ export const en: TranslationDict = {
     title: "Order",
     newTitle: "New order",
     newSubtitle: "Describe the task — providers will send offers",
+    testBadge: "TEST",
+    createAsTest: "Create as a TEST order (no real money)",
+    createAsTestHint:
+      "Only for allowlisted test accounts. This order can only be paid with LOOK test payment.",
     orderTitle: "Title",
     description: "Description",
     category: "Category",
@@ -1694,6 +1698,9 @@ export const en: TranslationDict = {
       payNow: "Pay now · {amount}",
       testPay: "Test payment",
       testPayHint: "Local development only: marks the order paid without Stripe.",
+      testPaymentTitle: "TEST PAYMENT",
+      testPaymentNoMoney: "No real money will be charged",
+      completeTestPayment: "Complete test payment",
       backToOrder: "Back to order",
     },
     paymentHistory: {

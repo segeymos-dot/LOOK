@@ -53,7 +53,7 @@ export async function POST(
   const { data: order, error: orderError } = await auth.supabase
     .from("requests")
     .select(
-      "id, title, customer_id, status, currency, order_amount, order_payment_status, stripe_checkout_session_id, stripe_checkout_attempt"
+      "id, title, customer_id, status, currency, order_amount, order_payment_status, stripe_checkout_session_id, stripe_checkout_attempt, is_test"
     )
     .eq("id", requestId)
     .maybeSingle();
@@ -64,6 +64,18 @@ export async function POST(
 
   if (order.customer_id !== auth.user.id) {
     return NextResponse.json({ success: false, error: "Not authorized" }, { status: 403 });
+  }
+
+  if ((order as { is_test?: boolean }).is_test) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "TEST orders cannot use Stripe. Use Complete test payment.",
+        test_fallback: true,
+        is_test: true,
+      },
+      { status: 400 }
+    );
   }
 
   if (order.status !== "in_progress") {

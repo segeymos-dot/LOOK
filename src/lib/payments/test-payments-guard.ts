@@ -2,11 +2,16 @@
  * Server-only gate for simulated / test payment & payout paths.
  * Never read this from the browser via NEXT_PUBLIC_*.
  *
- * Production is always closed — even if ENABLE_TEST_PAYMENTS is mistakenly "true".
+ * Production is always closed for ENABLE_TEST_PAYMENTS — even if mistakenly "true".
+ *
+ * Production-safe path (lookcruise.com E2E without Stripe):
+ *   ENABLE_PROD_TEST_PAYMENTS=true
+ *   + order.is_test = true
+ *   + allowlisted customer email (PROD_TEST_PAYMENT_EMAILS or @test.look)
  *
  * On Vercel, trust VERCEL_ENV only: Preview builds use NODE_ENV=production but
- * VERCEL_ENV=preview, so test payments can open there without opening Production.
- * Off Vercel, NODE_ENV=production (e.g. `next start`) stays closed.
+ * VERCEL_ENV=preview, so ENABLE_TEST_PAYMENTS can open there without opening Production.
+ * Off Vercel, NODE_ENV=production (e.g. `next start`) stays closed for ENABLE_TEST_PAYMENTS.
  */
 
 export function isProductionRuntime(
@@ -23,14 +28,42 @@ export function areTestPaymentsEnabled(
   env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
 ): boolean {
   if (isProductionRuntime(env)) return false;
-  // Trim: Vercel UI pastes sometimes include trailing whitespace/newlines.
   return env.ENABLE_TEST_PAYMENTS?.trim() === "true";
 }
 
-/**
- * Who may invoke the simulated payment path when the env gate is open:
- * platform admins and known local test accounts (@test.look / configured test emails).
- */
+/** Kill-switch for production E2E test payments (is_test orders only). */
+export function areProdSafeTestPaymentsEnabled(
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
+): boolean {
+  return env.ENABLE_PROD_TEST_PAYMENTS?.trim() === "true";
+}
+
+export function getProdTestPaymentEmails(
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
+): string[] {
+  const configured = [
+    env.PROD_TEST_PAYMENT_EMAILS,
+    env.NEXT_PUBLIC_TEST_CUSTOMER_EMAIL,
+    env.NEXT_PUBLIC_TEST_PROVIDER_EMAIL,
+  ]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .flatMap((value) => value.split(","))
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set(configured)];
+}
+
+/** Emails allowed to create/mark is_test orders and run prod-safe test pay. */
+export function isProdTestPaymentEmail(
+  email: string | null | undefined,
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
+): boolean {
+  const normalized = email?.trim().toLowerCase();
+  if (!normalized) return false;
+  if (normalized.endsWith("@test.look")) return true;
+  return getProdTestPaymentEmails(env).includes(normalized);
+}
+
 export function isTestPaymentActor(
   input: {
     email?: string | null;
@@ -54,11 +87,6 @@ export function isTestPaymentActor(
   return configured.includes(email);
 }
 
-/**
- * Who may call the simulated order-payment API when the env gate is open:
- * the order's customer/owner, or a known test actor / platform admin.
- * Production remains closed via areTestPaymentsEnabled().
- */
 export function canInvokeSimulatedOrderPayment(
   input: {
     email?: string | null;
@@ -75,11 +103,47 @@ export function canInvokeSimulatedOrderPayment(
   );
 }
 
+/**
+ * Production-safe test payment: ENABLE_PROD_TEST_PAYMENTS + is_test order +
+ * order owner + allowlisted email. Never opens Stripe.
+ */
+export function canInvokeProdSafeTestPayment(
+  input: {
+    email?: string | null;
+    isOrderOwner: boolean;
+    isTestOrder: boolean;
+  },
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
+): boolean {
+  if (!areProdSafeTestPaymentsEnabled(env)) return false;
+  if (!input.isTestOrder) return false;
+  if (!input.isOrderOwner) return false;
+  return isProdTestPaymentEmail(input.email, env);
+}
+
+/** Who may mark a new/open order as is_test. */
+export function canMarkOrderAsTest(
+  input: {
+    email?: string | null;
+    isPlatformAdmin?: boolean;
+  },
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
+): boolean {
+  if (!areProdSafeTestPaymentsEnabled(env) && !areTestPaymentsEnabled(env)) {
+    return false;
+  }
+  if (input.isPlatformAdmin) return true;
+  return isProdTestPaymentEmail(input.email, env) || isTestPaymentActor(input, env);
+}
+
 export const TEST_PAYMENTS_DISABLED_MESSAGE =
   "Test payments are disabled. Real charges require Stripe Checkout.";
 
 export const TEST_PAYMENTS_ACTOR_DENIED_MESSAGE =
   "Test payments are only available for local test accounts and platform admins.";
+
+export const PROD_SAFE_TEST_DENIED_MESSAGE =
+  "Production test payment is only available for marked TEST orders owned by an allowlisted test account.";
 
 export function testPaymentsDisabledJson() {
   return {
@@ -92,5 +156,12 @@ export function testPaymentsActorDeniedJson() {
   return {
     success: false as const,
     error: TEST_PAYMENTS_ACTOR_DENIED_MESSAGE,
+  };
+}
+
+export function prodSafeTestDeniedJson() {
+  return {
+    success: false as const,
+    error: PROD_SAFE_TEST_DENIED_MESSAGE,
   };
 }

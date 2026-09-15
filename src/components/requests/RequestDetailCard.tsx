@@ -26,6 +26,11 @@ export function RequestDetailCard({ request }: RequestDetailCardProps) {
           {localized.title}
         </h1>
         <div className="flex shrink-0 flex-col items-end gap-2">
+          {request.is_test ? (
+            <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+              {t("request.testBadge")}
+            </span>
+          ) : null}
           <Badge status={request.status} size="md" />
           <PaymentStatusChip
             requestId={request.id}

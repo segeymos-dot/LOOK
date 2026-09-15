@@ -64,12 +64,31 @@ export async function getProviderBalance(
 export async function getPlatformSummary(
   supabase: SupabaseClient
 ): Promise<PlatformSummary> {
-  const [{ data: payments }, { data: rateRow }, { data: ledger }] = await Promise.all([
-    supabase.from("payments").select("amount_gross, currency, status"),
+  let paymentList: Array<{
+    amount_gross: number;
+    currency: string;
+    status: string;
+    payment_method?: string | null;
+    is_test?: boolean | null;
+  }> = [];
+
+  const withTestCol = await supabase
+    .from("payments")
+    .select("amount_gross, currency, status, payment_method, is_test");
+  if (!withTestCol.error && withTestCol.data) {
+    paymentList = withTestCol.data;
+  } else {
+    const legacy = await supabase
+      .from("payments")
+      .select("amount_gross, currency, status, payment_method");
+    paymentList = legacy.data ?? [];
+  }
+
+  const [{ data: rateRow }, { data: ledger }] = await Promise.all([
     supabase.from("platform_settings").select("value").eq("key", "commission_rate").maybeSingle(),
     supabase
       .from("transactions")
-      .select("ledger_code, type, amount, amount_signed, currency, status")
+      .select("ledger_code, type, amount, amount_signed, currency, status, metadata")
       .eq("status", "completed")
       .in("ledger_code", [
         "platform_commission",
@@ -77,13 +96,26 @@ export async function getPlatformSummary(
       ]),
   ]);
 
-  const paymentList = payments ?? [];
-  const activePaid = paymentList.filter((p) => p.status === "paid");
-  const ledgerRows = ledger ?? [];
+  const isTestPaymentRow = (p: {
+    is_test?: boolean | null;
+    payment_method?: string | null;
+  }) => {
+    if (p.is_test) return true;
+    const m = String(p.payment_method ?? "").toLowerCase();
+    return m === "test" || m === "look_test" || m.startsWith("look_test");
+  };
+  // Exclude simulated / prod-safe test payments from real revenue & GMV.
+  const activePaid = paymentList.filter(
+    (p) => p.status === "paid" && !isTestPaymentRow(p)
+  );
+  const ledgerRows = (ledger ?? []).filter((row) => {
+    const meta = (row.metadata ?? {}) as { is_test?: boolean };
+    return meta.is_test !== true;
+  });
   const currency =
     ledgerRows[0]?.currency ?? activePaid[0]?.currency ?? paymentList[0]?.currency ?? "USD";
 
-  // Net LOOK revenue from immutable ledger (commission − reversals).
+  // Net LOOK revenue from immutable ledger (commission − reversals), excluding test.
   const totalCommission = ledgerRows.reduce((sum, row) => {
     const code = row.ledger_code || row.type;
     const abs = Math.abs(Number(row.amount) || 0);

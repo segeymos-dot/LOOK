@@ -177,6 +177,8 @@ export interface Request {
   payment_transaction_id?: string | null;
   payout_status?: OrderPayoutStatus | null;
   paid_at?: string | null;
+  /** Production-safe E2E / simulated order — never real Stripe money. */
+  is_test?: boolean;
   refund_dispute_status?: RefundDisputeStatus;
   refund_amount?: number | null;
   refund_reason?: string | null;

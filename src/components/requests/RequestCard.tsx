@@ -27,7 +27,14 @@ export function RequestCard({ request }: RequestCardProps) {
           <h3 className="line-clamp-2 flex-1 text-base font-bold tracking-tight text-text-primary group-hover:text-brand-700">
             {localized.title}
           </h3>
-          <Badge status={request.status} />
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {request.is_test ? (
+              <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                {t("request.testBadge")}
+              </span>
+            ) : null}
+            <Badge status={request.status} />
+          </div>
         </div>
 
         <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-text-secondary">

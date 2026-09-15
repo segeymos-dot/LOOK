@@ -2,7 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PAYMENT_PROVIDER } from "@/lib/payments/constants";
 import { isOrderPaymentPaid } from "@/lib/payments/order-lifecycle";
-import { areTestPaymentsEnabled } from "@/lib/payments/test-payments-guard";
+import {
+  areProdSafeTestPaymentsEnabled,
+  areTestPaymentsEnabled,
+} from "@/lib/payments/test-payments-guard";
 import type { OrderPaymentStatus, PaymentSimulationResult } from "@/types";
 
 export type OrderPaymentSnapshot = {
@@ -16,6 +19,7 @@ export type OrderPaymentSnapshot = {
   paymentTransactionId: string | null;
   payoutStatus: string | null;
   paidAt: string | null;
+  isTest?: boolean;
 };
 
 type RequestPaymentRow = {
@@ -29,6 +33,7 @@ type RequestPaymentRow = {
   payment_transaction_id?: string | null;
   payout_status?: string | null;
   paid_at?: string | null;
+  is_test?: boolean | null;
 };
 
 export function mapRequestPaymentRow(row: RequestPaymentRow): OrderPaymentSnapshot {
@@ -44,6 +49,7 @@ export function mapRequestPaymentRow(row: RequestPaymentRow): OrderPaymentSnapsh
     paymentTransactionId: row.payment_transaction_id ?? null,
     payoutStatus: row.payout_status ?? null,
     paidAt: row.paid_at ?? null,
+    isTest: Boolean(row.is_test),
   };
 }
 
@@ -51,7 +57,19 @@ export async function getOrderPaymentSnapshot(
   supabase: SupabaseClient,
   requestId: string
 ): Promise<OrderPaymentSnapshot | null> {
-  const { data, error } = await supabase
+  const withTest = await supabase
+    .from("requests")
+    .select(
+      "id, currency, order_payment_status, order_amount, look_commission, provider_payout_amount, payment_provider_name, payment_transaction_id, payout_status, paid_at, is_test"
+    )
+    .eq("id", requestId)
+    .maybeSingle();
+
+  if (!withTest.error && withTest.data) {
+    return mapRequestPaymentRow(withTest.data as RequestPaymentRow);
+  }
+
+  const fallback = await supabase
     .from("requests")
     .select(
       "id, currency, order_payment_status, order_amount, look_commission, provider_payout_amount, payment_provider_name, payment_transaction_id, payout_status, paid_at"
@@ -59,8 +77,8 @@ export async function getOrderPaymentSnapshot(
     .eq("id", requestId)
     .maybeSingle();
 
-  if (error || !data) return null;
-  return mapRequestPaymentRow(data as RequestPaymentRow);
+  if (fallback.error || !fallback.data) return null;
+  return mapRequestPaymentRow(fallback.data as RequestPaymentRow);
 }
 
 /** Marks order as payment_pending before checkout UI. */
@@ -84,8 +102,7 @@ export async function beginTestOrderPayment(
 }
 
 /**
- * Simulated test payment via service_role RPC.
- * Callers must enforce ENABLE_TEST_PAYMENTS + ownership before invoking.
+ * Simulated test payment via service_role RPC (Preview / local ENABLE_TEST_PAYMENTS).
  */
 export async function executeTestOrderPayment(
   _supabase: SupabaseClient,
@@ -129,6 +146,52 @@ export async function executeTestOrderPayment(
   };
 }
 
+/**
+ * Production-safe test payment via authenticated SECURITY DEFINER RPC.
+ * No service_role required. No Stripe. No provider_balances credit.
+ */
+export async function executeProdSafeTestPayment(
+  supabase: SupabaseClient,
+  requestId: string,
+  externalReference?: string
+): Promise<{ success: true; data: PaymentSimulationResult } | { success: false; error: string }> {
+  if (!areProdSafeTestPaymentsEnabled()) {
+    return { success: false, error: "Production test payments are disabled" };
+  }
+
+  const { data, error } = await supabase.rpc("simulate_prod_safe_test_payment", {
+    p_request_id: requestId,
+    p_external_reference: externalReference ?? null,
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  const result = data as PaymentSimulationResult & {
+    order_payment_status?: OrderPaymentStatus;
+  };
+
+  return {
+    success: true,
+    data: {
+      ...result,
+      payment_provider: PAYMENT_PROVIDER.LOOK_TEST,
+      order_payment_status: result.order_payment_status ?? "paid",
+    },
+  };
+}
+
 export function isOrderPaidForWork(status: OrderPaymentStatus | undefined): boolean {
   return isOrderPaymentPaid(status);
+}
+
+export function isTestPaymentMethod(method: string | null | undefined): boolean {
+  const m = (method ?? "").toLowerCase();
+  return (
+    m === "test" ||
+    m === "look_test" ||
+    m.startsWith("test") ||
+    m.startsWith("look_test")
+  );
 }

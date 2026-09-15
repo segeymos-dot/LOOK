@@ -28,6 +28,8 @@ interface OrderPaymentScreenProps {
   initialOrderPaymentStatus?: OrderPaymentStatus;
   /** Server-only: ENABLE_TEST_PAYMENTS === "true". Never from NEXT_PUBLIC_*. */
   allowTestPayments?: boolean;
+  /** Order marked is_test — show prod-safe TEST PAYMENT UI (no Stripe). */
+  isTestOrder?: boolean;
 }
 
 export function OrderPaymentScreen({
@@ -38,6 +40,7 @@ export function OrderPaymentScreen({
   currency,
   initialOrderPaymentStatus = "unpaid",
   allowTestPayments = false,
+  isTestOrder = false,
 }: OrderPaymentScreenProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -135,6 +138,13 @@ export function OrderPaymentScreen({
   const handlePayClick = async () => {
     if (paying || testPaying) return;
     setError(null);
+
+    // Test orders never open Stripe — only the explicit test payment path.
+    if (isTestOrder && allowTestPayments) {
+      setShowTestFallback(true);
+      return;
+    }
+
     setPaying(true);
     try {
       // Prefer real Stripe Checkout when configured.
@@ -172,17 +182,37 @@ export function OrderPaymentScreen({
     }
   };
 
-  const showTestPayButton = allowTestPayments && showTestFallback;
+  const showTestPayButton = allowTestPayments && (isTestOrder || showTestFallback);
 
   return (
     <div className="space-y-5">
       <PageHeader title={t("finance.paymentPage.title")} backHref={`/requests/${requestId}`} />
 
       <Card padding="lg" className="shadow-card">
+        {isTestOrder ? (
+          <div
+            className="mb-4 rounded-xl border-2 border-amber-500 bg-amber-50 px-4 py-3 text-amber-950"
+            role="status"
+            data-testid="test-payment-banner"
+          >
+            <p className="text-base font-extrabold tracking-wide">
+              {t("finance.paymentPage.testPaymentTitle")}
+            </p>
+            <p className="mt-1 text-sm font-medium">
+              {t("finance.paymentPage.testPaymentNoMoney")}
+            </p>
+          </div>
+        ) : null}
+
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
               {t("finance.paymentPage.orderLabel")}
+              {isTestOrder ? (
+                <span className="ml-2 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {t("request.testBadge")}
+                </span>
+              ) : null}
             </p>
             <h1 className="text-lg font-bold text-text-primary">{requestTitle}</h1>
           </div>
@@ -264,18 +294,38 @@ export function OrderPaymentScreen({
               <p className="mb-3 rounded-xl bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>
             )}
 
-            <Button
-              className="w-full gap-2"
-              size="lg"
-              loading={paying}
-              disabled={testPaying}
-              onClick={() => void handlePayClick()}
-            >
-              <CreditCard className="h-5 w-5" />
-              {t("finance.paymentPage.payNow", { amount: formatPrice(split.gross, currency) })}
-            </Button>
+            {isTestOrder ? (
+              <div className="space-y-2">
+                <Button
+                  variant="secondary"
+                  className="w-full gap-2 border-2 border-amber-500"
+                  size="lg"
+                  loading={testPaying}
+                  disabled={paying}
+                  onClick={() => void handleTestPay()}
+                  data-testid="complete-test-payment"
+                >
+                  <ShieldCheck className="h-5 w-5" />
+                  {t("finance.paymentPage.completeTestPayment")}
+                </Button>
+                <p className="text-center text-xs font-medium text-amber-900">
+                  {t("finance.paymentPage.testPaymentNoMoney")}
+                </p>
+              </div>
+            ) : (
+              <Button
+                className="w-full gap-2"
+                size="lg"
+                loading={paying}
+                disabled={testPaying}
+                onClick={() => void handlePayClick()}
+              >
+                <CreditCard className="h-5 w-5" />
+                {t("finance.paymentPage.payNow", { amount: formatPrice(split.gross, currency) })}
+              </Button>
+            )}
 
-            {showTestPayButton ? (
+            {!isTestOrder && showTestPayButton ? (
               <div className="mt-3 space-y-2">
                 <Button
                   variant="secondary"
