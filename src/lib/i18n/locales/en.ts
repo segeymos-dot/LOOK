@@ -315,12 +315,13 @@ export const en: TranslationDict = {
       providerHint: "As a provider you can respond to orders and chat with customers.",
     },
     checkEmail: {
-      title: "Check your email",
-      subtitle: "We sent a confirmation email",
+      title: "Confirm your email",
+      subtitle: "Please confirm your email. We sent you a confirmation link.",
       toLogin: "Go to sign in",
       toLoginBtn: "Sign in",
-      bodyWithEmail: "Open the email sent to {email} and click the confirmation link to activate your LOOK account.",
-      bodyGeneric: "Open the email from LOOK and click the confirmation link to activate your account.",
+      bodyWithEmail:
+        "Please confirm your email. We sent a confirmation link to {email}. Open the email and click the link.",
+      bodyGeneric: "Please confirm your email. We sent you a confirmation link.",
       afterConfirm: "After confirming you can sign in and use the service.",
       callbackHint: "The link in the email goes to {url}.",
       devMode: "Development mode",

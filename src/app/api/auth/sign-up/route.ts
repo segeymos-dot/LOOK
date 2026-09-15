@@ -98,7 +98,13 @@ export async function POST(request: Request) {
     );
   }
 
-  if (data.session && data.user) {
+  const emailConfirmed = Boolean(data.user?.email_confirmed_at);
+  // Never hand the browser a session for an unconfirmed email. Profile rows
+  // are created by handle_new_user from signup metadata when confirm is required.
+  const sessionForClient =
+    data.session && data.user && emailConfirmed ? data.session : null;
+
+  if (sessionForClient && data.user) {
     await supabase
       .from("profiles")
       .update({
@@ -125,19 +131,23 @@ export async function POST(request: Request) {
       acceptedAt
     );
   }
-  // Without a session (email confirm required), handle_new_user uses metadata.
+
+  // Drop any unexpected unconfirmed session so the client cannot stay signed in.
+  if (data.session && !emailConfirmed) {
+    await supabase.auth.signOut().catch(() => undefined);
+  }
 
   return NextResponse.json({
     success: true,
     user: data.user,
-    session: data.session
+    session: sessionForClient
       ? {
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
+          access_token: sessionForClient.access_token,
+          refresh_token: sessionForClient.refresh_token,
         }
       : null,
     email: parsed.data.email,
-    requiresEmailConfirmation: !data.session,
+    requiresEmailConfirmation: !sessionForClient,
     emailRedirectTo,
   });
 }
