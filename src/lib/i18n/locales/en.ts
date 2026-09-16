@@ -456,6 +456,9 @@ export const en: TranslationDict = {
     newSubtitle: "Describe the task — providers will send offers",
     testBadge: "TEST",
     createAsTest: "Create as a TEST order (no real money)",
+    markAsTest: "Mark as TEST order",
+    markAsTestHint: "No Stripe and no real money. Then LOOK test payment becomes available.",
+    markAsTestError: "Could not mark this order as test",
     createAsTestHint:
       "Only for allowlisted test accounts. This order can only be paid with LOOK test payment.",
     orderTitle: "Title",

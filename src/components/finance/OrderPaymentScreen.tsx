@@ -7,6 +7,7 @@ import { OrderPaymentStatusBadge } from "@/components/finance/OrderPaymentStatus
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrderPayment } from "@/hooks/useOrderPayment";
+import { authFetch } from "@/lib/auth/client-fetch";
 import {
   calculatePaymentSplit,
   formatCommissionPercent,
@@ -30,6 +31,8 @@ interface OrderPaymentScreenProps {
   allowTestPayments?: boolean;
   /** Order marked is_test — show prod-safe TEST PAYMENT UI (no Stripe). */
   isTestOrder?: boolean;
+  /** Allowlisted owner may mark unpaid order as is_test (prod-safe path). */
+  canMarkAsTest?: boolean;
 }
 
 export function OrderPaymentScreen({
@@ -41,6 +44,7 @@ export function OrderPaymentScreen({
   initialOrderPaymentStatus = "unpaid",
   allowTestPayments = false,
   isTestOrder = false,
+  canMarkAsTest = false,
 }: OrderPaymentScreenProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,6 +53,7 @@ export function OrderPaymentScreen({
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [testPaying, setTestPaying] = useState(false);
+  const [markingTest, setMarkingTest] = useState(false);
   const [confirming, setConfirming] = useState(false);
   /** After Stripe is unavailable on Preview, reveal explicit Test payment CTA. */
   const [showTestFallback, setShowTestFallback] = useState(false);
@@ -182,6 +187,30 @@ export function OrderPaymentScreen({
     }
   };
 
+  const handleMarkAsTest = async () => {
+    if (!canMarkAsTest || markingTest || isTestOrder) return;
+    setError(null);
+    setMarkingTest(true);
+    try {
+      const res = await authFetch(`/api/requests/${requestId}/mark-test`, {
+        method: "POST",
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: string;
+      };
+      if (!res.ok || body.success === false) {
+        setError(body.error || t("request.markAsTestError"));
+        return;
+      }
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("request.markAsTestError"));
+    } finally {
+      setMarkingTest(false);
+    }
+  };
+
   const showTestPayButton = allowTestPayments && (isTestOrder || showTestFallback);
 
   return (
@@ -301,7 +330,7 @@ export function OrderPaymentScreen({
                   className="w-full gap-2 border-2 border-amber-500"
                   size="lg"
                   loading={testPaying}
-                  disabled={paying}
+                  disabled={paying || markingTest}
                   onClick={() => void handleTestPay()}
                   data-testid="complete-test-payment"
                 >
@@ -313,16 +342,37 @@ export function OrderPaymentScreen({
                 </p>
               </div>
             ) : (
-              <Button
-                className="w-full gap-2"
-                size="lg"
-                loading={paying}
-                disabled={testPaying}
-                onClick={() => void handlePayClick()}
-              >
-                <CreditCard className="h-5 w-5" />
-                {t("finance.paymentPage.payNow", { amount: formatPrice(split.gross, currency) })}
-              </Button>
+              <div className="space-y-3">
+                {canMarkAsTest ? (
+                  <div className="space-y-2 rounded-xl border-2 border-amber-500 bg-amber-50 px-4 py-3">
+                    <p className="text-sm font-semibold text-amber-950">
+                      {t("request.markAsTestHint")}
+                    </p>
+                    <Button
+                      variant="secondary"
+                      className="w-full gap-2 border-2 border-amber-500"
+                      size="lg"
+                      loading={markingTest}
+                      disabled={paying || testPaying}
+                      onClick={() => void handleMarkAsTest()}
+                      data-testid="mark-order-as-test"
+                    >
+                      <ShieldCheck className="h-5 w-5" />
+                      {t("request.markAsTest")}
+                    </Button>
+                  </div>
+                ) : null}
+                <Button
+                  className="w-full gap-2"
+                  size="lg"
+                  loading={paying}
+                  disabled={testPaying || markingTest}
+                  onClick={() => void handlePayClick()}
+                >
+                  <CreditCard className="h-5 w-5" />
+                  {t("finance.paymentPage.payNow", { amount: formatPrice(split.gross, currency) })}
+                </Button>
+              </div>
             )}
 
             {!isTestOrder && showTestPayButton ? (

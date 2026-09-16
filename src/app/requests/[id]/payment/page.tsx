@@ -10,6 +10,7 @@ import {
   areTestPaymentsEnabled,
   canInvokeProdSafeTestPayment,
   canInvokeSimulatedOrderPayment,
+  canMarkOrderAsTest,
 } from "@/lib/payments/test-payments-guard";
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
@@ -96,6 +97,13 @@ export default async function RequestPaymentPage({ params }: PageProps) {
     isTestOrder,
   });
   const allowTestPayments = canUsePreviewTest || canUseProdSafeTest;
+  const canMarkAsTest =
+    isOrderOwner &&
+    !isTestOrder &&
+    canMarkOrderAsTest({
+      email: user?.email,
+      isPlatformAdmin: platformAdmin,
+    });
 
   const canAccessPayment =
     !!user && (isOrderOwner || (canUsePreviewTest && platformAdmin));
@@ -136,6 +144,7 @@ export default async function RequestPaymentPage({ params }: PageProps) {
             initialOrderPaymentStatus={request.order_payment_status ?? "unpaid"}
             allowTestPayments={allowTestPayments}
             isTestOrder={isTestOrder}
+            canMarkAsTest={canMarkAsTest}
           />
         </Suspense>
       </div>
