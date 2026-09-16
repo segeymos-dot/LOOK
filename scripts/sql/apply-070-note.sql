@@ -1,0 +1,8 @@
+-- Print / apply helper note for 070
+-- Paste supabase/migrations/070_admin_mark_request_is_test.sql into SQL Editor.
+-- After apply, verify:
+--
+-- SELECT id, title, is_test, order_payment_status,
+--   EXISTS (SELECT 1 FROM payments p WHERE p.request_id = requests.id) AS payment_exists
+-- FROM requests
+-- WHERE id = '559c373f-03e1-4d6f-b941-45d7cdd0ee58';

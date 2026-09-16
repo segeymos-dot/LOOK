@@ -9,8 +9,9 @@ import { areTestPaymentsEnabled } from "@/lib/payments/test-payments-guard";
 import { NextResponse } from "next/server";
 
 /**
- * Creates a Stripe Checkout Session for the order and returns the hosted URL.
- * Requires STRIPE_SECRET_KEY. Payment is finalized by the Stripe webhook.
+ * Creates a Stripe Checkout Session for a NON-test order.
+ * TEST orders (is_test=true) never enter Stripe — hard refuse.
+ * Missing Stripe config fails safely with no live fallback to test simulator.
  */
 export async function POST(
   request: Request,
@@ -29,22 +30,6 @@ export async function POST(
       error: "Stripe Checkout is unavailable in demo mode. Use the test checkout form.",
       demo_fallback: true,
     }, { status: 400 });
-  }
-
-  if (!isStripeConfigured()) {
-    const allowTestFallback = areTestPaymentsEnabled();
-    return NextResponse.json(
-      {
-        success: false,
-        error: allowTestFallback
-          ? "Stripe is not configured. Use test payment on this Preview."
-          : "Stripe is not configured. Test payments are disabled.",
-        missing_env: missingStripeEnvVars(),
-        // Only signal UI fake-card / test path when the private server flag is on.
-        test_fallback: allowTestFallback,
-      },
-      { status: 503 }
-    );
   }
 
   const auth = await getFinanceApiUser(request);
@@ -66,6 +51,7 @@ export async function POST(
     return NextResponse.json({ success: false, error: "Not authorized" }, { status: 403 });
   }
 
+  // Hard split: TEST orders never call Stripe (no LIVE↔TEST fallback).
   if ((order as { is_test?: boolean }).is_test) {
     return NextResponse.json(
       {
@@ -75,6 +61,22 @@ export async function POST(
         is_test: true,
       },
       { status: 400 }
+    );
+  }
+
+  if (!isStripeConfigured()) {
+    const allowTestFallback = areTestPaymentsEnabled();
+    return NextResponse.json(
+      {
+        success: false,
+        error: allowTestFallback
+          ? "Stripe is not configured. Use test payment on this Preview."
+          : "Stripe is not configured. Test payments are disabled.",
+        missing_env: missingStripeEnvVars(),
+        test_fallback: allowTestFallback,
+        is_test: false,
+      },
+      { status: 503 }
     );
   }
 

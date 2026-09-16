@@ -70,7 +70,10 @@ export function NewRequestPageContent() {
     void fetch("/api/auth/test-payment-capability")
       .then((r) => r.json())
       .then((data: { can_mark_test?: boolean }) => {
-        setCanMarkTest(Boolean(data.can_mark_test));
+        const allowed = Boolean(data.can_mark_test);
+        setCanMarkTest(allowed);
+        // Allowlisted testers default into explicit TEST mode (still user-togglable).
+        if (allowed) setCreateAsTest(true);
       })
       .catch(() => setCanMarkTest(false));
   }, [authLoading, displayProfile]);
@@ -542,7 +545,7 @@ export function NewRequestPageContent() {
           />
 
           {canMarkTest ? (
-            <label className="flex items-start gap-3 rounded-xl border-2 border-amber-400 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+            <label className="flex items-start gap-3 rounded-xl border-2 border-amber-500 bg-amber-50 px-3 py-3 text-sm text-amber-950">
               <input
                 type="checkbox"
                 className="mt-0.5 h-5 w-5 shrink-0 rounded border-amber-500 text-amber-600 focus:ring-amber-500"
@@ -551,8 +554,13 @@ export function NewRequestPageContent() {
                 data-testid="create-as-test-order"
               />
               <span>
-                <span className="block font-bold">{t("request.createAsTest")}</span>
-                <span className="mt-0.5 block text-xs font-medium text-amber-900">
+                <span className="block text-base font-extrabold tracking-wide">
+                  {t("request.testOrderTitle")}
+                </span>
+                <span className="mt-0.5 block text-sm font-semibold">
+                  {t("request.testOrderNoMoney")}
+                </span>
+                <span className="mt-1 block text-xs font-medium text-amber-900">
                   {t("request.createAsTestHint")}
                 </span>
               </span>

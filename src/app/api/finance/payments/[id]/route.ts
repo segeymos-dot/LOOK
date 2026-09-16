@@ -118,23 +118,29 @@ export async function POST(
   const isOrderOwner = order.customer_id === auth.user.id;
   const isTestOrder = Boolean((order as { is_test?: boolean }).is_test);
 
-  const previewTestOk = canInvokeSimulatedOrderPayment({
-    email: auth.user.email,
-    isPlatformAdmin: admin,
-    isOrderOwner,
-  });
-  const prodSafeOk = canInvokeProdSafeTestPayment({
-    email: auth.user.email,
-    isOrderOwner,
-    isTestOrder,
-  });
+  // Hard split: is_test → ONLY prod-safe simulator; !is_test → ONLY preview simulator.
+  // Never cross LIVE↔TEST automatically.
+  const previewTestOk =
+    !isTestOrder &&
+    canInvokeSimulatedOrderPayment({
+      email: auth.user.email,
+      isPlatformAdmin: admin,
+      isOrderOwner,
+    });
+  const prodSafeOk =
+    isTestOrder &&
+    canInvokeProdSafeTestPayment({
+      email: auth.user.email,
+      isOrderOwner,
+      isTestOrder: true,
+    });
 
   if (!previewTestOk && !prodSafeOk) {
-    if (areTestPaymentsEnabled()) {
-      return NextResponse.json(testPaymentsActorDeniedJson(), { status: 403 });
-    }
     if (isTestOrder) {
       return NextResponse.json(prodSafeTestDeniedJson(), { status: 403 });
+    }
+    if (areTestPaymentsEnabled()) {
+      return NextResponse.json(testPaymentsActorDeniedJson(), { status: 403 });
     }
     return NextResponse.json(testPaymentsDisabledJson(), { status: 403 });
   }
@@ -187,9 +193,9 @@ export async function POST(
     return NextResponse.json({ success: false, error: authz.error }, { status: authz.status });
   }
 
-  const result = previewTestOk
-    ? await simulateTestPayment(auth.supabase, requestId, externalReference)
-    : await executeProdSafeTestPayment(auth.supabase, requestId, externalReference);
+  const result = prodSafeOk
+    ? await executeProdSafeTestPayment(auth.supabase, requestId, externalReference)
+    : await simulateTestPayment(auth.supabase, requestId, externalReference);
 
   if (!result.success) {
     return NextResponse.json(result, { status: 400 });

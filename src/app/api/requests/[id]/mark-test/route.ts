@@ -4,10 +4,15 @@ import {
   canMarkOrderAsTest,
   prodSafeTestDeniedJson,
 } from "@/lib/payments/test-payments-guard";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
-/** Mark an owned open/in-progress unpaid order as is_test (allowlisted emails only). */
+/**
+ * Mark an owned open/in-progress unpaid order as is_test.
+ * Allowlist checked here; RPC runs as service_role (migration 070).
+ * Never creates payment / never touches Stripe.
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -21,7 +26,35 @@ export async function POST(
     return NextResponse.json(prodSafeTestDeniedJson(), { status: 403 });
   }
 
-  const { data, error } = await auth.supabase.rpc("set_request_is_test", {
+  const { data: order, error: orderError } = await auth.supabase
+    .from("requests")
+    .select("id, customer_id, status, order_payment_status, is_test")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  if (orderError || !order) {
+    return NextResponse.json(
+      { success: false, error: "Request not found" },
+      { status: 404 }
+    );
+  }
+
+  if (order.customer_id !== auth.user.id && !admin) {
+    return NextResponse.json(
+      { success: false, error: "Not authorized" },
+      { status: 403 }
+    );
+  }
+
+  const service = createAdminClient();
+  if (!service) {
+    return NextResponse.json(
+      { success: false, error: "Server configuration error" },
+      { status: 500 }
+    );
+  }
+
+  const { data, error } = await service.rpc("set_request_is_test", {
     p_request_id: requestId,
     p_is_test: true,
   });

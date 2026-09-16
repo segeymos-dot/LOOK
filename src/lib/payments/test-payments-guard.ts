@@ -4,14 +4,21 @@
  *
  * Production is always closed for ENABLE_TEST_PAYMENTS — even if mistakenly "true".
  *
- * Production-safe path (lookcruise.com E2E without Stripe):
- *   ENABLE_PROD_TEST_PAYMENTS=true
- *   + order.is_test = true
- *   + allowlisted customer email (PROD_TEST_PAYMENT_EMAILS or @test.look)
+ * =============================================================================
+ * CANONICAL PROD-SAFE TEST MODE (single source of truth)
+ * =============================================================================
+ * An order may use the zero-money LOOK test simulator ONLY when ALL hold:
+ *   1. ENABLE_PROD_TEST_PAYMENTS === "true"
+ *   2. authenticated customer email ∈ PROD_TEST_PAYMENT_EMAILS (or @test.look)
+ *   3. request.is_test === true   (DB flag — never title/description text)
+ *   4. payment path = simulate_prod_safe_test_payment (look_test)
+ *   5. resulting payments.is_test === true
+ *   6. no Stripe Checkout / live charge / Connect payout
  *
- * On Vercel, trust VERCEL_ENV only: Preview builds use NODE_ENV=production but
- * VERCEL_ENV=preview, so ENABLE_TEST_PAYMENTS can open there without opening Production.
- * Off Vercel, NODE_ENV=production (e.g. `next start`) stays closed for ENABLE_TEST_PAYMENTS.
+ * Hard splits (no automatic fallback either direction):
+ *   is_test=true  → ONLY prod-safe simulator (never Stripe)
+ *   is_test=false → ONLY normal Stripe path (never simulator on production)
+ * =============================================================================
  */
 
 export function isProductionRuntime(
