@@ -3,7 +3,7 @@ import type { UserRole } from "@/types";
 
 export const ACTIVITY_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
-const ONLINE_WINDOW_MS = 90_000;
+const ONLINE_WINDOW_MS = 180_000;
 
 export type ActivityKind = "customers" | "providers";
 
@@ -113,20 +113,32 @@ export async function listRoleActivity(
   const roles = rolesFor(kind);
   const onlineCutoff = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
 
-  // Online user ids (role-flagged presence).
-  const presenceFlag = kind === "customers" ? "is_customer" : "is_provider";
-  const { data: onlineRows } = await db
+  // Online user ids from recent presence; role from live profiles (BOTH → both dirs).
+  const roleFilter = kind === "customers" ? ["customer", "both"] : ["provider", "both"];
+  const { data: presenceRows } = await db
     .from("app_presence")
     .select("user_id")
-    .eq(presenceFlag, true)
     .not("user_id", "is", null)
     .gt("last_heartbeat_at", onlineCutoff);
 
-  const onlineIds = new Set(
-    (onlineRows ?? [])
-      .map((r) => r.user_id as string | null)
-      .filter((id): id is string => Boolean(id))
-  );
+  const presenceUserIds = [
+    ...new Set(
+      (presenceRows ?? [])
+        .map((r) => r.user_id as string | null)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+
+  let onlineIds = new Set<string>();
+  if (presenceUserIds.length > 0) {
+    const { data: roleRows } = await db
+      .from("profiles")
+      .select("id")
+      .in("id", presenceUserIds)
+      .eq("is_platform_admin", false)
+      .in("role", roleFilter);
+    onlineIds = new Set((roleRows ?? []).map((r) => r.id as string));
+  }
 
   let allowedIds: string[] | null = null;
 

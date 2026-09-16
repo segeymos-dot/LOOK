@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { getAccessToken } from "@/lib/auth/client-fetch";
+import { createClient } from "@/lib/supabase/client";
 
 const VISITOR_KEY = "look_visitor_id";
 const SESSION_KEY = "look_session_id";
@@ -9,6 +10,12 @@ const TABS_KEY = "look_presence_tabs";
 const HEARTBEAT_MS = 30_000;
 /** Tabs that have not heartbeated within this window are treated as gone. */
 const TAB_STALE_MS = 90_000;
+/**
+ * Delay before ending presence after the tab is hidden / pagehide.
+ * Mobile Safari fires pagehide when backgrounding; ending immediately made
+ * active users drop to online=0 until the throttled timer woke up.
+ */
+const END_GRACE_MS = 45_000;
 
 function createId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -185,19 +192,42 @@ async function sendHeartbeat(): Promise<void> {
 
 /**
  * Tracks unique visitors, visit sessions, and online presence via heartbeat.
- * Browser Tab / Safari / Electron: localStorage visitor+session, pagehide end.
+ * Browser Tab / Safari / Electron: localStorage visitor+session, deferred end.
  * Multi-tab: shared visitor/session keys; only the last live tab ends presence.
  */
 export function PresenceTracker() {
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setInterval> | null = null;
+    let endTimer: ReturnType<typeof setTimeout> | null = null;
     const tabId = createId();
     registerTab(tabId);
 
+    const clearEndTimer = () => {
+      if (endTimer) {
+        clearTimeout(endTimer);
+        endTimer = null;
+      }
+    };
+
+    const scheduleEndIfLastTab = () => {
+      clearEndTimer();
+      endTimer = setTimeout(() => {
+        endTimer = null;
+        if (cancelled) return;
+        if (typeof document !== "undefined" && document.visibilityState === "visible") {
+          return;
+        }
+        const remaining = unregisterTab(tabId);
+        if (remaining === 0) endPresenceBeacon();
+      }, END_GRACE_MS);
+    };
+
     const beat = () => {
       if (cancelled) return;
+      clearEndTimer();
       touchTab(tabId);
+      registerTab(tabId);
       void sendHeartbeat().catch(() => {
         // network blips should not throw
       });
@@ -206,9 +236,21 @@ export function PresenceTracker() {
     beat();
     timer = setInterval(beat, HEARTBEAT_MS);
 
-    const onPageHide = () => {
-      const remaining = unregisterTab(tabId);
-      if (remaining === 0) endPresenceBeacon();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") beat();
+      else scheduleEndIfLastTab();
+    };
+
+    const onPageShow = () => beat();
+    const onFocus = () => beat();
+
+    const onPageHide = (event: PageTransitionEvent) => {
+      // bfcache: page may come back — do not clear presence immediately.
+      if (event.persisted) {
+        scheduleEndIfLastTab();
+        return;
+      }
+      scheduleEndIfLastTab();
     };
 
     // Re-register quickly after temporary offline so reconnect does not open
@@ -217,12 +259,40 @@ export function PresenceTracker() {
       if (!cancelled) beat();
     };
 
+    // When auth session appears after first anonymous beat, upgrade presence
+    // to user:<id> so customer/provider online counters include the account.
+    let authSub: { unsubscribe: () => void } | null = null;
+    try {
+      const supabase = createClient();
+      const { data } = supabase.auth.onAuthStateChange((event) => {
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
+          beat();
+        }
+        if (event === "SIGNED_OUT") {
+          clearEndTimer();
+          const remaining = unregisterTab(tabId);
+          if (remaining === 0) endPresenceBeacon();
+        }
+      });
+      authSub = data.subscription;
+    } catch {
+      // ignore — heartbeat still runs on interval
+    }
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("focus", onFocus);
     window.addEventListener("pagehide", onPageHide);
     window.addEventListener("online", onOnline);
 
     return () => {
       cancelled = true;
+      clearEndTimer();
       if (timer) clearInterval(timer);
+      authSub?.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("focus", onFocus);
       window.removeEventListener("pagehide", onPageHide);
       window.removeEventListener("online", onOnline);
       // Do not end presence here: React Strict Mode remounts and SPA navigations

@@ -33,7 +33,16 @@ export function AdminMetricsOverview() {
     const timer = setInterval(() => {
       void reload();
     }, ONLINE_POLL_MS);
-    return () => clearInterval(timer);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void reload();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, [reload]);
 
   const items: MetricCardItem[] = [

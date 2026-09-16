@@ -40,7 +40,16 @@ export function AdminUserStatsSection() {
     const onlineTimer = setInterval(() => {
       void reload();
     }, ONLINE_POLL_MS);
-    return () => clearInterval(onlineTimer);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void reload();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      clearInterval(onlineTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, [reload]);
 
   const groups: { title: string; metrics: MetricDef[] }[] = [
