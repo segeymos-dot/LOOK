@@ -1,6 +1,14 @@
 -- 070: Admin-safe mark request as is_test + prepare known human E2E order.
--- Additive. Does not change status / offers / payments / Stripe columns.
+-- Additive. Does not change status / offers / payments / Stripe actions.
 -- Also hardens set_request_is_test: service_role only (API enforces allowlist).
+--
+-- PRODUCTION SCHEMA NOTE (verified against live PostgREST, 001–069 applied):
+--   Migration 028 Stripe session/intent columns on requests/payments are NOT present
+--   on production. Do NOT reference them.
+--   Real Stripe artifacts (when present) live on:
+--     requests.payment_provider_name
+--     requests.payment_transaction_id
+--     payments.payment_method / payments.external_reference (via payments row)
 
 -- ---------------------------------------------------------------------------
 -- Harden set_request_is_test: allowlist is enforced in Next.js API; DB no longer
@@ -59,6 +67,18 @@ BEGIN
 
   IF EXISTS (SELECT 1 FROM public.payments p WHERE p.request_id = p_request_id) THEN
     RAISE EXCEPTION 'Orders with an existing payment row cannot be marked as test';
+  END IF;
+
+  -- Real Stripe / external checkout artifacts on CURRENT prod schema (022/025).
+  IF v_row.payment_provider_name IS NOT NULL
+     AND btrim(v_row.payment_provider_name) <> ''
+     AND lower(v_row.payment_provider_name) <> 'look_test' THEN
+    RAISE EXCEPTION 'Orders with an external payment provider cannot be marked as test';
+  END IF;
+
+  IF v_row.payment_transaction_id IS NOT NULL
+     AND btrim(v_row.payment_transaction_id) <> '' THEN
+    RAISE EXCEPTION 'Orders with an existing payment transaction id cannot be marked as test';
   END IF;
 
   UPDATE public.requests
@@ -132,13 +152,13 @@ BEGIN
 
   IF v_row.payment_provider_name IS NOT NULL
      AND btrim(v_row.payment_provider_name) <> ''
-     AND v_row.payment_provider_name <> 'look_test' THEN
+     AND lower(v_row.payment_provider_name) <> 'look_test' THEN
     RAISE EXCEPTION 'Orders with an external payment provider cannot be marked as test';
   END IF;
 
-  IF v_row.stripe_checkout_session_id IS NOT NULL
-     AND btrim(v_row.stripe_checkout_session_id) <> '' THEN
-    RAISE EXCEPTION 'Orders with a Stripe checkout session cannot be marked as test';
+  IF v_row.payment_transaction_id IS NOT NULL
+     AND btrim(v_row.payment_transaction_id) <> '' THEN
+    RAISE EXCEPTION 'Orders with an existing payment transaction id cannot be marked as test';
   END IF;
 
   UPDATE public.requests
@@ -165,6 +185,7 @@ GRANT EXECUTE ON FUNCTION public.admin_mark_request_is_test(UUID) TO service_rol
 
 -- One-shot: prepare Alexey human E2E order (idempotent, fully gated).
 -- Same safety predicates as admin_mark_request_is_test; no status/payment changes.
+-- Uses ONLY columns present on production (verified via PostgREST probes).
 UPDATE public.requests r
 SET
   is_test = true,
@@ -181,9 +202,9 @@ WHERE r.id = '559c373f-03e1-4d6f-b941-45d7cdd0ee58'::uuid
   AND (
     r.payment_provider_name IS NULL
     OR btrim(r.payment_provider_name) = ''
-    OR r.payment_provider_name = 'look_test'
+    OR lower(r.payment_provider_name) = 'look_test'
   )
   AND (
-    r.stripe_checkout_session_id IS NULL
-    OR btrim(r.stripe_checkout_session_id) = ''
+    r.payment_transaction_id IS NULL
+    OR btrim(r.payment_transaction_id) = ''
   );
