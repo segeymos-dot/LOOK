@@ -1,0 +1,12 @@
+-- After applying 071_fix_prod_safe_test_payment_ledger.sql, verify Alexey order:
+--
+-- SELECT id, is_test, status, order_payment_status,
+--   payment_provider_name, payment_transaction_id, paid_at,
+--   (SELECT COUNT(*) FROM payments p WHERE p.request_id = requests.id) AS payment_rows,
+--   (SELECT COUNT(*) FROM transactions t WHERE t.request_id = requests.id) AS ledger_rows
+-- FROM requests
+-- WHERE id = '559c373f-03e1-4d6f-b941-45d7cdd0ee58';
+--
+-- Expect before retry: is_test=true, order_payment_status in (unpaid, payment_pending),
+-- payment_rows=0, ledger_rows=0, paid_at null.
+-- Then Alexey may press TEST PAYMENT manually.

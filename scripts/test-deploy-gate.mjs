@@ -36,6 +36,7 @@ run("npm", ["run", "test:prod-safe-payments"]);
 for (const f of [
   "supabase/migrations/068_prod_safe_test_payments.sql",
   "supabase/migrations/070_admin_mark_request_is_test.sql",
+  "supabase/migrations/071_fix_prod_safe_test_payment_ledger.sql",
 ]) {
   if (!existsSync(resolve(root, f))) {
     console.error(`FAIL: missing ${f}`);
@@ -52,4 +53,17 @@ if (/DROP TABLE|TRUNCATE|sk_live_/i.test(m070)) {
   process.exit(1);
 }
 
-console.log("\nDeploy gate PASS — safe to deploy after applying migration 070.");
+const m071 = readFileSync(
+  resolve(root, "supabase/migrations/071_fix_prod_safe_test_payment_ledger.sql"),
+  "utf8"
+);
+if (/DROP TABLE|TRUNCATE|sk_live_|INSERT INTO public\.provider_balances/i.test(m071)) {
+  console.error("FAIL: destructive, live Stripe, or provider_balances credit in 071");
+  process.exit(1);
+}
+if (!/INSERT INTO public\.transactions/.test(m071)) {
+  console.error("FAIL: 071 must write transactions on prod (012) path");
+  process.exit(1);
+}
+
+console.log("\nDeploy gate PASS — apply migration 071 before next TEST PAYMENT.");

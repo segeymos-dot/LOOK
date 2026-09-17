@@ -165,6 +165,13 @@ test("11. Migration 070 defines admin_mark_request_is_test + Alexey prepare", ()
   assert.match(m070, /Ремонт комнат/);
   assert.match(m070, /REVOKE ALL ON FUNCTION public\.set_request_is_test/);
   assert.match(m070, /GRANT EXECUTE ON FUNCTION public\.set_request_is_test\(UUID, BOOLEAN\) TO service_role/);
+  assert.match(m070, /payment_transaction_id/);
+  assert.match(m070, /payment_provider_name/);
+  // Production never received 028 — executable SQL must not reference those columns.
+  const m070Code = m070.replace(/--[^\n]*/g, "");
+  assert.doesNotMatch(m070Code, /stripe_checkout_session_id/);
+  assert.doesNotMatch(m070Code, /stripe_payment_intent_id/);
+  assert.doesNotMatch(m070Code, /stripe_checkout_attempt/);
   assert.doesNotMatch(m070, /simulate_prod_safe_test_payment\(/);
 });
 
@@ -222,6 +229,106 @@ test("16. Title/description text is not a test-mode source in guards", () => {
   assert.doesNotMatch(codeOnly, /\btitle\b|\bdescription\b/);
   assert.match(guard, /CANONICAL PROD-SAFE TEST MODE/);
   assert.match(guard, /request\.is_test/);
+});
+
+const m071 = readFileSync(
+  resolve(root, "supabase/migrations/071_fix_prod_safe_test_payment_ledger.sql"),
+  "utf8"
+);
+const m034 = readFileSync(
+  resolve(root, "supabase/migrations/034_ledger_refund_dispute.sql"),
+  "utf8"
+);
+
+test("A. Test payment happy path writes payments + transactions (071)", () => {
+  assert.match(m071, /CREATE OR REPLACE FUNCTION public\.simulate_prod_safe_test_payment/);
+  assert.match(m071, /INSERT INTO public\.payments/);
+  assert.match(m071, /INSERT INTO public\.transactions/);
+  assert.match(m071, /order_payment_status = 'paid'/);
+  assert.match(m071, /is_test', true/);
+});
+
+test("B. Correct insert_ledger_entry signature / casts when helper exists", () => {
+  assert.match(
+    m034,
+    /CREATE OR REPLACE FUNCTION insert_ledger_entry\(\s*p_payment_id UUID/
+  );
+  assert.match(m034, /p_type transaction_type/);
+  assert.match(m034, /p_ledger_code TEXT/);
+  assert.match(m034, /p_account_scope TEXT/);
+  // 071 must cast enums/text — never bare unknown string literals for helper path
+  assert.match(m071, /'order_payment'::transaction_type/);
+  assert.match(m071, /'order_payment'::text/);
+  assert.match(m071, /'customer'::text/);
+  assert.match(m071, /to_regprocedure\(/);
+  assert.match(m071, /insert_ledger_entry\(uuid,uuid,uuid,uuid,transaction_type/);
+});
+
+test("C. Commission 44999 → LOOK 4499.90 → provider 40499.10", () => {
+  const rate = 0.1;
+  const gross = 44999;
+  const fee = Math.round(gross * rate * 100) / 100;
+  const net = Math.round((gross - fee) * 100) / 100;
+  assert.equal(fee, 4499.9);
+  assert.equal(net, 40499.1);
+  // Same ROUND semantics as SQL ROUND(x, 2) for this case
+  assert.match(m071, /v_fee := ROUND\(v_gross \* v_rate, 2\)/);
+  assert.match(m071, /v_provider_amount := v_gross - v_fee/);
+});
+
+test("D. No Stripe call in prod-safe simulator", () => {
+  const code = m071.replace(/--[^\n]*/g, "").replace(/COMMENT ON[\s\S]*?;/gi, "");
+  assert.doesNotMatch(code, /\bstripe\b/i);
+  assert.doesNotMatch(code, /checkout\.sessions|payment_intents|sk_live/i);
+  assert.match(m071, /look_test/);
+  assert.match(m071, /DO NOT credit provider_balances/);
+});
+
+test("E. No external payout / no provider_balances credit", () => {
+  assert.match(m071, /DO NOT credit provider_balances/);
+  assert.doesNotMatch(m071, /INSERT INTO public\.provider_balances/);
+  assert.doesNotMatch(m071, /INSERT INTO provider_balances/);
+  assert.match(m071, /payout_status = 'cancelled'/);
+});
+
+test("F. Second click idempotent when payment already paid", () => {
+  assert.match(m071, /v_existing\.status = 'paid'/);
+  assert.match(m071, /'idempotent', true/);
+});
+
+test("G. Ledger failure rolls back entire payment (single-function txn)", () => {
+  assert.match(
+    m071,
+    /Payment \+ commissions \+ ledger \+ request update are one DB transaction/
+  );
+  assert.match(m071, /rolls back the payment row/);
+  // Payment insert precedes ledger — exception in same plpgsql block aborts all
+  const payIdx = m071.indexOf("INSERT INTO public.payments");
+  const ledgerIdx = m071.indexOf("INSERT INTO public.transactions");
+  assert.ok(payIdx > 0 && ledgerIdx > payIdx);
+});
+
+test("H. Normal non-test payment path unchanged (checkout still Stripe-only for !is_test)", () => {
+  const checkout = readFileSync(
+    resolve(root, "src/app/api/finance/payments/[id]/checkout/route.ts"),
+    "utf8"
+  );
+  assert.match(checkout, /createOrderCheckoutSession/);
+  assert.match(checkout, /TEST orders cannot use Stripe/);
+  // 071 only replaces simulate_prod_safe_test_payment
+  assert.doesNotMatch(m071, /confirm_stripe_payment|createOrderCheckoutSession/);
+});
+
+test("I. Existing orders unaffected (071 only REPLACE simulate function)", () => {
+  assert.doesNotMatch(m071, /DROP TABLE|TRUNCATE/i);
+  assert.doesNotMatch(m071, /559c373f-03e1-4d6f-b941-45d7cdd0ee58/);
+  // Only the simulate function body updates the paying request by p_request_id
+  assert.match(m071, /UPDATE public\.requests\s+SET order_payment_status = 'paid'/);
+  assert.equal(
+    (m071.match(/UPDATE public\.requests/g) || []).length,
+    1,
+    "only the paid-path request update"
+  );
 });
 
 console.log(`\n${passed} prod-safe payment regression tests passed.`);
