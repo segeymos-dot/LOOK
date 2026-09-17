@@ -55,6 +55,7 @@ import {
   Scale,
   Search,
   Settings,
+  CreditCard,
   Users,
   UserRound,
 } from "lucide-react";
@@ -737,6 +738,12 @@ export default function ProfilePage() {
                   </Link>
                 </>
               )}
+              <Link href="/profile/payments">
+                <Button variant="secondary" className="w-full gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  {t("profile.paymentsPayouts")}
+                </Button>
+              </Link>
               <Link href="/settings">
                 <Button variant="outline" className="w-full gap-2">
                   <Settings className="h-4 w-4" />

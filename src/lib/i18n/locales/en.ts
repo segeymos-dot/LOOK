@@ -7,6 +7,7 @@ export const en: TranslationDict = {
     save: "Save",
     cancel: "Cancel",
     confirm: "Confirm",
+    gotIt: "Got it",
     back: "Back",
     loading: "Loading…",
     error: "Error",
@@ -705,6 +706,7 @@ export const en: TranslationDict = {
     },
     logout: "Sign out",
     settings: "Settings",
+    paymentsPayouts: "Payments & payouts",
     loading: "Loading profile…",
     loginRequired: "Sign in to your account",
     loginBtn: "Sign in",
@@ -1813,6 +1815,40 @@ export const en: TranslationDict = {
   banner: {
     demo: {
       message: "Demo mode: mock data, auth disabled",
+    },
+  },
+  paymentsPayouts: {
+    title: "Payments & payouts",
+    subtitle: "Manage how you pay and how you get paid",
+    unavailable: "This section is not available for your account.",
+    backToProfile: "Back to profile",
+    paymentMethodsTitle: "Payment methods",
+    paymentMethodsDesc: "Add a payment method to pay for orders quickly.",
+    paymentMethodsEmpty: "No payment methods added yet",
+    addCard: "Add card",
+    addCardTitle: "Add card",
+    addCardBody:
+      "Connecting bank cards will be available after LOOK’s payment system is activated.",
+    addCardFootnote: "LOOK does not store full bank card details.",
+    defaultCard: "Default",
+    makeDefault: "Make default",
+    removeCard: "Remove",
+    payoutsTitle: "Payouts",
+    payoutsDesc: "Set up how you receive payouts for completed orders.",
+    setupPayouts: "Set up payouts",
+    payoutSetupTitle: "Receiving payouts",
+    payoutSetupStatusLine: "Status: Not connected",
+    payoutSetupBody:
+      "Setting up a bank account or another available payout method will be available after LOOK’s payment system is connected.",
+    payoutSetupFootnote:
+      "Bank details will be handled by the payment provider and will not be stored in LOOK.",
+    gotIt: "Got it",
+    payoutStatus: {
+      not_connected: "Not connected",
+      setup_required: "Setup required",
+      pending_verification: "Pending verification",
+      ready: "Ready",
+      restricted: "Restricted",
     },
   },
   meta: {

@@ -276,7 +276,7 @@ export function ProfileFinanceBlock({
                 <ChevronRight className="h-4 w-4 text-text-muted" />
               </Button>
             </Link>
-            <Link href="/settings/provider">
+            <Link href="/profile/payments">
               <Button
                 variant="outline"
                 className="w-full justify-between gap-2"

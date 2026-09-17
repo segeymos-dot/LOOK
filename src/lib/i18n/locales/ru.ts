@@ -5,6 +5,7 @@ export const ru = {
     save: "Сохранить",
     cancel: "Отмена",
     confirm: "Подтвердить",
+    gotIt: "Понятно",
     back: "Назад",
     loading: "Загрузка…",
     error: "Ошибка",
@@ -703,6 +704,7 @@ export const ru = {
     },
     logout: "Выйти",
     settings: "Настройки",
+    paymentsPayouts: "Платежи и выплаты",
     loading: "Загрузка профиля…",
     loginRequired: "Войдите в аккаунт",
     loginBtn: "Войти",
@@ -1812,6 +1814,40 @@ export const ru = {
   banner: {
     demo: {
       message: "Демо-режим: данные из mock, авторизация отключена",
+    },
+  },
+  paymentsPayouts: {
+    title: "Платежи и выплаты",
+    subtitle: "Как вы оплачиваете заказы и получаете выплаты",
+    unavailable: "Этот раздел недоступен для вашего аккаунта.",
+    backToProfile: "К профилю",
+    paymentMethodsTitle: "Способы оплаты",
+    paymentMethodsDesc: "Добавьте способ оплаты, чтобы быстро оплачивать заказы.",
+    paymentMethodsEmpty: "Способы оплаты пока не добавлены",
+    addCard: "Добавить карту",
+    addCardTitle: "Добавление карты",
+    addCardBody:
+      "Подключение банковских карт будет доступно после активации платёжной системы LOOK.",
+    addCardFootnote: "LOOK не хранит полные данные банковских карт.",
+    defaultCard: "Основная",
+    makeDefault: "Сделать основной",
+    removeCard: "Удалить",
+    payoutsTitle: "Получение выплат",
+    payoutsDesc: "Настройте способ получения выплат за выполненные заказы.",
+    setupPayouts: "Настроить выплаты",
+    payoutSetupTitle: "Получение выплат",
+    payoutSetupStatusLine: "Статус: Не подключено",
+    payoutSetupBody:
+      "Настройка банковского счёта или другого доступного способа выплаты будет доступна после подключения платёжной системы LOOK.",
+    payoutSetupFootnote:
+      "Банковские реквизиты будут обрабатываться платёжным провайдером, а не храниться в LOOK.",
+    gotIt: "Понятно",
+    payoutStatus: {
+      not_connected: "Не подключено",
+      setup_required: "Требуется настройка",
+      pending_verification: "На проверке",
+      ready: "Готово",
+      restricted: "Ограничено",
     },
   },
   meta: {
