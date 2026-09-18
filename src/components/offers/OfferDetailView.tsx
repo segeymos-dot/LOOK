@@ -249,7 +249,7 @@ export function OfferDetailView({
               loading={acceptLoading}
               onClick={handleAccept}
             >
-              {t("offer.accept")}
+              {t("offer.selectProvider")}
             </Button>
             <Button
               className="flex-1"
@@ -262,11 +262,13 @@ export function OfferDetailView({
           </div>
         ) : null}
 
-        {offer.status === "accepted" && conversationId && (
+        {conversationId ? (
           <Link href={`/chat/${conversationId}`}>
-            <Button className="w-full">{t("request.openChat")}</Button>
+            <Button className="w-full" variant="outline">
+              {t("offer.openChat")}
+            </Button>
           </Link>
-        )}
+        ) : null}
 
         {offer.status === "accepted" && (
           <OrderWorkLifecyclePanel

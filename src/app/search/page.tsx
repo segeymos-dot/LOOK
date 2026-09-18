@@ -64,11 +64,12 @@ function SearchContent() {
       const load = async () => {
         const supabase = createClient();
 
-        // Active marketplace browse only — soft-trashed duplicates must not appear.
+        // Marketplace browse: only OPEN orders (competing offers still allowed).
+        // in_progress = provider already selected — hide from new provider discovery.
         let q = supabase
           .from("requests")
           .select("*, customer:profiles(*), category:categories(*)")
-          .in("status", ["open", "in_progress"])
+          .eq("status", "open")
           .is("trashed_at", null)
           .order("created_at", { ascending: false });
 

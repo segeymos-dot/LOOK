@@ -65,6 +65,7 @@ export function RequestOffersList({
   const [loadingAction, setLoadingAction] = useState<"accept" | "reject" | null>(
     null
   );
+  const [unassigning, setUnassigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOwnerFromApi, setIsOwnerFromApi] = useState<boolean | null>(null);
   const [ownOfferId, setOwnOfferId] = useState<string | null>(null);
@@ -277,7 +278,61 @@ export function RequestOffersList({
     }
   };
 
+  const canUnassign =
+    isRequestOwner &&
+    requestStatus === "in_progress" &&
+    Boolean(offers.find((o) => o.status === "accepted")) &&
+    (orderPaymentStatus == null ||
+      orderPaymentStatus === "unpaid" ||
+      orderPaymentStatus === "payment_pending" ||
+      orderPaymentStatus === "failed");
+
+  const handleUnassign = async () => {
+    if (!canUnassign || unassigning) return;
+    setError(null);
+    setUnassigning(true);
+    try {
+      if (isDemo) {
+        setOffers((prev) =>
+          prev.map((offer) =>
+            offer.status === "accepted" || offer.status === "rejected"
+              ? { ...offer, status: "pending" }
+              : offer
+          )
+        );
+        setRequestStatus("open");
+        router.refresh();
+        return;
+      }
+
+      const response = await authFetch(
+        `/api/requests/${requestId}/unassign-provider`,
+        { method: "POST" }
+      );
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        setError(mapOfferActionError(result.error ?? t("offer.unassignError")));
+        return;
+      }
+
+      setOffers((prev) =>
+        prev.map((offer) =>
+          offer.status === "accepted" || offer.status === "rejected"
+            ? { ...offer, status: "pending" }
+            : offer
+        )
+      );
+      setRequestStatus("open");
+      router.refresh();
+    } catch {
+      setError(t("offer.unassignError"));
+    } finally {
+      setUnassigning(false);
+    }
+  };
+
   const acceptedOffer = offers.find((o) => o.status === "accepted");
+  const hasAcceptedOffer = Boolean(acceptedOffer);
   const activeConversationId =
     acceptedOffer && conversations[acceptedOffer.id]
       ? conversations[acceptedOffer.id]
@@ -311,6 +366,36 @@ export function RequestOffersList({
         <MessageCircle className="h-5 w-5" />
         {t("offer.sectionTitle")} ({offersLoading ? "…" : offers.length})
       </h2>
+
+      {isRequestOwner && requestStatus === "open" && (
+        <p className="mb-4 rounded-xl bg-emerald-50 px-4 py-2 text-sm text-emerald-900">
+          {t("offer.orderOpenHint")}
+        </p>
+      )}
+
+      {isRequestOwner && acceptedOffer && requestStatus === "in_progress" && (
+        <div className="mb-4 space-y-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+          <p className="text-sm font-semibold text-blue-900">
+            {t("offer.providerSelected")}
+          </p>
+          <p className="text-sm text-blue-800">
+            {t("offer.providerAwaitingConfirm")}
+          </p>
+          {canUnassign ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              size="lg"
+              loading={unassigning}
+              onClick={() => void handleUnassign()}
+              data-testid="unassign-provider"
+            >
+              {t("offer.unassignProvider")}
+            </Button>
+          ) : null}
+        </div>
+      )}
 
       {showLifecycleBanner && (
         <div className="mb-4 rounded-2xl border border-green-200 bg-green-50 p-4">
@@ -407,6 +492,7 @@ export function RequestOffersList({
               offer={offer}
               requestId={requestId}
               requestStatus={requestStatus}
+              hasAcceptedOffer={hasAcceptedOffer}
               showActions={canDecideOnOffer({
                 customerId,
                 userId: user?.id ?? viewerUserId,
