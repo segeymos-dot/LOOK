@@ -30,6 +30,7 @@
     "test:payment-security": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-payment-security.ts",
     "test:prod-safe-payments": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-prod-safe-payments.ts",
     "test:offer-marketplace": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-offer-marketplace.ts",
+    "test:provider-offer-exit": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-provider-offer-exit.ts",
     "test:deploy-gate": "node scripts/test-deploy-gate.mjs",
     "test:stripe-webhook-security": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-stripe-webhook-security.ts",
     "test:payment-local-integration": "tsx --tsconfig tsconfig.json scripts/test-payment-local-integration.ts",

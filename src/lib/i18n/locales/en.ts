@@ -623,6 +623,22 @@ export const en: TranslationDict = {
       "This order is open. Providers can keep sending competing offers until you select one.",
     openChat: "Open chat",
     notSelected: "Not selected",
+    withdrawOffer: "Withdraw offer",
+    withdrawConfirmTitle: "Withdraw this offer?",
+    withdrawConfirmBody:
+      "Your offer will be withdrawn. The order stays open for other providers.",
+    withdrawError: "Could not withdraw offer",
+    declineSelectedJob: "Decline selected job",
+    declineConfirmTitle: "Decline this job?",
+    declineConfirmBody:
+      "Are you sure you want to decline?\nThe order will become available to other providers again.",
+    declineHint: "You can decline before payment and before work starts.",
+    declineError: "Could not decline this job",
+    youAreSelected: "You were selected for this order",
+    cannotSimpleDecline: "This job can no longer be declined here",
+    useDisputeOrCancel:
+      "Payment or work has already started. Use dispute / cancellation flow instead of a simple decline.",
+    openDisputeOrCancel: "Open order actions",
     reject: "Reject",
     myOffers: "My offers",
     myOffersSub: "Your responses to orders",

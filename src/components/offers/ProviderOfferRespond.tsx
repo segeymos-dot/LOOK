@@ -1,20 +1,27 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { useTranslation } from "@/components/providers/LocaleProvider";
 import { useAuth } from "@/hooks/useAuth";
-import { getAuthenticatedUser } from "@/lib/auth/client-fetch";
+import { authFetch, getAuthenticatedUser } from "@/lib/auth/client-fetch";
 import { canSubmitApplication } from "@/lib/auth/roles";
 import { isRequestOwner as checkRequestOwner } from "@/lib/auth/viewer-role";
 import { submitOffer } from "@/lib/data/submit-offer";
 import { isDemoMode } from "@/lib/config";
 import { createOfferSchema } from "@/lib/i18n/client-messages";
+import { mapOfferActionError } from "@/lib/offers/offer-action-errors";
 import { mockCurrentUser } from "@/lib/mock/data";
 import { createClient } from "@/lib/supabase/client";
-import type { Offer, RequestStatus } from "@/types";
+import type {
+  Offer,
+  OrderPaymentStatus,
+  RefundDisputeStatus,
+  RequestStatus,
+} from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
@@ -30,7 +37,26 @@ interface ProviderOfferRespondProps {
   viewerIsCustomer?: boolean;
   viewerCanActAsProvider?: boolean;
   isDemo?: boolean;
+  orderPaymentStatus?: OrderPaymentStatus | null;
+  refundDisputeStatus?: RefundDisputeStatus | null;
+  workSubmittedAt?: string | null;
   onOfferSubmitted: (offer: Offer) => void;
+  onOffersChange?: (offers: Offer[]) => void;
+}
+
+function isSimpleExitAllowed(options: {
+  orderPaymentStatus?: OrderPaymentStatus | null;
+  refundDisputeStatus?: RefundDisputeStatus | null;
+  workSubmittedAt?: string | null;
+}): boolean {
+  const pay = options.orderPaymentStatus ?? "unpaid";
+  if (pay !== "unpaid" && pay !== "payment_pending" && pay !== "failed") {
+    return false;
+  }
+  if (options.workSubmittedAt) return false;
+  const dispute = options.refundDisputeStatus ?? "none";
+  if (dispute !== "none") return false;
+  return true;
 }
 
 export function ProviderOfferRespond({
@@ -43,7 +69,11 @@ export function ProviderOfferRespond({
   viewerIsCustomer,
   viewerCanActAsProvider = false,
   isDemo = false,
+  orderPaymentStatus = null,
+  refundDisputeStatus = null,
+  workSubmittedAt = null,
   onOfferSubmitted,
+  onOffersChange,
 }: ProviderOfferRespondProps) {
   const router = useRouter();
   const {
@@ -57,7 +87,12 @@ export function ProviderOfferRespond({
   const offerSchema = useMemo(() => createOfferSchema(t), [t]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [exitLoading, setExitLoading] = useState(false);
+  const [confirmKind, setConfirmKind] = useState<"withdraw" | "decline" | null>(
+    null
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [exitError, setExitError] = useState<string | null>(null);
   const [form, setForm] = useState({ price: "", message: "" });
 
   const activeUserId = user?.id ?? viewerUserId;
@@ -72,7 +107,6 @@ export function ProviderOfferRespond({
     demoUserId: mockCurrentUser.id,
   });
 
-  // Platform admin never bids — even if profiles.role is both.
   const canRespond = canSubmitApplication({
     authenticated: Boolean(activeUserId),
     isPlatformAdmin,
@@ -85,14 +119,31 @@ export function ProviderOfferRespond({
     ownOfferStatus: ownOffer?.status ?? null,
   });
 
-  const hasActiveOffer =
-    ownOffer?.status === "pending" || ownOffer?.status === "accepted";
+  const canWithdraw =
+    !isPlatformAdmin &&
+    !isRequestOwner &&
+    requestStatus === "open" &&
+    ownOffer?.status === "pending";
 
-  if (isPlatformAdmin || isRequestOwner || requestStatus !== "open") {
-    return null;
-  }
+  const canDeclineSelected =
+    !isPlatformAdmin &&
+    !isRequestOwner &&
+    requestStatus === "in_progress" &&
+    ownOffer?.status === "accepted" &&
+    isSimpleExitAllowed({
+      orderPaymentStatus,
+      refundDisputeStatus,
+      workSubmittedAt,
+    });
 
-  if (!canRespond && !hasActiveOffer) {
+  const showPaidBlock =
+    !isPlatformAdmin &&
+    !isRequestOwner &&
+    ownOffer?.status === "accepted" &&
+    requestStatus === "in_progress" &&
+    !canDeclineSelected;
+
+  if (isPlatformAdmin || isRequestOwner) {
     return null;
   }
 
@@ -105,6 +156,7 @@ export function ProviderOfferRespond({
   }
 
   if (!activeUserId) {
+    if (requestStatus !== "open") return null;
     return (
       <Card padding="md" className="border-brand-200 bg-brand-50">
         <p className="mb-3 text-sm text-text-secondary">{t("offer.loginToRespond")}</p>
@@ -117,15 +169,165 @@ export function ProviderOfferRespond({
     );
   }
 
-  if (hasActiveOffer) {
+  const applyLocalOfferStatus = (status: Offer["status"]) => {
+    if (!ownOffer) return;
+    const next = offers.map((o) =>
+      o.id === ownOffer.id ? { ...o, status } : o
+    );
+    onOffersChange?.(next);
+  };
+
+  const handleWithdraw = async () => {
+    if (!ownOffer || exitLoading) return;
+    setExitError(null);
+    setExitLoading(true);
+    try {
+      if (isDemoMode() || isDemo) {
+        applyLocalOfferStatus("withdrawn");
+        setConfirmKind(null);
+        router.refresh();
+        return;
+      }
+      const res = await authFetch(`/api/offers/${ownOffer.id}/withdraw`, {
+        method: "POST",
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        setExitError(mapOfferActionError(body.error ?? t("offer.withdrawError")));
+        return;
+      }
+      applyLocalOfferStatus("withdrawn");
+      setConfirmKind(null);
+      router.refresh();
+    } catch {
+      setExitError(t("offer.withdrawError"));
+    } finally {
+      setExitLoading(false);
+    }
+  };
+
+  const handleDecline = async () => {
+    if (exitLoading) return;
+    setExitError(null);
+    setExitLoading(true);
+    try {
+      if (isDemoMode() || isDemo) {
+        applyLocalOfferStatus("withdrawn");
+        setConfirmKind(null);
+        router.refresh();
+        return;
+      }
+      const res = await authFetch(
+        `/api/requests/${requestId}/decline-selected-job`,
+        { method: "POST" }
+      );
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        setExitError(mapOfferActionError(body.error ?? t("offer.declineError")));
+        return;
+      }
+      applyLocalOfferStatus("withdrawn");
+      setConfirmKind(null);
+      router.refresh();
+    } catch {
+      setExitError(t("offer.declineError"));
+    } finally {
+      setExitLoading(false);
+    }
+  };
+
+  if (canWithdraw) {
     return (
-      <Card padding="md" className="border-brand-200 bg-brand-50">
-        <p className="text-sm font-medium text-brand-800">{t("offer.alreadyResponded")}</p>
-        {ownOffer?.status === "pending" && (
-          <p className="mt-1 text-sm text-text-secondary">{t("status.pending")}</p>
-        )}
+      <>
+        <Card padding="md" className="border-brand-200 bg-brand-50 space-y-3">
+          <p className="text-sm font-medium text-brand-800">
+            {t("offer.alreadyResponded")}
+          </p>
+          <p className="text-sm text-text-secondary">{t("status.pending")}</p>
+          {exitError ? (
+            <p className="text-sm text-danger">{exitError}</p>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            size="lg"
+            onClick={() => setConfirmKind("withdraw")}
+            data-testid="withdraw-offer"
+          >
+            {t("offer.withdrawOffer")}
+          </Button>
+        </Card>
+        <ConfirmDialog
+          open={confirmKind === "withdraw"}
+          title={t("offer.withdrawConfirmTitle")}
+          body={t("offer.withdrawConfirmBody")}
+          confirmLabel={t("offer.withdrawOffer")}
+          danger
+          loading={exitLoading}
+          onCancel={() => setConfirmKind(null)}
+          onConfirm={() => void handleWithdraw()}
+        />
+      </>
+    );
+  }
+
+  if (canDeclineSelected) {
+    return (
+      <>
+        <Card padding="md" className="border-amber-200 bg-amber-50 space-y-3">
+          <p className="text-sm font-semibold text-amber-950">
+            {t("offer.youAreSelected")}
+          </p>
+          <p className="text-sm text-amber-900">{t("offer.declineHint")}</p>
+          {exitError ? (
+            <p className="text-sm text-danger">{exitError}</p>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            size="lg"
+            onClick={() => setConfirmKind("decline")}
+            data-testid="decline-selected-job"
+          >
+            {t("offer.declineSelectedJob")}
+          </Button>
+        </Card>
+        <ConfirmDialog
+          open={confirmKind === "decline"}
+          title={t("offer.declineConfirmTitle")}
+          body={t("offer.declineConfirmBody")}
+          confirmLabel={t("offer.declineSelectedJob")}
+          danger
+          loading={exitLoading}
+          onCancel={() => setConfirmKind(null)}
+          onConfirm={() => void handleDecline()}
+        />
+      </>
+    );
+  }
+
+  if (showPaidBlock) {
+    return (
+      <Card padding="md" className="border-slate-200 bg-slate-50 space-y-2">
+        <p className="text-sm font-medium text-text-primary">
+          {t("offer.cannotSimpleDecline")}
+        </p>
+        <p className="text-sm text-text-secondary">
+          {t("offer.useDisputeOrCancel")}
+        </p>
+        <Link href={`/requests/${requestId}`}>
+          <Button variant="secondary" size="sm" className="mt-1">
+            {t("offer.openDisputeOrCancel")}
+          </Button>
+        </Link>
       </Card>
     );
+  }
+
+  if (requestStatus !== "open") {
+    return null;
   }
 
   if (!canRespond) {

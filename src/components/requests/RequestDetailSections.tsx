@@ -159,7 +159,11 @@ export function RequestDetailSections({
         viewerIsCustomer={viewerIsCustomer}
         viewerCanActAsProvider={viewerCanActAsProvider}
         isDemo={isDemo}
+        orderPaymentStatus={orderPaymentStatus}
+        refundDisputeStatus={refundDisputeStatus}
+        workSubmittedAt={workSubmittedAt}
         onOfferSubmitted={handleOfferSubmitted}
+        onOffersChange={setOffers}
       />
       <RequestOffersList
         requestId={requestId}
