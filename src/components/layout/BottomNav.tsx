@@ -51,6 +51,7 @@ export function BottomNav({ activePath }: BottomNavProps) {
               <Link
                 key={href}
                 href={href}
+                prefetch
                 className={cn(
                   "relative flex flex-1 flex-col items-center gap-0.5 rounded-xl px-2 py-2 text-[10px] font-semibold transition-all",
                   isActive

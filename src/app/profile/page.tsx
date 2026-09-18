@@ -131,7 +131,8 @@ export default function ProfilePage() {
       } catch {
         // ignore — guest UI only after grace
       }
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      // Short grace for cookie sync — keep guest path responsive on mobile.
+      await new Promise((resolve) => setTimeout(resolve, 120));
       if (!cancelled) setAuthSettled(true);
     })();
 
@@ -738,7 +739,7 @@ export default function ProfilePage() {
                   </Link>
                 </>
               )}
-              <Link href="/profile/payments">
+              <Link href="/profile/payments" prefetch>
                 <Button variant="secondary" className="w-full gap-2">
                   <CreditCard className="h-5 w-5" />
                   {t("profile.paymentsPayouts")}

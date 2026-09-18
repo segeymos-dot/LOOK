@@ -21,7 +21,7 @@ export function RequestCard({ request }: RequestCardProps) {
   const localized = localizeRequest(request, locale);
 
   return (
-    <Link href={`/requests/${request.id}`} className="group block">
+    <Link href={`/requests/${request.id}`} prefetch className="group block">
       <Card className="transition-all duration-200 group-hover:border-brand-200 group-hover:shadow-elevated">
         <div className="mb-3 flex items-start justify-between gap-3">
           <h3 className="line-clamp-2 flex-1 text-base font-bold tracking-tight text-text-primary group-hover:text-brand-700">

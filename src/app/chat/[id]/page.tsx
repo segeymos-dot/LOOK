@@ -102,7 +102,8 @@ export default function ChatDetailPage() {
         setRequestTitle(data.request?.title ?? "");
         const reqId = data.request?.id ?? data.request_id;
         setRequestId(reqId);
-        if (reqId) await refreshLifecycle(reqId);
+        // Lifecycle panel is noncritical for chat shell — fetch after header paints.
+        if (reqId) void refreshLifecycle(reqId);
       }
     };
 

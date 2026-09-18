@@ -17,9 +17,10 @@ export async function getReviewsForProvider(providerId: string): Promise<Review[
 }
 
 export async function getReviewForRequest(
-  requestId: string
+  requestId: string,
+  supabaseClient?: Awaited<ReturnType<typeof createClient>>
 ): Promise<Pick<Review, "id" | "rating" | "comment" | "reviewer_id" | "request_id"> | null> {
-  const supabase = await createClient();
+  const supabase = supabaseClient ?? (await createClient());
 
   const { data, error } = await supabase
     .from("reviews")

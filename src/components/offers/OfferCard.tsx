@@ -10,6 +10,8 @@ import { localizeOffer } from "@/lib/i18n/localize-data";
 import { formatPrice } from "@/lib/utils";
 import type { Offer, RequestStatus } from "@/types";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { MessageSquare } from "lucide-react";
 
 interface OfferCardProps {
@@ -38,6 +40,7 @@ export function OfferCard({
   onAccept,
   onReject,
 }: OfferCardProps) {
+  const router = useRouter();
   const { t, locale } = useTranslation();
   const localized = localizeOffer(offer, locale);
   const href = `/requests/${requestId ?? offer.request_id}/offers/${offer.id}`;
@@ -46,6 +49,12 @@ export function OfferCard({
     offer.status === "rejected" && hasAcceptedOffer
       ? t("offer.notSelected")
       : undefined;
+
+  useEffect(() => {
+    if (conversationId) {
+      router.prefetch(`/chat/${conversationId}`);
+    }
+  }, [conversationId, router]);
 
   return (
     <Card className="overflow-hidden" data-testid={`offer-card-${offer.id}`}>

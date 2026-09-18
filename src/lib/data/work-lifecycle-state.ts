@@ -119,13 +119,6 @@ export async function getWorkLifecycleState(
 
   if (!request) return null;
 
-  const { data: acceptedOffer } = await supabase
-    .from("offers")
-    .select("provider_id")
-    .eq("request_id", requestId)
-    .eq("status", "accepted")
-    .maybeSingle();
-
   const dbStatus = request.status as RequestStatus;
 
   if (dbStatus === "pending_review") {
@@ -138,11 +131,19 @@ export async function getWorkLifecycleState(
     };
   }
 
-  const { data: conversation } = await supabase
-    .from("conversations")
-    .select("id")
-    .eq("request_id", requestId)
-    .maybeSingle();
+  const [{ data: acceptedOffer }, { data: conversation }] = await Promise.all([
+    supabase
+      .from("offers")
+      .select("provider_id")
+      .eq("request_id", requestId)
+      .eq("status", "accepted")
+      .maybeSingle(),
+    supabase
+      .from("conversations")
+      .select("id")
+      .eq("request_id", requestId)
+      .maybeSingle(),
+  ]);
 
   if (!conversation?.id) {
     return {

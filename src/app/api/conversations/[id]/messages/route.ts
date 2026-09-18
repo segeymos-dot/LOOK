@@ -37,7 +37,8 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  await markConversationMessagesRead(supabase, id, user.id);
+  // Do not block first paint of the thread on unread bookkeeping.
+  void markConversationMessagesRead(supabase, id, user.id);
 
   return NextResponse.json({ messages: data ?? [] });
 }

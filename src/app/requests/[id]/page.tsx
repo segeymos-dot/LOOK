@@ -117,29 +117,40 @@ export default async function RequestDetailPage({ params }: PageProps) {
       !viewerIsPlatformAdmin && canActAsProvider(viewerProfile?.role);
   }
 
-  const { offers, conversations } = await getRequestOffersForPage(id);
-  const lifecycle = await getWorkLifecycleState(supabase, id);
+  // Independent reads in parallel — same data, lower TTFB on mobile/VPN.
+  const [
+    { offers, conversations },
+    lifecycle,
+    dispute,
+    review,
+    workSubmissionRes,
+    paymentRes,
+  ] = await Promise.all([
+    getRequestOffersForPage(id, { supabase, userId: user?.id ?? null }),
+    getWorkLifecycleState(supabase, id),
+    getOrderDisputeForRequest(supabase, id),
+    getReviewForRequest(id, supabase),
+    supabase
+      .from("work_submissions")
+      .select("id", { count: "exact", head: true })
+      .eq("request_id", id),
+    supabase
+      .from("payments")
+      .select("amount_gross, status")
+      .eq("request_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
   const effectiveStatus = lifecycle?.effectiveStatus ?? request.status;
   const revisionFeedback = lifecycle?.revisionFeedback ?? null;
-  const dispute = await getOrderDisputeForRequest(supabase, id);
-  const review = await getReviewForRequest(id);
   const initialReview =
     review && user && review.reviewer_id === user.id
       ? { rating: review.rating, comment: review.comment }
       : null;
-
-  const { count: workSubmissionCount } = await supabase
-    .from("work_submissions")
-    .select("id", { count: "exact", head: true })
-    .eq("request_id", id);
-
-  const { data: paymentRow } = await supabase
-    .from("payments")
-    .select("amount_gross, status")
-    .eq("request_id", id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const workSubmissionCount = workSubmissionRes.count;
+  const paymentRow = paymentRes.data;
 
   const localizedRequest = localizeRequest(
     { ...request, status: effectiveStatus, offers_count: offers.length },
