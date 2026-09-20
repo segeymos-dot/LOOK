@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAppOrigin } from "@/lib/app-url";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isMissingColumnError } from "@/lib/payments/load-order-for-checkout";
 import { beginTestOrderPayment } from "@/lib/payments/order-payment";
 import {
   fromStripeAmount,
@@ -46,17 +47,31 @@ async function persistCheckoutSessionIds(input: {
   const admin = createAdminClient();
   if (!admin) return;
 
-  await admin
+  const withStripeCols = {
+    payment_provider_name: stripeProviderName(),
+    payment_transaction_id: input.paymentIntentId ?? input.sessionId,
+    stripe_checkout_session_id: input.sessionId,
+    stripe_payment_intent_id: input.paymentIntentId,
+    stripe_checkout_attempt: input.checkoutAttempt,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await admin
     .from("requests")
-    .update({
-      payment_provider_name: stripeProviderName(),
-      payment_transaction_id: input.paymentIntentId ?? input.sessionId,
-      stripe_checkout_session_id: input.sessionId,
-      stripe_payment_intent_id: input.paymentIntentId,
-      stripe_checkout_attempt: input.checkoutAttempt,
-      updated_at: new Date().toISOString(),
-    })
+    .update(withStripeCols)
     .eq("id", input.requestId);
+
+  // Production never received 028 — persist on canonical 022 columns only.
+  if (error && isMissingColumnError(error)) {
+    await admin
+      .from("requests")
+      .update({
+        payment_provider_name: stripeProviderName(),
+        payment_transaction_id: input.paymentIntentId ?? input.sessionId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", input.requestId);
+  }
 }
 
 /**

@@ -29,6 +29,7 @@
     "test:stripe-config": "node scripts/verify-stripe-config.mjs",
     "test:payment-security": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-payment-security.ts",
     "test:prod-safe-payments": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-prod-safe-payments.ts",
+    "test:payment-checkout-lookup": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-payment-checkout-lookup.ts",
     "test:offer-marketplace": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-offer-marketplace.ts",
     "test:provider-offer-exit": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/test-provider-offer-exit.ts",
     "test:deploy-gate": "node scripts/test-deploy-gate.mjs",

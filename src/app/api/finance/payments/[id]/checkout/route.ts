@@ -3,6 +3,7 @@ import { setMockOrderPaymentPending } from "@/lib/mock/order-payments";
 import { isDemoMode } from "@/lib/config";
 import { getFinanceApiUser } from "@/lib/api/finance-auth";
 import { getAppOrigin } from "@/lib/app-url";
+import { loadOrderForCheckout } from "@/lib/payments/load-order-for-checkout";
 import { isStripeConfigured, missingStripeEnvVars } from "@/lib/payments/stripe";
 import { createOrderCheckoutSession } from "@/lib/payments/stripe-order-payment";
 import { areTestPaymentsEnabled } from "@/lib/payments/test-payments-guard";
@@ -35,17 +36,17 @@ export async function POST(
   const auth = await getFinanceApiUser(request);
   if ("error" in auth) return auth.error;
 
-  const { data: order, error: orderError } = await auth.supabase
-    .from("requests")
-    .select(
-      "id, title, customer_id, status, currency, order_amount, order_payment_status, stripe_checkout_session_id, stripe_checkout_attempt, is_test"
-    )
-    .eq("id", requestId)
-    .maybeSingle();
-
-  if (orderError || !order) {
+  const loaded = await loadOrderForCheckout(auth.supabase, requestId);
+  if (!loaded.ok) {
+    if (loaded.kind === "schema") {
+      return NextResponse.json(
+        { success: false, error: "Order payment schema is unavailable" },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ success: false, error: "Request not found" }, { status: 404 });
   }
+  const order = loaded.order;
 
   if (order.customer_id !== auth.user.id) {
     return NextResponse.json({ success: false, error: "Not authorized" }, { status: 403 });

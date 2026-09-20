@@ -11,6 +11,7 @@ import {
   executeProdSafeTestPayment,
   getOrderPaymentSnapshot,
 } from "@/lib/payments/order-payment";
+import { isMissingColumnError } from "@/lib/payments/load-order-for-checkout";
 import { authorizeTestOrderPayment } from "@/lib/payments/test-payment-authorization";
 import {
   areTestPaymentsEnabled,
@@ -112,6 +113,12 @@ export async function POST(
     .maybeSingle();
 
   if (orderError || !order) {
+    if (isMissingColumnError(orderError)) {
+      return NextResponse.json(
+        { success: false, error: "Order payment schema is unavailable" },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ success: false, error: "Request not found" }, { status: 404 });
   }
 
