@@ -9,6 +9,8 @@ import { useCallback, useEffect, useState } from "react";
 type OrderPaymentApiResponse = {
   payment?: Payment | null;
   order_payment_status?: OrderPaymentStatus;
+  is_test?: boolean;
+  live_checkout_available?: boolean;
 };
 
 type CheckoutApiResponse = {
@@ -26,12 +28,16 @@ type CheckoutApiResponse = {
 export function useOrderPayment(requestId: string, enabled = true) {
   const [payment, setPayment] = useState<Payment | null>(null);
   const [orderPaymentStatus, setOrderPaymentStatus] = useState<OrderPaymentStatus>("unpaid");
+  const [isTestOrder, setIsTestOrder] = useState(false);
+  const [liveCheckoutAvailable, setLiveCheckoutAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     if (!enabled) {
       setPayment(null);
       setOrderPaymentStatus("unpaid");
+      setIsTestOrder(false);
+      setLiveCheckoutAvailable(false);
       setLoading(false);
       return;
     }
@@ -45,6 +51,8 @@ export function useOrderPayment(requestId: string, enabled = true) {
       }
       const data = (await res.json()) as OrderPaymentApiResponse;
       setPayment(data.payment ?? null);
+      setIsTestOrder(Boolean(data.is_test));
+      setLiveCheckoutAvailable(Boolean(data.live_checkout_available));
       if (data.order_payment_status) {
         setOrderPaymentStatus(data.order_payment_status);
       } else if (data.payment?.status === "paid") {
@@ -190,6 +198,8 @@ export function useOrderPayment(requestId: string, enabled = true) {
   return {
     payment,
     orderPaymentStatus,
+    isTestOrder,
+    liveCheckoutAvailable,
     loading,
     refresh,
     beginPayment,

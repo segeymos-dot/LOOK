@@ -36,6 +36,8 @@ type LifecycleInfo = {
   refundDisputeStatus?: RefundDisputeStatus;
   dispute?: OrderDispute | null;
   disputeFallbackReason?: string | null;
+  isTest?: boolean;
+  liveCheckoutAvailable?: boolean;
 };
 
 export default function ChatDetailPage() {
@@ -190,6 +192,8 @@ export default function ChatDetailPage() {
               disputeFallbackReason={lifecycle.disputeFallbackReason ?? null}
               viewerUserId={user?.id ?? null}
               viewerIsCustomer={user?.id === lifecycle.customerId}
+              isTestOrder={Boolean(lifecycle.isTest)}
+              liveCheckoutAvailable={Boolean(lifecycle.liveCheckoutAvailable)}
               onSuccess={handleLifecycleChange}
             />
           </div>

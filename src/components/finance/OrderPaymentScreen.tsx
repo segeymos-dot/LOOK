@@ -14,6 +14,7 @@ import {
   formatCommissionPercent,
   getPlatformCommissionRate,
 } from "@/lib/config/finance";
+import { getPaymentUiState } from "@/lib/payments/payment-ui-state";
 import { formatPrice } from "@/lib/utils";
 import type { OrderPaymentStatus } from "@/types";
 import { CreditCard, ShieldCheck } from "lucide-react";
@@ -48,7 +49,7 @@ export function OrderPaymentScreen({
   allowTestPayments = false,
   isTestOrder = false,
   canMarkAsTest = false,
-  liveCheckoutAvailable = true,
+  liveCheckoutAvailable = false,
 }: OrderPaymentScreenProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -61,9 +62,6 @@ export function OrderPaymentScreen({
   const [confirming, setConfirming] = useState(false);
   const [showTestFallback, setShowTestFallback] = useState(false);
   const [showPayUnavailable, setShowPayUnavailable] = useState(false);
-  const [livePayUnavailable, setLivePayUnavailable] = useState(
-    !isTestOrder && !liveCheckoutAvailable
-  );
   const [localOrderPaymentStatus, setLocalOrderPaymentStatus] =
     useState<OrderPaymentStatus>(initialOrderPaymentStatus);
   const confirmAttempted = useRef(false);
@@ -88,6 +86,12 @@ export function OrderPaymentScreen({
   const paid =
     isPaid || orderPaymentStatus === "paid" || orderPaymentStatus === "completed";
   const completed = isCompleted || orderPaymentStatus === "completed";
+  const uiState = getPaymentUiState({
+    isTest: isTestOrder,
+    stripeConfigured: liveCheckoutAvailable,
+    paymentStatus: completed ? "completed" : paid ? "paid" : orderPaymentStatus,
+  });
+  const livePayUnavailable = uiState === "unavailable";
 
   useEffect(() => {
     const success = searchParams.get("success");
@@ -157,8 +161,7 @@ export function OrderPaymentScreen({
       return;
     }
 
-    if (livePayUnavailable || !liveCheckoutAvailable) {
-      setLivePayUnavailable(true);
+    if (livePayUnavailable) {
       setShowPayUnavailable(true);
       return;
     }
@@ -172,7 +175,6 @@ export function OrderPaymentScreen({
       }
 
       if (checkout.stripeNotConfigured) {
-        setLivePayUnavailable(true);
         if (allowTestPayments && checkout.useTestFallback) {
           setShowTestFallback(true);
         } else {
@@ -349,7 +351,7 @@ export function OrderPaymentScreen({
               <p className="mb-3 rounded-xl bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>
             ) : null}
 
-            {!isTestOrder && livePayUnavailable ? (
+            {uiState === "unavailable" ? (
               <div
                 className="mb-4 rounded-xl border border-border-subtle bg-surface-muted px-4 py-3"
                 role="status"
@@ -364,7 +366,7 @@ export function OrderPaymentScreen({
               </div>
             ) : null}
 
-            {isTestOrder ? (
+            {uiState === "test" ? (
               <div className="space-y-2">
                 <Button
                   variant="secondary"
@@ -407,7 +409,7 @@ export function OrderPaymentScreen({
                   className="w-full gap-2"
                   size="lg"
                   loading={paying}
-                  disabled={testPaying || markingTest || livePayUnavailable}
+                  disabled={testPaying || markingTest || uiState === "unavailable"}
                   onClick={() => void handlePayClick()}
                   data-testid="pay-now"
                 >

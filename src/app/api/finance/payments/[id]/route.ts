@@ -21,6 +21,7 @@ import {
   testPaymentsActorDeniedJson,
   testPaymentsDisabledJson,
 } from "@/lib/payments/test-payments-guard";
+import { isStripeConfigured } from "@/lib/payments/stripe";
 import { getFinanceApiUser } from "@/lib/api/finance-auth";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
@@ -236,6 +237,8 @@ export async function GET(
       success: true,
       payment,
       order_payment_status: mockOrder?.order_payment_status ?? (payment ? "paid" : "unpaid"),
+      is_test: true,
+      live_checkout_available: false,
       test_payments_enabled: areTestPaymentsEnabled(),
       prod_safe_test_payments_enabled: false,
     });
@@ -254,6 +257,7 @@ export async function GET(
     payment,
     order_payment_status: snapshot?.orderPaymentStatus ?? (payment ? "paid" : "unpaid"),
     is_test: snapshot?.isTest ?? false,
+    live_checkout_available: isStripeConfigured(),
     test_payments_enabled: areTestPaymentsEnabled(),
     prod_safe_test_payments_enabled: Boolean(
       process.env.ENABLE_PROD_TEST_PAYMENTS?.trim() === "true"

@@ -1,5 +1,6 @@
 import { getWorkLifecycleState } from "@/lib/data/work-lifecycle-state";
 import { getOrderDisputeForRequest } from "@/lib/data/order-disputes";
+import { isStripeConfigured } from "@/lib/payments/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -22,7 +23,7 @@ export async function GET(
     supabase
       .from("requests")
       .select(
-        "id, customer_id, status, currency, order_payment_status, refund_dispute_status, refund_reason, cancellation_reason"
+        "id, customer_id, status, currency, order_payment_status, refund_dispute_status, refund_reason, cancellation_reason, is_test"
       )
       .eq("id", requestId)
       .maybeSingle(),
@@ -30,7 +31,19 @@ export async function GET(
     getOrderDisputeForRequest(supabase, requestId),
   ]);
 
-  if (!request) {
+  let requestRow = request;
+  if (!requestRow) {
+    const fallback = await supabase
+      .from("requests")
+      .select(
+        "id, customer_id, status, currency, order_payment_status, refund_dispute_status, refund_reason, cancellation_reason"
+      )
+      .eq("id", requestId)
+      .maybeSingle();
+    requestRow = fallback.data as typeof request;
+  }
+
+  if (!requestRow) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -42,7 +55,7 @@ export async function GET(
     .maybeSingle();
 
   const isParty =
-    user.id === request.customer_id || user.id === acceptedOffer?.provider_id;
+    user.id === requestRow.customer_id || user.id === acceptedOffer?.provider_id;
 
   if (!isParty) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -50,16 +63,19 @@ export async function GET(
 
   return NextResponse.json({
     requestId,
-    customerId: request.customer_id,
-    dbStatus: request.status,
-    effectiveStatus: lifecycle?.effectiveStatus ?? request.status,
+    customerId: requestRow.customer_id,
+    dbStatus: requestRow.status,
+    effectiveStatus: lifecycle?.effectiveStatus ?? requestRow.status,
     revisionFeedback: lifecycle?.revisionFeedback ?? null,
     acceptedProviderId: acceptedOffer?.provider_id ?? null,
     grossAmount: Number(acceptedOffer?.price ?? 0),
-    currency: acceptedOffer?.currency ?? request.currency,
-    orderPaymentStatus: request.order_payment_status ?? "unpaid",
-    refundDisputeStatus: request.refund_dispute_status ?? "none",
+    currency: acceptedOffer?.currency ?? requestRow.currency,
+    orderPaymentStatus: requestRow.order_payment_status ?? "unpaid",
+    refundDisputeStatus: requestRow.refund_dispute_status ?? "none",
+    isTest: Boolean((requestRow as { is_test?: boolean }).is_test),
+    liveCheckoutAvailable: isStripeConfigured(),
     dispute,
-    disputeFallbackReason: request.refund_reason ?? request.cancellation_reason ?? null,
+    disputeFallbackReason:
+      requestRow.refund_reason ?? requestRow.cancellation_reason ?? null,
   });
 }

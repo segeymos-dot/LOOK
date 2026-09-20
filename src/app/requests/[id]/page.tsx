@@ -11,6 +11,7 @@ import { localizeOffers, localizeRequest } from "@/lib/i18n/localize-data";
 import { RequestDetailSections } from "@/components/requests/RequestDetailSections";
 import { canActAsProvider } from "@/lib/auth/roles";
 import { isDemoMode } from "@/lib/config";
+import { isStripeConfigured } from "@/lib/payments/stripe";
 import {
   getMockConversationForOffer,
   getMockOffers,
@@ -84,6 +85,8 @@ export default async function RequestDetailPage({ params }: PageProps) {
             viewerCanActAsProvider={mockCurrentUser.role !== "customer"}
             isDemo
             initialReview={initialReview}
+            isTestOrder
+            liveCheckoutAvailable={false}
           />
         </div>
       </AppLayout>
@@ -193,6 +196,8 @@ export default async function RequestDetailPage({ params }: PageProps) {
           disputeFallbackReason={
             request.refund_reason ?? request.cancellation_reason ?? null
           }
+          isTestOrder={Boolean((request as { is_test?: boolean }).is_test)}
+          liveCheckoutAvailable={isStripeConfigured()}
         />
       </div>
     </AppLayout>

@@ -39,6 +39,8 @@ export type RequestDetailSectionsProps = {
   revisionFeedback?: string | null;
   initialDispute?: OrderDispute | null;
   disputeFallbackReason?: string | null;
+  isTestOrder?: boolean;
+  liveCheckoutAvailable?: boolean;
 };
 
 export function RequestDetailSections({
@@ -61,6 +63,8 @@ export function RequestDetailSections({
   paidAmount = null,
   initialDispute = null,
   disputeFallbackReason = null,
+  isTestOrder = false,
+  liveCheckoutAvailable = false,
 }: RequestDetailSectionsProps) {
   const [offers, setOffers] = useState(initialOffers);
   const acceptedOffer = offers.find((o) => o.status === "accepted");
@@ -122,6 +126,8 @@ export function RequestDetailSections({
           viewerIsCustomer={viewerIsCustomer}
           isDemo={isDemo}
           refundDisputeStatus={refundDisputeStatus}
+          isTestOrder={isTestOrder}
+          liveCheckoutAvailable={liveCheckoutAvailable}
         />
       )}
       {acceptedOffer && (

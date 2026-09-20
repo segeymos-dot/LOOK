@@ -29,6 +29,8 @@ interface OrderWorkLifecyclePanelProps {
   isDemo?: boolean;
   className?: string;
   onSuccess?: () => void;
+  isTestOrder?: boolean;
+  liveCheckoutAvailable?: boolean;
 }
 
 export function OrderWorkLifecyclePanel({
@@ -48,6 +50,8 @@ export function OrderWorkLifecyclePanel({
   isDemo = false,
   className,
   onSuccess,
+  isTestOrder,
+  liveCheckoutAvailable,
 }: OrderWorkLifecyclePanelProps) {
   const showDispute =
     refundDisputeStatus === "dispute_opened" ||
@@ -94,6 +98,8 @@ export function OrderWorkLifecyclePanel({
           isDemo={isDemo}
           refundDisputeStatus={refundDisputeStatus}
           onPaid={onSuccess}
+          isTestOrder={isTestOrder}
+          liveCheckoutAvailable={liveCheckoutAvailable}
         />
       )}
       {showProvider && acceptedProviderId && (

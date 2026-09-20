@@ -12,6 +12,7 @@ import {
 } from "@/lib/config/finance";
 import { isRequestOwner as checkRequestOwner } from "@/lib/auth/viewer-role";
 import { mockCurrentUser } from "@/lib/mock/data";
+import { getPaymentUiState } from "@/lib/payments/payment-ui-state";
 import { formatPrice } from "@/lib/utils";
 import { CreditCard, ShieldCheck, Wallet } from "lucide-react";
 import Link from "next/link";
@@ -31,6 +32,10 @@ interface OrderPaymentPanelProps {
   isDemo?: boolean;
   refundDisputeStatus?: RefundDisputeStatus | null;
   onPaid?: () => void;
+  /** Canonical request.is_test. Never infer from Stripe being off. */
+  isTestOrder?: boolean;
+  /** Server: Stripe secret present. Display-only. */
+  liveCheckoutAvailable?: boolean;
 }
 
 export function OrderPaymentPanel({
@@ -45,6 +50,8 @@ export function OrderPaymentPanel({
   isDemo = false,
   refundDisputeStatus = "none",
   onPaid,
+  isTestOrder: isTestOrderProp,
+  liveCheckoutAvailable: liveCheckoutProp,
 }: OrderPaymentPanelProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -67,16 +74,32 @@ export function OrderPaymentPanel({
       requestStatus === "pending_review" ||
       requestStatus === "completed");
 
-  const { payment, loading, isPaid, isCompleted, orderPaymentStatus } =
-    useOrderPayment(requestId, showPanel);
+  const {
+    payment,
+    loading,
+    isPaid,
+    isCompleted,
+    orderPaymentStatus,
+    isTestOrder: fetchedIsTest,
+    liveCheckoutAvailable: fetchedLiveCheckout,
+  } = useOrderPayment(requestId, showPanel);
 
   if (!showPanel) return null;
+
+  const isTestOrder = isTestOrderProp ?? fetchedIsTest;
+  const stripeConfigured = liveCheckoutProp ?? fetchedLiveCheckout;
+  const uiState = getPaymentUiState({
+    isTest: isTestOrder,
+    stripeConfigured,
+    paymentStatus:
+      isCompleted || requestStatus === "completed" ? "completed" : orderPaymentStatus,
+  });
 
   const rate = getPlatformCommissionRate();
   const split = calculatePaymentSplit(grossAmount, rate);
   const paymentPageHref = `/requests/${requestId}/payment`;
 
-  if (isCompleted || (requestStatus === "completed" && isPaid)) {
+  if (uiState === "completed" || (requestStatus === "completed" && isPaid)) {
     return (
       <Card padding="md" className="border-blue-100 bg-blue-50/60 shadow-card">
         <div className="flex items-start gap-3">
@@ -126,7 +149,7 @@ export function OrderPaymentPanel({
     );
   }
 
-  if (isPaid && payment) {
+  if (uiState === "paid" && payment) {
     return (
       <Card padding="md" className="border-emerald-100 bg-emerald-50/60 shadow-card">
         <div className="flex items-start gap-3">
@@ -192,6 +215,63 @@ export function OrderPaymentPanel({
 
   if (!isCustomer || requestStatus !== "in_progress") return null;
 
+  if (uiState === "unavailable") {
+    return (
+      <Card padding="md" className="border-border-subtle bg-surface-muted/60 shadow-card">
+        <div className="mb-3 flex items-center gap-2">
+          <CreditCard className="h-5 w-5 text-text-muted" />
+          <h3 className="font-semibold text-text-primary">{t("finance.payment.title")}</h3>
+        </div>
+        <div
+          className="mb-4 rounded-xl border border-border-subtle bg-surface px-4 py-3"
+          role="status"
+          data-testid="online-pay-unavailable"
+        >
+          <p className="text-sm font-semibold text-text-primary">
+            {t("finance.paymentPage.onlinePayUnavailableTitle")}
+          </p>
+          <p className="mt-1 text-sm text-text-secondary">
+            {t("finance.paymentPage.onlinePayUnavailableBody")}
+          </p>
+        </div>
+        <Button className="w-full gap-2" disabled data-testid="pay-now">
+          <CreditCard className="h-4 w-4" />
+          {t("finance.payment.payOrder", { amount: formatPrice(split.gross, currency) })}
+        </Button>
+      </Card>
+    );
+  }
+
+  if (uiState === "test") {
+    return (
+      <Card padding="md" className="border-amber-200 bg-amber-50/70 shadow-card">
+        <div className="mb-3 flex items-center gap-2">
+          <CreditCard className="h-5 w-5 text-amber-700" />
+          <h3 className="font-semibold text-amber-950">
+            {t("finance.paymentPage.testPaymentTitle")}
+          </h3>
+        </div>
+        <p className="mb-3 text-sm text-amber-900">
+          {t("finance.paymentPage.testPaymentNoMoney")}
+        </p>
+        <p className="mb-4 text-sm text-text-secondary">
+          {t("finance.payment.checkoutTestDesc", { rate: formatCommissionPercent(rate) })}
+        </p>
+        <Link href={paymentPageHref}>
+          <Button
+            className="w-full gap-2 border-2 border-amber-500"
+            variant="secondary"
+            loading={loading}
+            data-testid="complete-test-payment"
+          >
+            <CreditCard className="h-4 w-4" />
+            {t("finance.paymentPage.completeTestPayment")}
+          </Button>
+        </Link>
+      </Card>
+    );
+  }
+
   return (
     <Card padding="md" className="border-brand-100 bg-gradient-to-br from-brand-50/80 to-surface shadow-card">
       <div className="mb-3 flex items-center gap-2">
@@ -225,6 +305,7 @@ export function OrderPaymentPanel({
             onPaid?.();
             router.refresh();
           }}
+          data-testid="pay-now"
         >
           <CreditCard className="h-4 w-4" />
           {t("finance.payment.payOrder", { amount: formatPrice(split.gross, currency) })}
