@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -33,6 +34,8 @@ interface OrderPaymentScreenProps {
   isTestOrder?: boolean;
   /** Allowlisted owner may mark unpaid order as is_test (prod-safe path). */
   canMarkAsTest?: boolean;
+  /** Server: Stripe secret present. Display-only — does not enable simulated pay. */
+  liveCheckoutAvailable?: boolean;
 }
 
 export function OrderPaymentScreen({
@@ -45,6 +48,7 @@ export function OrderPaymentScreen({
   allowTestPayments = false,
   isTestOrder = false,
   canMarkAsTest = false,
+  liveCheckoutAvailable = true,
 }: OrderPaymentScreenProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,8 +59,11 @@ export function OrderPaymentScreen({
   const [testPaying, setTestPaying] = useState(false);
   const [markingTest, setMarkingTest] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  /** After Stripe is unavailable on Preview, reveal explicit Test payment CTA. */
   const [showTestFallback, setShowTestFallback] = useState(false);
+  const [showPayUnavailable, setShowPayUnavailable] = useState(false);
+  const [livePayUnavailable, setLivePayUnavailable] = useState(
+    !isTestOrder && !liveCheckoutAvailable
+  );
   const [localOrderPaymentStatus, setLocalOrderPaymentStatus] =
     useState<OrderPaymentStatus>(initialOrderPaymentStatus);
   const confirmAttempted = useRef(false);
@@ -150,25 +157,44 @@ export function OrderPaymentScreen({
       return;
     }
 
+    if (livePayUnavailable || !liveCheckoutAvailable) {
+      setLivePayUnavailable(true);
+      setShowPayUnavailable(true);
+      return;
+    }
+
     setPaying(true);
     try {
-      // Prefer real Stripe Checkout when configured.
       const checkout = await startStripeCheckout();
       if (checkout.ok) {
         window.location.href = checkout.url;
         return;
       }
 
-      // Preview/Staging: server signals test fallback when Stripe is missing.
-      if (allowTestPayments && checkout.useTestFallback) {
-        setShowTestFallback(true);
-        setError(checkout.error);
+      if (checkout.stripeNotConfigured) {
+        setLivePayUnavailable(true);
+        if (allowTestPayments && checkout.useTestFallback) {
+          setShowTestFallback(true);
+        } else {
+          setShowPayUnavailable(true);
+        }
         return;
       }
 
-      setError(checkout.error);
+      // Preview/Staging: server signals test fallback when Stripe is missing.
+      if (allowTestPayments && checkout.useTestFallback) {
+        setShowTestFallback(true);
+        return;
+      }
+
+      setError(userFacingPaymentError(checkout.error, t("finance.payment.error")));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("finance.payment.error"));
+      setError(
+        userFacingPaymentError(
+          e instanceof Error ? e.message : t("finance.payment.error"),
+          t("finance.payment.error")
+        )
+      );
     } finally {
       setPaying(false);
     }
@@ -319,9 +345,24 @@ export function OrderPaymentScreen({
               </div>
             </div>
 
-            {error && (
+            {error && !isStripeConfigUserError(error) ? (
               <p className="mb-3 rounded-xl bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>
-            )}
+            ) : null}
+
+            {!isTestOrder && livePayUnavailable ? (
+              <div
+                className="mb-4 rounded-xl border border-border-subtle bg-surface-muted px-4 py-3"
+                role="status"
+                data-testid="online-pay-unavailable"
+              >
+                <p className="text-sm font-semibold text-text-primary">
+                  {t("finance.paymentPage.onlinePayUnavailableTitle")}
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">
+                  {t("finance.paymentPage.onlinePayUnavailableBody")}
+                </p>
+              </div>
+            ) : null}
 
             {isTestOrder ? (
               <div className="space-y-2">
@@ -366,8 +407,9 @@ export function OrderPaymentScreen({
                   className="w-full gap-2"
                   size="lg"
                   loading={paying}
-                  disabled={testPaying || markingTest}
+                  disabled={testPaying || markingTest || livePayUnavailable}
                   onClick={() => void handlePayClick()}
+                  data-testid="pay-now"
                 >
                   <CreditCard className="h-5 w-5" />
                   {t("finance.paymentPage.payNow", { amount: formatPrice(split.gross, currency) })}
@@ -394,6 +436,15 @@ export function OrderPaymentScreen({
           </>
         )}
       </Card>
+      <ConfirmDialog
+        open={showPayUnavailable}
+        title={t("finance.paymentPage.onlinePayUnavailableTitle")}
+        body={t("finance.paymentPage.onlinePayUnavailableBody")}
+        confirmLabel={t("common.gotIt")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={() => setShowPayUnavailable(false)}
+        onCancel={() => setShowPayUnavailable(false)}
+      />
     </div>
   );
 }
@@ -417,4 +468,13 @@ function Row({
       </span>
     </div>
   );
+}
+
+function isStripeConfigUserError(message: string): boolean {
+  return message.toLowerCase().includes("stripe is not configured");
+}
+
+function userFacingPaymentError(message: string, fallback: string): string {
+  if (isStripeConfigUserError(message)) return fallback;
+  return message;
 }

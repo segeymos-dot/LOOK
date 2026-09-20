@@ -37,6 +37,8 @@ const persistLib = readFileSync(
   resolve(root, "src/lib/payments/stripe-order-payment.ts"),
   "utf8"
 );
+const en = readFileSync(resolve(root, "src/lib/i18n/locales/en.ts"), "utf8");
+const ru = readFileSync(resolve(root, "src/lib/i18n/locales/ru.ts"), "utf8");
 const m072 = readFileSync(
   resolve(root, "supabase/migrations/072_unassign_selected_provider.sql"),
   "utf8"
@@ -154,6 +156,18 @@ test("Missing 028 column error is not treated as Request not found", () => {
   assert.equal(isMissingColumnError({ message: "Request not found" }), false);
   assert.match(checkoutRoute, /kind === "schema"/);
   assert.match(persistLib, /isMissingColumnError/);
+});
+
+test("Normal unpaid order hides raw Stripe-not-configured copy", () => {
+  assert.match(paymentScreen, /onlinePayUnavailableTitle/);
+  assert.match(paymentScreen, /livePayUnavailable/);
+  assert.match(paymentScreen, /isStripeConfigUserError/);
+  assert.match(paymentScreen, /data-testid="online-pay-unavailable"/);
+  assert.match(en, /Online payment is not available yet/);
+  assert.match(ru, /Онлайн-оплата пока недоступна/);
+  assert.match(checkoutRoute, /code: "stripe_not_configured"/);
+  assert.match(checkoutRoute, /Stripe is not configured/);
+  assert.match(paymentScreen, /complete-test-payment/);
 });
 
 console.log(`\n${passed} payment-checkout-lookup tests passed.`);

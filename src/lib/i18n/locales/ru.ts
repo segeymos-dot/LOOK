@@ -1734,6 +1734,10 @@ export const ru = {
       testPaymentNoMoney: "Реальные деньги не списываются",
       completeTestPayment: "Провести тестовую оплату",
       backToOrder: "Вернуться к заказу",
+      onlinePayUnavailableTitle: "Онлайн-оплата пока недоступна",
+      onlinePayUnavailableBody:
+        "Платёжная система LOOK находится на этапе подключения.\nОплата станет доступна после её активации.",
+      gotIt: "Понятно",
     },
     paymentHistory: {
       title: "История платежей",

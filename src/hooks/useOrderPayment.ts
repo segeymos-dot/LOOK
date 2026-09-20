@@ -17,6 +17,7 @@ type CheckoutApiResponse = {
   session_id?: string;
   payment_intent_id?: string | null;
   error?: string;
+  code?: string;
   test_fallback?: boolean;
   demo_fallback?: boolean;
   missing_env?: string[];
@@ -69,7 +70,13 @@ export function useOrderPayment(requestId: string, enabled = true) {
 
   const startStripeCheckout = useCallback(async (): Promise<
     | { ok: true; url: string }
-    | { ok: false; useTestFallback: boolean; error: string; missingEnv?: string[] }
+    | {
+        ok: false;
+        useTestFallback: boolean;
+        stripeNotConfigured: boolean;
+        error: string;
+        missingEnv?: string[];
+      }
   > => {
     const res = await authFetch(`/api/finance/payments/${requestId}/checkout`, {
       method: "POST",
@@ -83,9 +90,13 @@ export function useOrderPayment(requestId: string, enabled = true) {
 
     // Only follow the fake-card path when the server explicitly allows it.
     const useTestFallback = Boolean(data.test_fallback || data.demo_fallback);
+    const stripeNotConfigured =
+      data.code === "stripe_not_configured" ||
+      (data.error ?? "").toLowerCase().includes("stripe is not configured");
     return {
       ok: false,
       useTestFallback,
+      stripeNotConfigured,
       error: data.error ?? "Could not start Stripe Checkout",
       missingEnv: data.missing_env,
     };

@@ -70,6 +70,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
+        code: "stripe_not_configured",
         error: allowTestFallback
           ? "Stripe is not configured. Use test payment on this Preview."
           : "Stripe is not configured. Test payments are disabled.",

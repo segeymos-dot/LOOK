@@ -1734,6 +1734,10 @@ export const en: TranslationDict = {
       testPaymentNoMoney: "No real money will be charged",
       completeTestPayment: "Complete test payment",
       backToOrder: "Back to order",
+      onlinePayUnavailableTitle: "Online payment is not available yet",
+      onlinePayUnavailableBody:
+        "LOOK's payment system is currently being connected.\nPayments will become available after activation.",
+      gotIt: "Got it",
     },
     paymentHistory: {
       title: "Payment history",

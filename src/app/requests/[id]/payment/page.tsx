@@ -12,6 +12,7 @@ import {
   canInvokeSimulatedOrderPayment,
   canMarkOrderAsTest,
 } from "@/lib/payments/test-payments-guard";
+import { isStripeConfigured } from "@/lib/payments/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -62,6 +63,7 @@ export default async function RequestPaymentPage({ params }: PageProps) {
               initialOrderPaymentStatus={mockPay?.order_payment_status ?? "unpaid"}
               allowTestPayments={allowTestPaymentsPreview}
               isTestOrder
+              liveCheckoutAvailable={false}
             />
           </Suspense>
         </div>
@@ -145,6 +147,7 @@ export default async function RequestPaymentPage({ params }: PageProps) {
             allowTestPayments={allowTestPayments}
             isTestOrder={isTestOrder}
             canMarkAsTest={canMarkAsTest}
+            liveCheckoutAvailable={isStripeConfigured()}
           />
         </Suspense>
       </div>
